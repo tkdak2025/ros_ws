@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'cable_pkg'
+package_name = 'cable_hmi'
 
 setup(
     name=package_name,
@@ -15,7 +15,7 @@ setup(
     zip_safe=True,
     maintainer='hun',
     maintainer_email='tkdak2025@gmail.com',
-    description='M0609 + RG2 케이블/커넥터 체결 검사 PoC',
+    description='TODO: Package description',
     license='Apache-2.0',
     extras_require={
         'test': [
@@ -24,7 +24,6 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'pull_test_logger = cable_pkg.pull_test_logger:main',
         ],
     },
 )

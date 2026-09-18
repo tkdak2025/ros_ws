@@ -1,0 +1,81 @@
+<mxfile host="app.diagrams.net" modified="2026-09-18T00:00:00.000Z" agent="Codex" version="24.7.17" type="device" compressed="false">
+  <diagram id="cobot-basic-reference" name="Cobot HMI 기초 구성">
+    <mxGraphModel dx="960" dy="760" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="960" pageHeight="760" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="windowBg" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ECECEC;strokeColor=#8D9699;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="940" height="740" as="geometry"/>
+        </mxCell>
+        <mxCell id="titleBar" value="Cobot Robot Control Panel" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#2A91C1;strokeColor=#1976A3;fontColor=#FFFFFF;fontSize=15;fontFamily=Arial;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="940" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="buttonPanel" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD1;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="24" y="55" width="912" height="94" as="geometry"/>
+        </mxCell>
+        <mxCell id="startBtn" value="&lt;b&gt;시작&lt;/b&gt;" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#379DD3;strokeColor=#379DD3;fontColor=#FFFFFF;fontSize=27;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="38" y="79" width="214" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="pauseBtn" value="&lt;b&gt;일시정지&lt;/b&gt;" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#C9C98D;strokeColor=#C9C98D;fontColor=#FFFFFF;fontSize=27;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="266" y="79" width="214" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="restartBtn" value="&lt;b&gt;재시작&lt;/b&gt;" style="rounded=1;arcSize=25;whiteSpace=wrap;html=1;fillColor=#9695CE;strokeColor=#9695CE;fontColor=#FFFFFF;fontSize=27;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="494" y="79" width="214" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="estopCircle" value="STOP" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#E51C23;strokeColor=#F7C531;strokeWidth=7;fontColor=#FFFFFF;fontSize=11;fontStyle=1;fontFamily=Arial;" vertex="1" parent="1">
+          <mxGeometry x="744" y="70" width="65" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="estopLabel" value="비상정지" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#E51C23;fontSize=27;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="818" y="79" width="112" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="robotGroup" value="Robot Information" style="swimlane;horizontal=1;startSize=30;rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;swimlaneFillColor=#FFFFFF;strokeColor=#AAB4B8;fontColor=#111111;fontSize=20;fontFamily=Arial;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="24" y="159" width="730" height="250" as="geometry"/>
+        </mxCell>
+        <mxCell id="statusLabel" value="Status" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#243AE2;fontSize=18;fontFamily=Arial;" vertex="1" parent="1"><mxGeometry x="42" y="203" width="105" height="28" as="geometry"/></mxCell>
+        <mxCell id="statusValue" value="초기화 중" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#111111;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="178" y="203" width="190" height="28" as="geometry"/></mxCell>
+
+        <mxCell id="modeLabel" value="Mode" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#243AE2;fontSize=18;fontFamily=Arial;" vertex="1" parent="1"><mxGeometry x="42" y="255" width="105" height="28" as="geometry"/></mxCell>
+        <mxCell id="modeValue" value="Manual" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#111111;fontSize=18;fontFamily=Arial;" vertex="1" parent="1"><mxGeometry x="178" y="255" width="190" height="28" as="geometry"/></mxCell>
+
+        <mxCell id="toolLabel" value="Tool 설정" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#243AE2;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="42" y="299" width="105" height="28" as="geometry"/></mxCell>
+        <mxCell id="toolValue" value="미설정" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#C62828;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="178" y="299" width="190" height="28" as="geometry"/></mxCell>
+
+        <mxCell id="speedLabel" value="속도 설정" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#243AE2;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="42" y="343" width="105" height="28" as="geometry"/></mxCell>
+        <mxCell id="speedValue" value="10 %" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#111111;fontSize=18;fontFamily=Arial;" vertex="1" parent="1"><mxGeometry x="178" y="343" width="190" height="28" as="geometry"/></mxCell>
+
+        <mxCell id="connectionLabel" value="Robot 연결" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#243AE2;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="390" y="203" width="120" height="28" as="geometry"/></mxCell>
+        <mxCell id="connectionValue" value="확인 중" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#D58A00;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="530" y="203" width="180" height="28" as="geometry"/></mxCell>
+
+        <mxCell id="servoLabel" value="Servo" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#243AE2;fontSize=18;fontFamily=Arial;" vertex="1" parent="1"><mxGeometry x="390" y="255" width="120" height="28" as="geometry"/></mxCell>
+        <mxCell id="servoValue" value="OFF" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#C62828;fontSize=18;fontFamily=Arial;" vertex="1" parent="1"><mxGeometry x="530" y="255" width="180" height="28" as="geometry"/></mxCell>
+
+        <mxCell id="safetyLabel" value="Safety" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#243AE2;fontSize=18;fontFamily=Arial;" vertex="1" parent="1"><mxGeometry x="390" y="299" width="120" height="28" as="geometry"/></mxCell>
+        <mxCell id="safetyValue" value="확인 중" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#D58A00;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="530" y="299" width="180" height="28" as="geometry"/></mxCell>
+
+        <mxCell id="positionLabel" value="현재 위치" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#243AE2;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="390" y="343" width="120" height="28" as="geometry"/></mxCell>
+        <mxCell id="positionValue" value="알 수 없음" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#555555;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="530" y="343" width="180" height="28" as="geometry"/></mxCell>
+
+        <mxCell id="moveGroup" value="로봇팔 이동 명령" style="swimlane;horizontal=1;startSize=30;rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;swimlaneFillColor=#FFFFFF;strokeColor=#AAB4B8;fontColor=#111111;fontSize=19;fontFamily=Malgun Gothic;align=center;" vertex="1" parent="1">
+          <mxGeometry x="762" y="159" width="174" height="250" as="geometry"/>
+        </mxCell>
+        <mxCell id="p1Btn" value="P1 위치" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#AAB8BA;strokeColor=#AAB8BA;fontColor=#111111;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="779" y="204" width="140" height="34" as="geometry"/></mxCell>
+        <mxCell id="p2Btn" value="P2 위치" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#AAB8BA;strokeColor=#AAB8BA;fontColor=#111111;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="779" y="250" width="140" height="34" as="geometry"/></mxCell>
+        <mxCell id="p3Btn" value="P3 위치" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#AAB8BA;strokeColor=#AAB8BA;fontColor=#111111;fontSize=18;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="779" y="296" width="140" height="34" as="geometry"/></mxCell>
+        <mxCell id="homeBtn" value="Home 위치 복귀" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#AAB8BA;strokeColor=#AAB8BA;fontColor=#111111;fontSize=17;fontFamily=Malgun Gothic;" vertex="1" parent="1"><mxGeometry x="779" y="342" width="140" height="36" as="geometry"/></mxCell>
+
+        <mxCell id="modePanel" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#AAB4B8;" vertex="1" parent="1"><mxGeometry x="24" y="418" width="912" height="42" as="geometry"/></mxCell>
+        <mxCell id="modePanelLabel" value="Mode" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontColor=#111111;fontSize=18;fontFamily=Arial;" vertex="1" parent="1"><mxGeometry x="170" y="424" width="210" height="30" as="geometry"/></mxCell>
+        <mxCell id="modeCombo" value="Manual　　　　　　　　　　　　　　　　　　　　　　▼" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#AAB4B8;fontColor=#149414;fontSize=18;fontFamily=Arial;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="470" y="422" width="466" height="34" as="geometry"/></mxCell>
+
+        <mxCell id="jointTitle" value="Joint Control (degree)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#111111;fontSize=20;fontFamily=Arial;" vertex="1" parent="1"><mxGeometry x="24" y="467" width="250" height="30" as="geometry"/></mxCell>
+        <mxCell id="jointPanel" value="Manual 모드에서 Joint 제어 항목 표시" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD1;fontColor=#9A9A9A;fontSize=14;fontFamily=Malgun Gothic;align=center;verticalAlign=middle;dashed=1;" vertex="1" parent="1"><mxGeometry x="24" y="500" width="912" height="40" as="geometry"/></mxCell>
+
+        <mxCell id="logTitle" value="System Log" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#111111;fontSize=20;fontFamily=Arial;" vertex="1" parent="1"><mxGeometry x="24" y="548" width="180" height="30" as="geometry"/></mxCell>
+        <mxCell id="logPanel" value="[14:27:31] HMI 프로그램 시작&lt;br&gt;[14:27:31] Robot 연결 확인 중&lt;br&gt;[14:27:32] Tool 설정을 확인해 주세요" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#AAB4B8;fontColor=#444444;fontSize=13;fontFamily=Malgun Gothic;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1"><mxGeometry x="24" y="580" width="912" height="148" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
