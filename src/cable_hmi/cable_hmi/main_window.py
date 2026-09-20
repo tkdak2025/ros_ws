@@ -17,11 +17,12 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtWidgets import (
     QComboBox, QHeaderView, QLabel, QMainWindow, QMessageBox, QPlainTextEdit, QProgressBar,
-    QPushButton, QSlider, QTableWidget, QTableWidgetItem, QWidget,
+    QPushButton, QSlider, QTableWidget, QTableWidgetItem, QTabWidget, QWidget,
 )
 
 from . import interface as itf
 from .detail_dialog import ResultDetailDialog
+from .lookup_tab import LookupTab
 from .style import (
     BAD_COLOR, chip_style, DIALOG_QSS, LOG_COLORS, MUTED_COLOR, OK_COLOR, RESULT_COLORS,
     WARN_COLOR,
@@ -34,8 +35,11 @@ UI_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'main_window.
 Cmd = itf.CommandName
 State = itf.State
 
+MONITOR_STATES = (State.MONITOR, State.MONITOR_MOVING)
 RESULT_CODES = (itf.ResultCode.PASS, itf.ResultCode.MISSING, *itf.ResultCode.FAIL_CODES)
-COL_TIME, COL_PLACE, COL_CABLE, COL_RESULT, COL_DETAIL = range(5)
+# '현재 검사 결과' 표의 열. 이름과 순서는 통합 조회 탭(lookup_tab.COLUMNS)의 용어에 맞춘다.
+RESULT_HEADERS = ('검사 시간', 'Point', '케이블', '종류', '결과', '상세')
+COL_TIME, COL_POINT, COL_CABLE, COL_TYPE, COL_RESULT, COL_DETAIL = range(len(RESULT_HEADERS))
 SPEED_HOLD_SEC = 1.0      # 슬라이더 조작 후 이 시간 동안은 status 값으로 덮어쓰지 않는다
 SPEED_DEBOUNCE_MS = 300
 
@@ -154,11 +158,16 @@ class MainWindow(QMainWindow):
         self.speed_slider, self.speed_label = w('speedSlider', QSlider), w('speedLabel')
         self.progress_bar, self.progress_text = w('progressBar', QProgressBar), w('progressText')
 
-        # 헤더 열 너비 정책은 .ui 로 표현할 수 없어 코드에 둔다.
-        self.table.setColumnCount(max(self.table.columnCount(), COL_DETAIL + 1))
+        self._add_lookup_tab()
+
+        # 헤더 열 너비 정책은 .ui 로 표현할 수 없어 코드에 둔다. 열 제목도 여기서 정한다: 열의 수와
+        # 뜻이 아래 _fill_row 와 짝을 이루고, 통합 조회 탭과 같은 용어를 써야 하기 때문이다
+        # (.ui 에 적힌 열 제목보다 이쪽이 우선한다).
+        self.table.setColumnCount(len(RESULT_HEADERS))
+        self.table.setHorizontalHeaderLabels(RESULT_HEADERS)
         hdr = self.table.horizontalHeader()
         hdr.setSectionResizeMode(QHeaderView.Stretch)
-        for col, width in ((COL_TIME, 90), (COL_RESULT, 180), (COL_DETAIL, 50)):
+        for col, width in ((COL_TIME, 90), (COL_TYPE, 80), (COL_RESULT, 180), (COL_DETAIL, 50)):
             hdr.setSectionResizeMode(col, QHeaderView.Fixed)
             self.table.setColumnWidth(col, width)
 
@@ -171,9 +180,21 @@ class MainWindow(QMainWindow):
         self.fail_btn.clicked.connect(lambda: self._on_move_to('FAIL'))
         self.missing_btn.clicked.connect(lambda: self._on_move_to('MISSING'))
         self.speed_slider.valueChanged.connect(self._on_speed_changed)
+        self.recipe_combo.activated.connect(self._on_recipe_chosen)   # 사용자가 고를 때만 발생
         self.table.cellClicked.connect(self._on_cell_clicked)
         self.table.cellDoubleClicked.connect(lambda row, _col: self._open_detail(row))
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
+
+    def _add_lookup_tab(self):
+        """'시스템 로그' 옆에 '통합 조회' 탭을 붙인다. .ui 는 건드리지 않고 코드에서 추가한다."""
+        tabs = self.findChild(QTabWidget, 'tabs')
+        if tabs is None:
+            self._missing_widgets.append('tabs')
+            return
+        # bridge 에 parameter() 가 없으면(테스트용 대역 등) 경로 없이 띄운다.
+        read = getattr(self._bridge, 'parameter', lambda _name: '')
+        self.lookup_tab = LookupTab(read('recipe_db'), read('recipe_dir'), self)
+        tabs.addTab(self.lookup_tab, '통합 조회')
 
     # ------------------------------------------------------- ROS -> 화면
     def on_status(self, status: itf.SystemStatus):
@@ -311,7 +332,10 @@ class MainWindow(QMainWindow):
         self._render_counts()
 
         self.progress_bar.setValue(max(0, min(100, s.progress_percent)))
-        where = f'{s.current_point} · ' if s.current_point else ''
+        # 진행률 옆에는 '어디를 검사 중인가'(현재 단계)를 쓴다. current_point 는 모니터 노드에서는
+        # TCP 좌표라서 여기에 맞지 않는다. 검사 중이 아닐 때는 상태만 쓴다.
+        busy = s.state in (State.RUNNING, State.PAUSED, State.MOVING)
+        where = f'{s.current_step} · ' if busy and s.current_step else ''
         self.progress_text.setText(
             f'{s.progress_percent}%   {where}{State.LABELS.get(s.state, s.state)}')
 
@@ -336,7 +360,11 @@ class MainWindow(QMainWindow):
                 self.recipe_combo.setCurrentText(keep)
             self.recipe_combo.blockSignals(False)
         # 검사 중에는 실제로 돌고 있는 Recipe 를 보여 준다.
-        if s.state not in (State.IDLE, State.DONE) and s.recipe_id in s.available_recipes:
+        if s.state in MONITOR_STATES:
+            # 모니터 모드: 콤보는 노드가 알려 준 선택을 그대로 따른다(아직 안 골랐으면 빈 칸).
+            index = self.recipe_combo.findText(s.recipe_id) if s.recipe_id else -1
+            self.recipe_combo.setCurrentIndex(index)
+        elif s.state not in (State.IDLE, State.DONE) and s.recipe_id in s.available_recipes:
             self.recipe_combo.setCurrentText(s.recipe_id)
         self.recipe_version.setText(s.recipe_version)
         self.product_id.setText(s.product_id or '—')
@@ -373,7 +401,8 @@ class MainWindow(QMainWindow):
         self.home_btn.setEnabled(ready or (state == State.MONITOR and not s.estop))
         self.fail_btn.setEnabled(ready and 'FAIL' in categories)
         self.missing_btn.setEnabled(ready and 'MISSING' in categories)
-        self.recipe_combo.setEnabled(ready)
+        # 모니터 모드에서는 검사는 못 하지만 Recipe 내용을 보려고 고를 수는 있다(로봇이 멈춰 있을 때).
+        self.recipe_combo.setEnabled(ready or (state == State.MONITOR and not s.estop))
         self.speed_slider.setEnabled(self._linked)
         self.estop_reset_btn.setVisible(self._linked and s.estop)
         # 비상정지 버튼은 어떤 상태에서도 비활성화하지 않는다.
@@ -394,7 +423,7 @@ class MainWindow(QMainWindow):
         category = itf.ResultCode.category(r.result)
         fg, _chip, row_bg = RESULT_COLORS[category]
         cells = [r.stamp[11:19] if len(r.stamp) >= 19 else r.stamp,
-                 r.point_id, r.cable_id, r.result, '›']
+                 r.point_id, r.cable_id or '—', r.cable_type or '—', r.result, '›']
         for col, text in enumerate(cells):
             item = QTableWidgetItem(text)
             item.setTextAlignment(Qt.AlignCenter)
@@ -437,6 +466,11 @@ class MainWindow(QMainWindow):
                                 QMessageBox.Yes | QMessageBox.No)
         box.setDefaultButton(QMessageBox.No)
         return box.exec_() == QMessageBox.Yes
+
+    def _on_recipe_chosen(self, index: int):
+        """모니터 모드에서 Recipe 를 고르면 노드에 알린다. 표시는 돌아온 status 로 바뀐다."""
+        if self._status.state in MONITOR_STATES and index >= 0:
+            self._send(Cmd.SELECT_RECIPE, recipe_id=self.recipe_combo.itemText(index))
 
     def _on_home(self):
         if self._confirm('Home 이동',

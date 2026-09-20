@@ -26,11 +26,38 @@ DSR_ROBOT2 는 쓰지 않는다. 그 함수들은 응답이 올 때까지 멈추
 같은 RG2 링크 상수로 역산해 폭을 구한다. 이 폭은 드라이버의 relative_width, 즉
 핑거팁 오프셋이 반영된 값이다.
 
+Recipe 목록
+  recipe_dir 의 레시피 JSON(recipe_catalog 참고)을 읽어 status.available_recipes 로 보낸다.
+  HMI 에서 하나를 고르면(SELECT_RECIPE) 그 Recipe 의 id·버전·포인트 수를 status 에 싣고,
+  좌표가 전부 0 인(티칭 안 된) 포인트가 있으면 경고한다. 폴더는 5 초마다 다시 확인하므로
+  파일을 고치거나 추가하면 노드를 다시 띄우지 않아도 반영된다. 이 노드는 Recipe 로 로봇을
+  움직이지 않는다 - 목록과 내용을 보여 줄 뿐이다.
+
+레시피 DB
+  recipe_db (SQLite, recipe_db.py 참고)가 있으면 고른 Recipe 의 제품 ID 와 판정 기준을 거기서 읽어
+  status 에 채운다. 레시피 JSON 은 위치, DB 는 케이블·판정 기준을 맡고 recipe_id + point_id 로
+  묶이므로, 한쪽에만 있는 포인트는 경고한다. 판정 기준은 포인트마다 다를 수 있는데 이 노드에는
+  '현재 포인트' 가 없어서, 모든 포인트의 기준이 같을 때만 화면의 판정 기준 칸에 표시한다.
+  DB 파일이나 뷰가 아직 없으면 경고만 남기고 DB 없이 동작한다.
+
 진행률
   이 노드는 검사를 하지 않으므로 진행률을 스스로 알 수 없다. 동작 코드가
   cable_inspection/progress 로 보내 주면(cable_hmi.hmi_progress.ProgressReporter) 그 값을
   status 의 진행률과 '현재 단계' 에 넣는다. 완료(100 %)는 다음 실행이 시작될 때까지 남겨 두고,
   중단되면 0 으로 되돌린다.
+
+검사 결과
+  이 노드는 판정하지 않는다. 동작 코드가 결과를 cable_inspection/result 로 직접 보내고
+  (ProgressReporter.report_result), 이 노드는 동작 코드가 알려 준 run_id · 현재 Point 의 판정 기준 ·
+  현재 판정 · 제품 판정을 status 에 옮겨 싣기만 한다. run_id 는 동작 코드가 끝난 뒤에도 마지막 값을
+  유지한다(0 으로 되돌리면 HMI 가 결과 표를 비워 버린다).
+
+검사 시작 / 일시정지 / 이어하기
+  이 노드는 이 명령들을 실행하지 않는다. HMI 버튼을 받는 동작 코드(ProgressReporter 의
+  control=True)가 붙어 있으면, 그 코드가 알려 준 상태(시작 대기 / 검사 중 / 일시정지 / 완료)를
+  MONITOR 대신 status 의 상태로 내보내 HMI 버튼이 열리게 할 뿐이다. 명령은 동작 코드가 같은
+  command 토픽에서 직접 받는다. 동작 코드의 소식이 PROGRESS_STALE_SEC 넘게 끊기면(프로그램이
+  죽음) 다시 MONITOR 로 돌아간다. 동작 코드가 검사 중·일시정지일 때는 Home 이동을 거부한다.
 
 이동 중 판단 (2026-09-19 실제 장비에서 확인)
   get_robot_state 는 '운전 가능한 상태인가' 를 말할 뿐 '움직이는 중인가' 를 말하지 않는다.
@@ -51,7 +78,8 @@ Home 이동
   home_joints(관절각 6개, deg)로 비동기 관절 이동(sync_type=ASYNC)을 건다. 드라이버의
   move_home 서비스는 동기 호출이라 이동 중 다른 서비스를 모두 막고, TP 의 사용자 홈 각도를
   읽어 오는 서비스도 없어서, 홈 자세를 파라미터로 직접 받는다.
-  받아들이는 조건: 드라이버 연결됨, 로봇 STANDBY, 모션 없음, Tool/TCP 설정 정상, 다른 Home 이동 없음.
+  받아들이는 조건: 드라이버 연결됨, 로봇 STANDBY, 모션 없음, 다른 Home 이동 없음, 동작 코드가 검사·이동 중이 아님.
+  Tool/TCP 설정은 조건이 아니다(관절 이동이라 TCP 와 무관, 툴 무게는 힘 계산에만 영향) - 미설정이면 경고만 남긴다.
   모션이 끝나면 get_current_posj 로 실제 도착했는지 확인한다 - check_motion 은 '도착' 과
   'STOP·보호정지로 중간에 멈춤' 을 구분하지 못하기 때문이다.
 
@@ -80,6 +108,8 @@ Tool/TCP 자동 설정
   allow_home_move (bool, False): HMI 'Home 이동' 을 허용할지. 기본은 꺼짐(로봇을 움직이지 않음)
   home_joints (float[6])     : 홈 관절각 [deg]. 기본 (0, 0, 90, 0, 90, 0)
   home_vel, home_acc (float) : Home 이동 속도 [deg/s], 가속도 [deg/s^2]. 기본 30, 30
+  recipe_dir (str, '')       : 레시피 JSON 폴더. 비우면 Recipe 목록을 보내지 않는다
+  recipe_db (str, '')        : 레시피 정보 SQLite 파일. 비우면 쓰지 않는다
   tool_name (str, '')        : 기대하는 Tool 이름. 비우면 Tool 은 건드리지 않고 경고만 한다
   tcp_name (str, '')         : 기대하는 TCP 이름. 비우면 TCP 는 건드리지 않고 경고만 한다
   tool_weight_kg (float, 0.0): TP 에 등록된 tool_name 의 무게. 드라이버에 무게를 읽는
@@ -104,6 +134,8 @@ from std_msgs.msg import Float64MultiArray
 from std_srvs.srv import Trigger
 
 from . import interface as itf
+from . import recipe_catalog
+from . import recipe_db
 
 DR_BASE = 0
 DR_QSTOP = 1                 # Quick stop (Stop Category 2)
@@ -139,6 +171,12 @@ SYNC_TYPE_ASYNC = 1          # move_joint: 명령만 걸고 바로 반환
 HOME_TOLERANCE_DEG = 0.5     # 이 오차 안이면 홈에 도착한 것으로 본다
 HOME_START_TIMEOUT_SEC = 2.0  # 이 시간 안에 모션이 안 보이면 '이미 끝남' 으로 보고 도착 확인
 NAME_FRESH_SEC = 4.0         # Tool/TCP 이름(1 s 주기)을 '방금 읽은 값' 으로 보는 시간
+RECIPE_RESCAN_SEC = 5.0      # 레시피 폴더를 다시 확인하는 주기
+PROGRESS_STALE_SEC = 2.0     # HMI 버튼을 받는 동작 코드의 소식(0.5 s 주기)이 끊겼다고 보는 시간
+CONTROL_STATES = (itf.State.IDLE, itf.State.RUNNING, itf.State.PAUSED, itf.State.DONE,
+                  itf.State.MOVING)         # MOVING: 동작 코드가 FAIL / MISSING 포인트로 이동 중
+CONTROL_COMMANDS = (itf.CommandName.START, itf.CommandName.PAUSE, itf.CommandName.RESUME,
+                    itf.CommandName.MOVE_TO_POINT)
 SETUP_RETRY_SEC = 3.0        # Tool/TCP 설정 요청 사이의 최소 간격
 
 
@@ -270,6 +308,8 @@ class RobotMonitorNode(Node):
         self.declare_parameter('home_joints', [0.0, 0.0, 90.0, 0.0, 90.0, 0.0])
         self.declare_parameter('home_vel', 30.0)
         self.declare_parameter('home_acc', 30.0)
+        self.declare_parameter('recipe_dir', '')
+        self.declare_parameter('recipe_db', '')
         self.declare_parameter('tool_name', '')
         self.declare_parameter('tcp_name', '')
         self.declare_parameter('tool_weight_kg', 0.0)
@@ -296,7 +336,14 @@ class RobotMonitorNode(Node):
         self._speed_percent = 0        # 0 = 모름 (아직 설정한 적 없음)
         self._speed_wanted = None      # 응답 대기 중에 새로 들어온 요청 (마지막 것만 유지)
         self._speed_pending = None
+        self._recipes = {}             # recipe_id -> recipe_catalog.RecipeInfo
+        self._recipe = None            # HMI 에서 고른 Recipe
+        self._recipe_signature = None
+        self._recipe_problems = []
+        self._recipe_db_info = None    # 고른 Recipe 의 DB 정보 (없으면 None)
         self._progress = itf.Progress()  # 동작 코드가 마지막으로 알려 준 진행 상황
+        self._progress_at = 0.0          # 그것을 받은 시각
+        self._run_id = 0                 # 동작 코드가 마지막으로 알려 준 검사 번호
         self._home_active = False      # Home 이동을 걸었고 아직 끝을 확인하지 않음
         self._home_seen_motion = False
         self._home_started = 0.0
@@ -348,6 +395,9 @@ class RobotMonitorNode(Node):
 
         self.create_timer(STATUS_PERIOD_SEC, self._publish_status)
         self.create_timer(1.0, self._check_tool_setup)
+        if self.get_parameter('recipe_dir').value:
+            self._scan_recipes()
+            self.create_timer(RECIPE_RESCAN_SEC, self._scan_recipes)
         self._log('INFO', f'로봇 모니터 시작 (읽기 전용) - 드라이버 {srv}')
 
     # ------------------------------------------------------------ 로봇 -> 값
@@ -412,14 +462,50 @@ class RobotMonitorNode(Node):
         except (ValueError, TypeError) as e:
             self._log('WARN', f'진행률 메시지 해석 실패: {e}')
             return
-        was_active = self._progress.active
+        old = self._progress
+        was_active = old.active
         self._progress = progress
+        self._progress_at = time.monotonic()
+        if progress.run_id:
+            self._run_id = int(progress.run_id)
         if progress.active and not was_active:
             self._log('INFO', '동작 코드 시작 - 진행률 수신')
         elif progress.aborted:
-            self._log('WARN', f'동작 코드 중단 {progress.note}'.rstrip())
+            if not old.aborted:         # 같은 메시지가 다시 와도 한 번만 남긴다
+                self._log('WARN', f'동작 코드 중단 {progress.note}'.rstrip())
         elif was_active and not progress.active:
             self._log('INFO', '동작 코드 완료 (100 %)')
+        elif progress.note and progress.note != old.note:
+            self._log('WARN', f'동작 코드: {progress.note}')
+        if progress.run_state != old.run_state:
+            if progress.run_state == itf.State.IDLE:
+                self._log('INFO', "동작 코드 연결 - '검사 시작' 을 기다리는 중")
+            elif progress.run_state == itf.State.PAUSED:
+                self._log('WARN', '동작 코드 일시정지')
+            elif old.run_state == itf.State.PAUSED:
+                self._log('INFO', '동작 코드 이어하기')
+            elif progress.run_state == itf.State.MOVING:
+                self._log('INFO', f'포인트 이동 시작 - {progress.step}')
+            elif old.run_state == itf.State.MOVING and progress.run_state in CONTROL_STATES:
+                self._log('INFO', '포인트 이동 완료')
+
+    def _control_state(self) -> str:
+        """HMI 버튼을 받는 동작 코드가 살아 있으면 그 상태, 아니면 ''."""
+        if self._progress.run_state not in CONTROL_STATES:
+            return ''
+        if time.monotonic() - self._progress_at < PROGRESS_STALE_SEC:
+            return self._progress.run_state
+        old = self._progress
+        if old.run_state == itf.State.DONE:
+            # 검사를 끝내고 프로그램을 닫았다. 완료 표시(100 %, 제품 판정)는 남겨 둔다.
+            self._progress = itf.Progress(percent=100, point=old.point, judgement=old.judgement,
+                                          product_result=old.product_result)
+            self._log('INFO', '동작 코드 종료 - 모니터링으로 돌아갑니다.')
+        else:
+            # 프로그램이 죽었다. 마지막 진행 상황(단계 이름, 퍼센트)도 더는 사실이 아니므로 지운다.
+            self._progress = itf.Progress()
+            self._log('WARN', '동작 코드 응답 없음 - 모니터링으로 돌아갑니다.')
+        return ''
 
     # ------------------------------------------------------------ HMI -> 노드
     def _on_command(self, msg):
@@ -429,15 +515,24 @@ class RobotMonitorNode(Node):
             self._log('ERROR', f'명령 해석 실패: {e}')
             return
         if cmd.name == itf.CommandName.SYNC:
+            # HMI 가 방금 연결됐다. 노드 시작 때 남긴 레시피 경고는 그때 HMI 가 없어 못 받았을 수
+            # 있으므로 다시 알려 준다.
+            self._announce_recipes()
             return
         if cmd.name == itf.CommandName.ESTOP:
             self._stop_robot()
+            return
+        if cmd.name == itf.CommandName.SELECT_RECIPE:
+            self._select_recipe(str(cmd.args.get('recipe_id', '')))
             return
         if cmd.name == itf.CommandName.MOVE_HOME:
             self._move_home()
             return
         if cmd.name == itf.CommandName.SET_SPEED:
             self._set_speed(cmd.args.get('percent'))
+            return
+        if cmd.name in CONTROL_COMMANDS and self._control_state():
+            self._log('INFO', f'{cmd.name} - 동작 코드가 처리합니다.')
             return
         self._log('WARN', f'읽기 전용 모니터 - {cmd.name} 명령은 무시합니다.')
 
@@ -460,6 +555,78 @@ class RobotMonitorNode(Node):
         else:
             self._log('ERROR', 'move_stop 실패! 물리 비상정지를 사용하세요.')
 
+    # ------------------------------------------------------------ Recipe 목록
+    def _scan_recipes(self):
+        folder = self.get_parameter('recipe_dir').value
+        current = recipe_catalog.signature(folder)
+        if current == self._recipe_signature:
+            return                      # 파일이 바뀌지 않았다
+        self._recipe_signature = current
+        self._recipes, self._recipe_problems = recipe_catalog.scan(folder)
+        self._announce_recipes()
+        if self._recipe is not None:    # 고른 Recipe 의 파일이 바뀌었거나 없어졌을 수 있다
+            self._select_recipe(self._recipe.recipe_id, announce=False)
+
+    def _announce_recipes(self):
+        if not self.get_parameter('recipe_dir').value:
+            return
+        for problem in self._recipe_problems:
+            self._log('WARN', f'레시피 {problem}')
+        names = ', '.join(sorted(self._recipes)) or '없음'
+        self._log('INFO', f'레시피 {len(self._recipes)}개 읽음: {names}')
+
+    def _select_recipe(self, recipe_id: str, announce: bool = True):
+        info = self._recipes.get(recipe_id)
+        if info is None:
+            self._recipe = None
+            self._log('WARN', f'Recipe 선택 실패 - 목록에 없음: {recipe_id!r}')
+            return
+        self._recipe = info
+        self._load_recipe_db(info, announce)
+        if not announce:
+            return
+        ids = ', '.join(p.point_id for p in info.points)
+        self._log('INFO', f'Recipe 선택: {info.recipe_id} {info.recipe_version} '
+                          f'- 포인트 {len(info.points)}개 ({ids})')
+        if info.untaught_points:
+            self._log('WARN', '티칭 안 된 포인트(좌표가 전부 0): '
+                              + ', '.join(info.untaught_points) + ' - 이동에 쓰면 안 됩니다')
+
+    def _load_recipe_db(self, info, announce: bool):
+        """고른 Recipe 의 케이블·판정 기준을 DB 에서 읽는다. 못 읽으면 경고만 남긴다."""
+        self._recipe_db_info = None
+        path = self.get_parameter('recipe_db').value
+        if not path:
+            return
+        try:
+            db_info = recipe_db.RecipeDb(path).load_recipe(info.recipe_id)
+        except recipe_db.RecipeDbError as e:
+            if announce:
+                self._log('WARN', f'레시피 DB: {e}')
+            return
+        self._recipe_db_info = db_info
+        if not announce:
+            return
+        json_ids = [p.point_id for p in info.points]
+        only_json = [i for i in json_ids if i not in db_info.points]
+        only_db = [i for i in db_info.points if i not in json_ids]
+        if only_json:
+            self._log('WARN', '레시피 DB 에 없는 포인트(위치만 있음): ' + ', '.join(only_json))
+        if only_db:
+            self._log('WARN', '레시피 JSON 에 없는 포인트(위치 없음): ' + ', '.join(only_db))
+        for p in db_info.points.values():
+            self._log('INFO', f'  {p.point_id}: {p.cable_id or "-"} ({p.cable_type or "-"}) '
+                              f'변위≤{p.max_displacement_mm} mm, Pull≥{p.pull_force_n} N, '
+                              f'{p.repeat_count}회, 파지 {p.grip_width_mm} mm')
+
+    def _uniform_criteria(self):
+        """모든 포인트의 판정 기준이 같으면 그 기준, 아니면 None."""
+        if self._recipe_db_info is None:
+            return None
+        found = {(p.max_displacement_mm, p.pull_force_n, p.repeat_count, p.grip_width_mm)
+                 for p in self._recipe_db_info.points.values()}
+        return itf.Criteria(*found.pop()) if len(found) == 1 else None
+
     # ------------------------------------------------------------ Home 이동
     def _home_joints(self):
         joints = [float(v) for v in self.get_parameter('home_joints').value]
@@ -480,8 +647,11 @@ class RobotMonitorNode(Node):
             return '로봇이 이미 움직이는 중'
         if self._home_active:
             return '이전 Home 이동을 확인하는 중'
-        if self._setup_alarm or not (self._tool_name and self._tcp_name):
-            return f'Tool/TCP 설정 이상 ({self._setup_alarm or "미설정"})'
+        if self._control_state() in (itf.State.RUNNING, itf.State.PAUSED, itf.State.MOVING):
+            return '동작 코드가 검사 중 / 이동 중 / 일시정지 중'
+        # Tool/TCP 설정은 조건이 아니다. 홈 이동은 고정된 관절각으로 가는 관절 이동이라 TCP 와 무관하고,
+        # 툴 무게는 도착 자세가 아니라 힘 계산(힘 값, 충돌 감지)에만 영향을 준다. 설정 이상은
+        # '현재 알람' 과 팝업으로 계속 알리고, 그 상태로 이동하면 _move_home 이 로그에 남긴다.
         return ''
 
     def _move_home(self):
@@ -501,6 +671,9 @@ class RobotMonitorNode(Node):
         self._home_started = time.monotonic()
         self._movej_client.call_async(request).add_done_callback(self._on_home_sent)
         self._log('INFO', f'Home 이동 시작 -> {[round(v, 1) for v in joints]} deg')
+        if self._setup_alarm or not (self._tool_name and self._tcp_name):
+            self._log('WARN', 'Tool/TCP 미설정 상태로 Home 이동 - 힘 값과 충돌 감지 기준이 '
+                              f'어긋나 있습니다 ({self._setup_alarm or "미설정"})')
 
     def _on_home_sent(self, future):
         ok = (not future.cancelled() and future.exception() is None
@@ -619,7 +792,20 @@ class RobotMonitorNode(Node):
 
         st = itf.SystemStatus(robot_connected=connected, gripper_connected=gripper)
         st.speed_percent = self._speed_percent
+        st.available_recipes = sorted(self._recipes)
+        if self._recipe is not None:
+            st.recipe_id = self._recipe.recipe_id
+            st.recipe_version = self._recipe.recipe_version
+            st.total_points = len(self._recipe.points)
+            if self._recipe_db_info is not None:
+                st.product_id = self._recipe_db_info.product_id
+                st.criteria = self._uniform_criteria() or itf.Criteria()
         st.progress_percent = max(0, min(100, int(self._progress.percent)))
+        st.run_id = self._run_id
+        st.judgement = self._progress.judgement
+        st.product_result = self._progress.product_result
+        if self._progress.active and self._progress.criteria != itf.Criteria():
+            st.criteria = self._progress.criteria       # 동작 코드가 알려 준 현재 Point 의 기준
         if gripper:
             st.gripper_width_mm = round(self._gripper_width, 1)
         tool_name = self._tool_name if connected else ''
@@ -634,8 +820,15 @@ class RobotMonitorNode(Node):
         estop = connected and self._robot_state == STATE_EMERGENCY_STOP
         moving = connected and self._motion_poll.fresh and self._motion != DR_STATE_IDLE
         st.estop = estop
+        control_state = self._control_state()
         if estop:
             st.state = itf.State.ESTOP
+        elif control_state and connected:
+            # 동작 코드가 HMI 버튼을 받는다 -> 그 상태를 내보내 버튼이 열리게 한다. 단, 시작 대기 중에
+            # 로봇이 움직이고 있으면(Home 이동 등) 끝날 때까지 '검사 시작' 을 잠가 모션이 겹치지 않게 한다.
+            waiting = control_state in (itf.State.IDLE, itf.State.DONE)
+            busy = moving or self._home_active
+            st.state = itf.State.MONITOR_MOVING if waiting and busy else control_state
         elif moving:
             st.state = itf.State.MONITOR_MOVING
         else:
@@ -652,7 +845,9 @@ class RobotMonitorNode(Node):
 
         if connected:
             reported = ' · '.join(t for t in (self._progress.point, self._progress.step) if t)
-            if self._progress.active and reported and not self._home_active:
+            if control_state == itf.State.MOVING and self._progress.step:
+                st.current_step = self._progress.step       # 예: 'VT_P02 (으)로 이동'
+            elif self._progress.active and reported and not self._home_active:
                 st.current_step = reported          # 동작 코드가 알려 준 Point · 단계
             elif moving:
                 st.current_step = 'Home 이동 중' if self._home_active else '로봇 이동 중'

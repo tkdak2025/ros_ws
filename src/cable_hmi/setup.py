@@ -31,6 +31,7 @@ setup(
             'hmi = cable_hmi.hmi_main:main',
             'mock_inspection_node = cable_hmi.mock_inspection_node:main',
             'robot_monitor_node = cable_hmi.robot_monitor_node:main',
+            'result_recorder_node = cable_hmi.result_recorder_node:main',
         ],
     },
 )

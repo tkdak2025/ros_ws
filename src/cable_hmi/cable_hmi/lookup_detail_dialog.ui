@@ -1,0 +1,806 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<ui version="4.0">
+ <class>LookupDetailDialog</class>
+ <widget class="QDialog" name="LookupDetailDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>540</width>
+    <height>700</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>540</width>
+    <height>0</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>레시피 포인트 상세</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">/* main_window.ui 의 스타일 중 상세창이 쓰는 규칙을 복사한 것이다.
+   Designer 에서 이 파일만 열어도 실제와 같은 모양으로 보이게 하기 위해서다.
+   HMI 에서는 메인 창의 스타일도 함께 적용되며, 겹치면 여기 적힌 것이 우선한다. */
+QWidget { font-family: 'Noto Sans CJK KR', 'NanumGothic', sans-serif; font-size: 13px; color: #2B3440; }
+QFrame[role="subPanel"] { background: #F8FAFC; border: 1px solid #E1E7EE; border-radius: 6px; }
+QLabel[role="groupTitle"] { font-weight: bold; }
+QLabel[role="key"] { color: #5B6675; }
+QLabel[role="value"] { font-weight: bold; }
+QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px; font-weight: bold;
+    border-top-left-radius: 6px; border-top-right-radius: 6px; padding: 7px 12px; }
+#badge { background: #EEF1F5; color: #8A94A3; font-weight: bold; font-size: 18px;
+    border-radius: 10px; padding: 3px 12px; }
+</string>
+  </property>
+  <layout class="QVBoxLayout" name="rootLayout">
+   <property name="spacing">
+    <number>10</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>12</number>
+   </property>
+   <item>
+    <widget class="QLabel" name="titleLabel">
+     <property name="text">
+      <string>레시피 포인트 상세</string>
+     </property>
+     <property name="role" stdset="0">
+      <string notr="true">panelTitle</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="bodyLayout">
+     <property name="spacing">
+      <number>10</number>
+     </property>
+     <property name="leftMargin">
+      <number>14</number>
+     </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <property name="rightMargin">
+      <number>14</number>
+     </property>
+     <property name="bottomMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <layout class="QHBoxLayout" name="topRow" stretch="2,1">
+       <item>
+        <widget class="QFrame" name="recipeCard">
+         <property name="role" stdset="0">
+          <string notr="true">subPanel</string>
+         </property>
+         <layout class="QVBoxLayout" name="recipeCardLayout">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <property name="leftMargin">
+           <number>10</number>
+          </property>
+          <property name="topMargin">
+           <number>6</number>
+          </property>
+          <property name="rightMargin">
+           <number>10</number>
+          </property>
+          <property name="bottomMargin">
+           <number>6</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="recipeKey">
+            <property name="text">
+             <string>레시피명</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">key</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="recipeValue">
+            <property name="text">
+             <string>-</string>
+            </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">value</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="badge">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>48</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>-</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="midRow" stretch="1,1,1">
+       <item>
+        <widget class="QFrame" name="nameCard">
+         <property name="role" stdset="0">
+          <string notr="true">subPanel</string>
+         </property>
+         <layout class="QVBoxLayout" name="nameCardLayout">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <property name="leftMargin">
+           <number>10</number>
+          </property>
+          <property name="topMargin">
+           <number>6</number>
+          </property>
+          <property name="rightMargin">
+           <number>10</number>
+          </property>
+          <property name="bottomMargin">
+           <number>6</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="nameKey">
+            <property name="text">
+             <string>이름</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">key</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="nameValue">
+            <property name="text">
+             <string>-</string>
+            </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">value</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="pointCard">
+         <property name="role" stdset="0">
+          <string notr="true">subPanel</string>
+         </property>
+         <layout class="QVBoxLayout" name="pointCardLayout">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <property name="leftMargin">
+           <number>10</number>
+          </property>
+          <property name="topMargin">
+           <number>6</number>
+          </property>
+          <property name="rightMargin">
+           <number>10</number>
+          </property>
+          <property name="bottomMargin">
+           <number>6</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="pointKey">
+            <property name="text">
+             <string>Point</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">key</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="pointValue">
+            <property name="text">
+             <string>-</string>
+            </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">value</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="cableCard">
+         <property name="role" stdset="0">
+          <string notr="true">subPanel</string>
+         </property>
+         <layout class="QVBoxLayout" name="cableCardLayout">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <property name="leftMargin">
+           <number>10</number>
+          </property>
+          <property name="topMargin">
+           <number>6</number>
+          </property>
+          <property name="rightMargin">
+           <number>10</number>
+          </property>
+          <property name="bottomMargin">
+           <number>6</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="cableKey">
+            <property name="text">
+             <string>케이블 번호</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">key</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="cableValue">
+            <property name="text">
+             <string>-</string>
+            </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">value</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QLabel" name="resultTitle">
+       <property name="text">
+        <string>최근 검사 결과 (DB)</string>
+       </property>
+       <property name="role" stdset="0">
+        <string notr="true">groupTitle</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QFrame" name="resultPanel">
+       <property name="role" stdset="0">
+        <string notr="true">subPanel</string>
+       </property>
+       <layout class="QGridLayout" name="resultPanelLayout" columnstretch="0,1">
+        <property name="leftMargin">
+         <number>12</number>
+        </property>
+        <property name="topMargin">
+         <number>10</number>
+        </property>
+        <property name="rightMargin">
+         <number>12</number>
+        </property>
+        <property name="bottomMargin">
+         <number>10</number>
+        </property>
+        <property name="horizontalSpacing">
+         <number>16</number>
+        </property>
+        <property name="verticalSpacing">
+         <number>8</number>
+        </property>
+        <item row="0" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="resultCodeKey">
+          <property name="text">
+           <string>결과 코드</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLabel" name="resultCodeValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="timeKey">
+          <property name="text">
+           <string>검사 시간</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="timeValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="measuredKey">
+          <property name="text">
+           <string>대표 측정값</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLabel" name="measuredValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="reasonKey">
+          <property name="text">
+           <string>판정 사유</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QLabel" name="reasonValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="actionKey">
+          <property name="text">
+           <string>처리</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="QLabel" name="actionValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="criteriaTitle">
+       <property name="text">
+        <string>판정 기준 (DB)</string>
+       </property>
+       <property name="role" stdset="0">
+        <string notr="true">groupTitle</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QFrame" name="criteriaPanel">
+       <property name="role" stdset="0">
+        <string notr="true">subPanel</string>
+       </property>
+       <layout class="QGridLayout" name="criteriaPanelLayout" columnstretch="0,1">
+        <property name="leftMargin">
+         <number>12</number>
+        </property>
+        <property name="topMargin">
+         <number>10</number>
+        </property>
+        <property name="rightMargin">
+         <number>12</number>
+        </property>
+        <property name="bottomMargin">
+         <number>10</number>
+        </property>
+        <property name="horizontalSpacing">
+         <number>16</number>
+        </property>
+        <property name="verticalSpacing">
+         <number>8</number>
+        </property>
+        <item row="0" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="limitKey">
+          <property name="text">
+           <string>허용 변위</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLabel" name="limitValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="pullForceKey">
+          <property name="text">
+           <string>Pull 힘</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="pullForceValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="repeatKey">
+          <property name="text">
+           <string>반복 횟수</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLabel" name="repeatValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="gripWidthKey">
+          <property name="text">
+           <string>파지 폭</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QLabel" name="gripWidthValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="poseTitle">
+       <property name="text">
+        <string>위치 (레시피 JSON)</string>
+       </property>
+       <property name="role" stdset="0">
+        <string notr="true">groupTitle</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QFrame" name="posePanel">
+       <property name="role" stdset="0">
+        <string notr="true">subPanel</string>
+       </property>
+       <layout class="QGridLayout" name="posePanelLayout" columnstretch="0,1">
+        <property name="leftMargin">
+         <number>12</number>
+        </property>
+        <property name="topMargin">
+         <number>10</number>
+        </property>
+        <property name="rightMargin">
+         <number>12</number>
+        </property>
+        <property name="bottomMargin">
+         <number>10</number>
+        </property>
+        <property name="horizontalSpacing">
+         <number>16</number>
+        </property>
+        <property name="verticalSpacing">
+         <number>8</number>
+        </property>
+        <item row="0" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="taskKey">
+          <property name="text">
+           <string>Task</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLabel" name="taskValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="jointKey">
+          <property name="text">
+           <string>Joint</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="jointValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="bottomRow" stretch="1,1,1">
+       <item>
+        <widget class="QFrame" name="productCard">
+         <property name="role" stdset="0">
+          <string notr="true">subPanel</string>
+         </property>
+         <layout class="QVBoxLayout" name="productCardLayout">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <property name="leftMargin">
+           <number>10</number>
+          </property>
+          <property name="topMargin">
+           <number>6</number>
+          </property>
+          <property name="rightMargin">
+           <number>10</number>
+          </property>
+          <property name="bottomMargin">
+           <number>6</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="productKey">
+            <property name="text">
+             <string>제품 ID</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">key</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="productValue">
+            <property name="text">
+             <string>-</string>
+            </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">value</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="forceIdCard">
+         <property name="role" stdset="0">
+          <string notr="true">subPanel</string>
+         </property>
+         <layout class="QVBoxLayout" name="forceIdCardLayout">
+          <property name="spacing">
+           <number>2</number>
+          </property>
+          <property name="leftMargin">
+           <number>10</number>
+          </property>
+          <property name="topMargin">
+           <number>6</number>
+          </property>
+          <property name="rightMargin">
+           <number>10</number>
+          </property>
+          <property name="bottomMargin">
+           <number>6</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="forceIdKey">
+            <property name="text">
+             <string>Force 원본 ID</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">key</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="forceIdValue">
+            <property name="text">
+             <string>-</string>
+            </property>
+            <property name="role" stdset="0">
+             <string notr="true">value</string>
+            </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="source">
+         <property name="text">
+          <string>-</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+         <property name="role" stdset="0">
+          <string notr="true">value</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources />
+ <connections />
+</ui>

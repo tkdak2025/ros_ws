@@ -113,6 +113,7 @@ class CommandName:
     MOVE_HOME = 'MOVE_HOME'
     MOVE_TO_POINT = 'MOVE_TO_POINT'  # args: point_id, reason('FAIL'|'MISSING')
     SET_SPEED = 'SET_SPEED'          # args: percent(1~100)
+    SELECT_RECIPE = 'SELECT_RECIPE'  # args: recipe_id. 목록에서 Recipe 를 고름(검사 시작 아님)
     SYNC = 'SYNC'                    # 현재 run 의 결과를 다시 보내 달라는 요청(선택 구현)
 
 
@@ -187,7 +188,13 @@ class PointResult:
     reason: str = ''             # 판정 사유 / 미수행 사유
     action: str = ''             # 처리 내용
     force_data_id: str = ''      # 원본 Force 데이터(CSV 등) 식별자
-    db_saved: bool = False
+    db_saved: bool = False       # result_recorder_node 가 DB 에 저장한 뒤 True 로 다시 보낸다
+    # 검사 당시의 나머지 레시피 정보 (상세 팝업용). 보내는 쪽이 모르면 비워 둔다.
+    point_name: str = ''         # 예: 'BCM_POWER_CONNECTOR'
+    repeat_count: int = 0
+    grip_width_mm: float = 0.0
+    task: List[float] = field(default_factory=list)    # 검사에 쓴 위치 [mm x3, deg x3] (BASE, ZYZ)
+    joint: List[float] = field(default_factory=list)   # 검사에 쓴 위치 [deg x6]
 
 
 @dataclass
@@ -210,6 +217,14 @@ class Progress:
     step: str = ''               # 예: 'Pull Test', '직선 이동 1'
     aborted: bool = False        # 끝까지 못 가고 중단됨
     note: str = ''               # 중단 사유 등
+    # HMI 의 검사 시작 / 일시정지 / 이어하기를 받는 동작 코드만 채운다: State.IDLE(시작 대기) /
+    # RUNNING / PAUSED / DONE. 비어 있으면 진행률만 알리는 코드다(HMI 버튼은 잠긴 채로 둔다).
+    run_state: str = ''
+    # 검사 결과를 보고하는 동작 코드만 채운다 (ProgressReporter.report_result 참고).
+    run_id: int = 0              # 검사 1회의 번호. 바뀌면 HMI 가 결과 표를 비운다. 0 = 알리지 않음
+    criteria: Criteria = field(default_factory=Criteria)   # 현재 Point 의 판정 기준
+    judgement: str = ''          # 예: '검사 중', 'PASS'
+    product_result: str = ''     # ProductResult. 검사가 끝났을 때
 
 
 @dataclass

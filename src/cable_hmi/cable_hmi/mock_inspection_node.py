@@ -9,6 +9,9 @@
 파라미터
   random_outcomes (bool, 기본 False): True 면 Point 결과를 무작위로 뽑는다.
   require_heartbeat (bool, 기본 True): HMI heartbeat 가 끊기면 자동 일시정지.
+  recipe_db (str, 기본 ''): 레시피 정보 SQLite 파일(recipe_db.py 참고). 읽을 수 있으면 Recipe
+      목록·케이블·판정 기준을 DB 에서 가져오고, 못 읽으면 경고 후 아래 내장 RECIPES 를 쓴다.
+      DB 에는 '결과' 가 없으므로 Point 결과는 MOCK_OUTCOME_CYCLE 을 차례로 쓴다.
 """
 
 from dataclasses import dataclass
@@ -22,6 +25,7 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
 from . import interface as itf
+from . import recipe_db
 
 Cmd = itf.CommandName
 State = itf.State
@@ -70,6 +74,9 @@ RECIPES = {
     },
 }
 
+# DB 에서 읽은 Recipe 에는 mock 결과가 없으므로 이 순서를 돌려 쓴다.
+MOCK_OUTCOME_CYCLE = (RC.PASS, RC.FAIL_DISPLACEMENT, RC.MISSING, RC.PASS)
+
 OUTCOME_TEXT = {
     RC.PASS: ('유효 검사에서 체결 유지 조건 충족', '결과 기록'),
     RC.FAIL_DISPLACEMENT: ('유효 검사에서 케이블 변위 허용 범위 초과',
@@ -114,6 +121,7 @@ class MockInspectionNode(Node):
         super().__init__('mock_inspection_node')
         self.declare_parameter('random_outcomes', False)
         self.declare_parameter('require_heartbeat', True)
+        self.declare_parameter('recipe_db', '')
 
         self._status_pub = self.create_publisher(
             itf.STATUS_MSG_TYPE, itf.TOPIC_STATUS, itf.QOS_DEPTH)
@@ -129,7 +137,7 @@ class MockInspectionNode(Node):
             robot_connected=True,
             gripper_connected=True,
             tool=itf.ToolInfo(True, 'RG2_CABLE_JAW', 1.35, 'RG2_TCP_01', True),
-            available_recipes=list(RECIPES),
+            available_recipes=self._load_recipes(),
             current_point='HOME',
             judgement='대기',
             speed_percent=REFERENCE_SPEED,
@@ -182,11 +190,40 @@ class MockInspectionNode(Node):
         self._log('WARN', f'{what} 거부 - 현재 상태 {self._st.state}')
         return False
 
+    def _load_recipes(self):
+        """Recipe 표를 만든다: DB 를 읽을 수 있으면 DB, 아니면 내장 RECIPES. id 목록을 돌려준다."""
+        self._recipes = dict(RECIPES)
+        path = self.get_parameter('recipe_db').value
+        if not path:
+            return list(self._recipes)
+        try:
+            db = recipe_db.RecipeDb(path)
+            loaded = {rid: db.load_recipe(rid) for rid in db.list_recipes()}
+        except recipe_db.RecipeDbError as e:
+            self.get_logger().warn(f'레시피 DB 를 쓰지 못함 - 내장 예제 레시피 사용: {e}')
+            return list(self._recipes)
+        if not loaded:
+            self.get_logger().warn('레시피 DB 에 Recipe 가 없음 - 내장 예제 레시피 사용')
+            return list(self._recipes)
+        self._recipes = {
+            rid: {
+                'version': info.recipe_version,
+                'product_id': info.product_id,
+                'points': [
+                    MockPoint(p.point_id, p.cable_id, p.cable_type, p.grip_width_mm,
+                              p.pull_force_n, p.max_displacement_mm,
+                              MOCK_OUTCOME_CYCLE[i % len(MOCK_OUTCOME_CYCLE)],
+                              p.repeat_count or 3)
+                    for i, p in enumerate(info.points.values())],
+            } for rid, info in loaded.items()}
+        self.get_logger().info(f'레시피 DB 에서 {len(self._recipes)}개 읽음: {path}')
+        return list(self._recipes)
+
     def _cmd_start(self, args):
         if not self._ready('검사 시작'):
             return
         recipe_id = args.get('recipe_id', '')
-        recipe = RECIPES.get(recipe_id)
+        recipe = self._recipes.get(recipe_id)
         if recipe is None:
             self._log('ERROR', f'검사 시작 거부 - 없는 Recipe: {recipe_id!r}')
             return
@@ -416,7 +453,9 @@ class MockInspectionNode(Node):
             reason=reason,
             action=action,
             force_data_id='' if missing else f'FORCE-{st.run_id:05d}-P{self._point_idx + 1}',
-            db_saved=True,
+            repeat_count=point.repeat_count,
+            grip_width_mm=point.grip_width_mm,
+            # db_saved 는 채우지 않는다: result_recorder_node 가 저장한 뒤 True 로 다시 보낸다.
         )
         self._results.append(result)
         self._result_pub.publish(itf.encode_result(result))

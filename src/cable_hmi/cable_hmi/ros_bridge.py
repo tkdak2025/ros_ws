@@ -29,6 +29,9 @@ class RosBridge(QObject):
     def __init__(self, node_name: str = 'cable_hmi', parent=None):
         super().__init__(parent)
         self._node = Node(node_name)
+        # '통합 조회' 탭이 읽을 위치. 검사 동작과는 무관하다(값은 여전히 status/result 로만 받는다).
+        self._node.declare_parameter('recipe_db', '')
+        self._node.declare_parameter('recipe_dir', '')
         self._cmd_pub = self._node.create_publisher(
             itf.COMMAND_MSG_TYPE, itf.TOPIC_COMMAND, itf.QOS_DEPTH)
         self._hb_pub = self._node.create_publisher(
@@ -62,6 +65,10 @@ class RosBridge(QObject):
         if self._thread.is_alive():
             self._thread.join(timeout=2.0)
         self._node.destroy_node()
+
+    def parameter(self, name: str) -> str:
+        """HMI 노드의 문자열 파라미터 값."""
+        return str(self._node.get_parameter(name).value or '')
 
     def send_command(self, name: str, **args):
         """명령을 publish 한다. 블로킹 없음 - 결과는 status 로만 확인한다."""
