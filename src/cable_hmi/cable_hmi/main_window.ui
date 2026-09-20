@@ -1,0 +1,1440 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1120</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>1000</width>
+    <height>740</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>케이블 체결 검사 HMI</string>
+  </property>
+  <property name="styleSheet">
+   <string>QWidget { font-family: 'Noto Sans CJK KR', 'NanumGothic', sans-serif; font-size: 13px; color: #2B3440; }
+QMainWindow, #root { background: #F2F4F7; }
+
+QFrame[role=&quot;panel&quot;] { background: #FFFFFF; border: 1px solid #D9E0E7; border-radius: 6px; }
+QFrame[role=&quot;subPanel&quot;] { background: #F8FAFC; border: 1px solid #E1E7EE; border-radius: 6px; }
+QLabel[role=&quot;groupTitle&quot;] { font-weight: bold; }
+QLabel[role=&quot;key&quot;] { color: #5B6675; }
+QLabel[role=&quot;value&quot;] { font-weight: bold; }
+QLabel[role=&quot;panelTitle&quot;] { background: #168DB5; color: #FFFFFF; font-size: 14px; font-weight: bold;
+    border-top-left-radius: 6px; border-top-right-radius: 6px; padding: 7px 12px; }
+#sidebarTitle { font-size: 15px; font-weight: bold; }
+
+#header { background: #2E92BD; border-radius: 6px; padding: 0 14px; }
+#headerTitle { color: #FFFFFF; font-size: 17px; font-weight: bold; }
+#stateBadge { background: rgba(255,255,255,0.18); color: #FFFFFF; font-weight: bold;
+    border-radius: 10px; padding: 3px 12px; }
+
+#chipTotal, #chipPass, #chipMissing, #chipFail { font-weight: bold; border-radius: 10px; padding: 3px 12px; }
+#chipTotal { background: #EEF1F5; color: #8A94A3; }
+#chipPass { background: #E6F7EE; color: #1E8E5A; }
+#chipMissing { background: #FFF0D8; color: #B7791F; }
+#chipFail { background: #FFE8EA; color: #D12F3A; }
+
+QPushButton { border: none; border-radius: 8px; font-size: 15px; font-weight: bold; color: #FFFFFF; padding: 6px 10px; }
+#startBtn { background: #379DD3; }
+#startBtn:hover { background: #2C8BC0; }
+#pauseBtn { background: #B9B96A; }
+#pauseBtn:hover { background: #A8A858; }
+#resumeBtn { background: #8584C6; }
+#resumeBtn:hover { background: #7372B5; }
+#estopBtn { background: #E31C24; border: 4px solid #9E1116; border-radius: 38px; font-size: 16px; }
+#estopBtn:hover { background: #C9151C; }
+#estopBtn:pressed { background: #9E1116; }
+#estopResetBtn { background: #FFFFFF; color: #D12F3A; border: 1px solid #D12F3A; font-size: 12px;
+    padding: 3px 8px; border-radius: 6px; }
+#failBtn, #missingBtn { background: #8FA3A6; }
+#failBtn:hover, #missingBtn:hover { background: #7C9194; }
+#homeBtn { background: #FFFFFF; color: #2B3440; border: 1px solid #9AA5B1; }
+#homeBtn:hover { background: #EEF2F6; }
+/* ID 선택자가 QPushButton:disabled 보다 우선하므로 버튼마다 :disabled 를 따로 둔다 */
+#startBtn:disabled, #pauseBtn:disabled, #resumeBtn:disabled, #failBtn:disabled, #missingBtn:disabled {
+    background: #D5DBE3; color: #F5F7FA; }
+#homeBtn:disabled, #estopResetBtn:disabled { background: #F2F4F7; color: #B5BDC7; border: 1px solid #D9E0E7; }
+
+QComboBox { background: #FFFFFF; border: 1px solid #C5CED8; border-radius: 4px; padding: 3px 8px; min-width: 110px; }
+QTabWidget::pane { border: 1px solid #D9E0E7; border-radius: 4px; top: -1px; }
+QTabBar::tab { background: #F2F4F7; border: 1px solid #D9E0E7; padding: 5px 14px;
+    border-top-left-radius: 4px; border-top-right-radius: 4px; }
+QTabBar::tab:selected { background: #FFFFFF; border-bottom-color: #FFFFFF; font-weight: bold; }
+QTableWidget { border: none; gridline-color: #E8EDF2; selection-background-color: #CFE6F3; selection-color: #2B3440; }
+QHeaderView::section { background: #E6F0F5; border: none; padding: 5px; font-weight: bold; }
+QPlainTextEdit { border: none; background: #FFFFFF; font-size: 12px; }
+
+QSlider::groove:horizontal { height: 8px; background: #D9E0E7; border-radius: 4px; }
+QSlider::sub-page:horizontal { background: #379DD3; border-radius: 4px; }
+QSlider::handle:horizontal { background: #379DD3; width: 22px; margin: -7px 0; border-radius: 11px; }
+QSlider::handle:horizontal:disabled, QSlider::sub-page:horizontal:disabled { background: #B5BDC7; }
+QProgressBar { background: #E4E9EF; border: none; border-radius: 5px; max-height: 10px; }
+QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
+</string>
+  </property>
+  <widget class="QWidget" name="root">
+   <layout class="QHBoxLayout" name="layout1" stretch="0,1">
+    <property name="spacing">
+     <number>16</number>
+    </property>
+    <property name="leftMargin">
+     <number>16</number>
+    </property>
+    <property name="topMargin">
+     <number>16</number>
+    </property>
+    <property name="rightMargin">
+     <number>16</number>
+    </property>
+    <property name="bottomMargin">
+     <number>16</number>
+    </property>
+    <item>
+     <widget class="QFrame" name="sidebar">
+      <property name="minimumSize">
+       <size>
+        <width>250</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>250</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="role" stdset="0">
+       <string>panel</string>
+      </property>
+      <layout class="QVBoxLayout" name="layout2">
+       <property name="spacing">
+        <number>10</number>
+       </property>
+       <property name="leftMargin">
+        <number>10</number>
+       </property>
+       <property name="topMargin">
+        <number>10</number>
+       </property>
+       <property name="rightMargin">
+        <number>10</number>
+       </property>
+       <property name="bottomMargin">
+        <number>10</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="sidebarTitle">
+         <property name="text">
+          <string>Robot Information</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="toolPanel">
+         <property name="role" stdset="0">
+          <string>subPanel</string>
+         </property>
+         <layout class="QVBoxLayout" name="layout3">
+          <item>
+           <layout class="QHBoxLayout" name="layout4">
+            <item>
+             <widget class="QLabel" name="toolPanelTitle">
+              <property name="text">
+               <string>Tool 설정</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>groupTitle</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QGridLayout" name="layout5" columnstretch="0,1">
+            <property name="horizontalSpacing">
+             <number>8</number>
+            </property>
+            <property name="verticalSpacing">
+             <number>7</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="toolNameKey">
+              <property name="text">
+               <string>Tool</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="toolName">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="toolWeightKey">
+              <property name="text">
+               <string>Tool Weight</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="toolWeight">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="toolTcpKey">
+              <property name="text">
+               <string>TCP</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLabel" name="toolTcp">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="toolForceZeroKey">
+              <property name="text">
+               <string>Force Zero</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QLabel" name="toolForceZero">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="toolAlarmKey">
+              <property name="text">
+               <string>현재 알람</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1">
+             <widget class="QLabel" name="toolAlarm">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="connPanel">
+         <property name="role" stdset="0">
+          <string>subPanel</string>
+         </property>
+         <layout class="QVBoxLayout" name="layout6">
+          <item>
+           <widget class="QLabel" name="connPanelTitle">
+            <property name="text">
+             <string>연결 및 상태</string>
+            </property>
+            <property name="role" stdset="0">
+             <string>groupTitle</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QGridLayout" name="layout7" columnstretch="0,1">
+            <property name="horizontalSpacing">
+             <number>8</number>
+            </property>
+            <property name="verticalSpacing">
+             <number>7</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="connRobotKey">
+              <property name="text">
+               <string>Robot 연결</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="connRobot">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="connRosKey">
+              <property name="text">
+               <string>ROS2 통신</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="connRos">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="connGripperKey">
+              <property name="text">
+               <string>RG2 연결</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLabel" name="connGripper">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="pointPanel">
+         <property name="role" stdset="0">
+          <string>subPanel</string>
+         </property>
+         <layout class="QVBoxLayout" name="layout8">
+          <item>
+           <widget class="QLabel" name="pointPanelTitle">
+            <property name="text">
+             <string/>
+            </property>
+            <property name="role" stdset="0">
+             <string>groupTitle</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QGridLayout" name="layout9" columnstretch="0,1">
+            <property name="horizontalSpacing">
+             <number>8</number>
+            </property>
+            <property name="verticalSpacing">
+             <number>7</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="pointPositionKey">
+              <property name="text">
+               <string>현재 위치</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="pointPosition">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="pointStepKey">
+              <property name="text">
+               <string>현재 단계</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="pointStep">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="pointSpeedKey">
+              <property name="text">
+               <string>속도 설정</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLabel" name="pointSpeed">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="pointGripperKey">
+              <property name="text">
+               <string>그리퍼 폭</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QLabel" name="pointGripper">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="pointForceKey">
+              <property name="text">
+               <string>현재 힘 값</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1">
+             <widget class="QLabel" name="pointForce">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QLabel" name="pointDisplacementKey">
+              <property name="text">
+               <string>현재 변위</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="1">
+             <widget class="QLabel" name="pointDisplacement">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="0">
+             <widget class="QLabel" name="pointJudgementKey">
+              <property name="text">
+               <string>현재 판정</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="1">
+             <widget class="QLabel" name="pointJudgement">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="spacer10">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <layout class="QVBoxLayout" name="layout11" stretch="0,0,1,0,0">
+      <property name="spacing">
+       <number>10</number>
+      </property>
+      <item>
+       <widget class="QFrame" name="header">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>44</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>44</height>
+         </size>
+        </property>
+        <layout class="QHBoxLayout" name="layout12">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>10</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="headerTitle">
+           <property name="text">
+            <string>케이블 체결 검사 HMI</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="spacer13">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="stateBadge">
+           <property name="text">
+            <string>—</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="controlsPanel">
+        <property name="role" stdset="0">
+         <string>panel</string>
+        </property>
+        <layout class="QHBoxLayout" name="layout14">
+         <property name="spacing">
+          <number>20</number>
+         </property>
+         <property name="leftMargin">
+          <number>18</number>
+         </property>
+         <property name="topMargin">
+          <number>12</number>
+         </property>
+         <property name="rightMargin">
+          <number>18</number>
+         </property>
+         <property name="bottomMargin">
+          <number>12</number>
+         </property>
+         <item>
+          <widget class="QPushButton" name="startBtn">
+           <property name="minimumSize">
+            <size>
+             <width>140</width>
+             <height>55</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>▶   검사 시작</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pauseBtn">
+           <property name="minimumSize">
+            <size>
+             <width>140</width>
+             <height>55</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Ⅱ   일시정지</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="resumeBtn">
+           <property name="minimumSize">
+            <size>
+             <width>140</width>
+             <height>55</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>▷   이어하기</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="spacer15">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="estopBtn">
+           <property name="minimumSize">
+            <size>
+             <width>76</width>
+             <height>76</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>76</width>
+             <height>76</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>비상정지 - 상태와 무관하게 항상 누를 수 있습니다</string>
+           </property>
+           <property name="text">
+            <string>STOP</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="layout16">
+           <property name="spacing">
+            <number>3</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="estopTitle">
+             <property name="text">
+              <string>비상정지</string>
+             </property>
+             <property name="role" stdset="0">
+              <string>groupTitle</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="estopState">
+             <property name="text">
+              <string>—</string>
+             </property>
+             <property name="role" stdset="0">
+              <string>value</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="estopResetBtn">
+             <property name="text">
+              <string>비상정지 해제</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="layout17" stretch="1,0">
+        <property name="spacing">
+         <number>12</number>
+        </property>
+        <item>
+         <widget class="QFrame" name="resultsPanel">
+          <property name="role" stdset="0">
+           <string>panel</string>
+          </property>
+          <layout class="QVBoxLayout" name="layout18" stretch="0,0,0,1">
+           <property name="spacing">
+            <number>8</number>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>8</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="resultsTitle">
+             <property name="text">
+              <string>케이블 검사 결과</string>
+             </property>
+             <property name="role" stdset="0">
+              <string>panelTitle</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="layout19">
+             <property name="leftMargin">
+              <number>12</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>12</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QLabel" name="recipeKey">
+               <property name="text">
+                <string>Recipe</string>
+               </property>
+               <property name="role" stdset="0">
+                <string>key</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="recipeCombo"/>
+             </item>
+             <item>
+              <widget class="QLabel" name="recipeVersion">
+               <property name="text">
+                <string/>
+               </property>
+               <property name="role" stdset="0">
+                <string>key</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="spacer20">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Fixed</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>14</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QLabel" name="productIdKey">
+               <property name="text">
+                <string>제품 ID</string>
+               </property>
+               <property name="role" stdset="0">
+                <string>key</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="productId">
+               <property name="text">
+                <string>—</string>
+               </property>
+               <property name="role" stdset="0">
+                <string>value</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="spacer21">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QLabel" name="productResult">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="layout22">
+             <property name="leftMargin">
+              <number>12</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>12</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QLabel" name="chipTotal">
+               <property name="text">
+                <string>전체 0</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="chipPass">
+               <property name="text">
+                <string>PASS 0건</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="chipMissing">
+               <property name="text">
+                <string>MISSING 0건</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="chipFail">
+               <property name="text">
+                <string>FAIL 0건</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="spacer23">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="layout24">
+             <property name="leftMargin">
+              <number>12</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>12</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QTabWidget" name="tabs">
+               <property name="currentIndex">
+                <number>0</number>
+               </property>
+               <widget class="QWidget" name="resultTab">
+                <attribute name="title">
+                 <string>현재 검사 결과</string>
+                </attribute>
+                <layout class="QVBoxLayout" name="layout25">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QTableWidget" name="resultTable">
+                   <property name="focusPolicy">
+                    <enum>Qt::NoFocus</enum>
+                   </property>
+                   <property name="editTriggers">
+                    <set>QAbstractItemView::NoEditTriggers</set>
+                   </property>
+                   <property name="selectionMode">
+                    <enum>QAbstractItemView::SingleSelection</enum>
+                   </property>
+                   <property name="selectionBehavior">
+                    <enum>QAbstractItemView::SelectRows</enum>
+                   </property>
+                   <attribute name="verticalHeaderVisible">
+                    <bool>false</bool>
+                   </attribute>
+                   <attribute name="verticalHeaderDefaultSectionSize">
+                    <number>36</number>
+                   </attribute>
+                   <column>
+                    <property name="text">
+                     <string>검사 시간</string>
+                    </property>
+                   </column>
+                   <column>
+                    <property name="text">
+                     <string>Place</string>
+                    </property>
+                   </column>
+                   <column>
+                    <property name="text">
+                     <string>케이블 번호</string>
+                    </property>
+                   </column>
+                   <column>
+                    <property name="text">
+                     <string>검사 결과</string>
+                    </property>
+                   </column>
+                   <column>
+                    <property name="text">
+                     <string>상세</string>
+                    </property>
+                   </column>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+               <widget class="QWidget" name="logTab">
+                <attribute name="title">
+                 <string>시스템 로그</string>
+                </attribute>
+                <layout class="QVBoxLayout" name="layout26">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QPlainTextEdit" name="logView">
+                   <property name="readOnly">
+                    <bool>true</bool>
+                   </property>
+                   <property name="maximumBlockCount">
+                    <number>2000</number>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QFrame" name="movePanel">
+          <property name="minimumSize">
+           <size>
+            <width>262</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>262</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="role" stdset="0">
+           <string>panel</string>
+          </property>
+          <layout class="QVBoxLayout" name="layout27" stretch="0,1">
+           <property name="spacing">
+            <number>10</number>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>12</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="moveTitle">
+             <property name="text">
+              <string>로봇팔 이동 명령</string>
+             </property>
+             <property name="role" stdset="0">
+              <string>panelTitle</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="layout28">
+             <property name="spacing">
+              <number>10</number>
+             </property>
+             <property name="leftMargin">
+              <number>14</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>14</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QFrame" name="criteriaPanel">
+               <property name="role" stdset="0">
+                <string>subPanel</string>
+               </property>
+               <layout class="QVBoxLayout" name="layout29">
+                <item>
+                 <widget class="QLabel" name="criteriaPanelTitle">
+                  <property name="text">
+                   <string>판정 기준</string>
+                  </property>
+                  <property name="role" stdset="0">
+                   <string>groupTitle</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <layout class="QGridLayout" name="layout30" columnstretch="0,1">
+                  <property name="horizontalSpacing">
+                   <number>8</number>
+                  </property>
+                  <property name="verticalSpacing">
+                   <number>7</number>
+                  </property>
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="critDisplacementKey">
+                    <property name="text">
+                     <string>허용 변위</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QLabel" name="critDisplacement">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="critForceKey">
+                    <property name="text">
+                     <string>Pull Force</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QLabel" name="critForce">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="0">
+                   <widget class="QLabel" name="critRepeatKey">
+                    <property name="text">
+                     <string>Push / Pull 반복</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="1">
+                   <widget class="QLabel" name="critRepeat">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="0">
+                   <widget class="QLabel" name="critGripKey">
+                    <property name="text">
+                     <string>Grip 폭</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="1">
+                   <widget class="QLabel" name="critGrip">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="homeBtn">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>64</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Home 이동</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="failBtn">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>64</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>FAIL 포인트 이동</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="missingBtn">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>64</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>MISSING 포인트 이동</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="moveHint">
+               <property name="text">
+                <string/>
+               </property>
+               <property name="wordWrap">
+                <bool>true</bool>
+               </property>
+               <property name="role" stdset="0">
+                <string>key</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="spacer31">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>40</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QFrame" name="speedPanel">
+        <property name="role" stdset="0">
+         <string>panel</string>
+        </property>
+        <layout class="QHBoxLayout" name="layout32" stretch="0,0,0">
+         <property name="spacing">
+          <number>16</number>
+         </property>
+         <property name="leftMargin">
+          <number>24</number>
+         </property>
+         <property name="topMargin">
+          <number>12</number>
+         </property>
+         <property name="rightMargin">
+          <number>24</number>
+         </property>
+         <property name="bottomMargin">
+          <number>12</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="speedTitle">
+           <property name="text">
+            <string>속도 설정</string>
+           </property>
+           <property name="role" stdset="0">
+            <string>groupTitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSlider" name="speedSlider">
+           <property name="minimum">
+            <number>1</number>
+           </property>
+           <property name="maximum">
+            <number>100</number>
+           </property>
+           <property name="pageStep">
+            <number>10</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="speedLabel">
+           <property name="minimumSize">
+            <size>
+             <width>48</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>—</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+           <property name="role" stdset="0">
+            <string>value</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="progressPanel">
+        <property name="role" stdset="0">
+         <string>panel</string>
+        </property>
+        <layout class="QHBoxLayout" name="layout33" stretch="0,1,0">
+         <property name="spacing">
+          <number>16</number>
+         </property>
+         <property name="leftMargin">
+          <number>24</number>
+         </property>
+         <property name="topMargin">
+          <number>12</number>
+         </property>
+         <property name="rightMargin">
+          <number>24</number>
+         </property>
+         <property name="bottomMargin">
+          <number>12</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="progressTitle">
+           <property name="text">
+            <string>작업 진행률</string>
+           </property>
+           <property name="role" stdset="0">
+            <string>groupTitle</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QProgressBar" name="progressBar">
+           <property name="value">
+            <number>0</number>
+           </property>
+           <property name="textVisible">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="progressText">
+           <property name="minimumSize">
+            <size>
+             <width>190</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>—</string>
+           </property>
+           <property name="role" stdset="0">
+            <string>value</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -3,12 +3,19 @@
 <package format="3">
   <name>cable_hmi</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>케이블 체결 검사 PyQt5 HMI (ROS 2 pub/sub 전용) + 가상 검사 노드</description>
   <maintainer email="tkdak2025@gmail.com">hun</maintainer>
   <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>sensor_msgs</depend>
+  <!-- robot_monitor_node 만 사용. 메시지 정의일 뿐이며 HMI 화면 프로세스는 두산 코드를 import 하지 않는다. -->
+  <depend>dsr_msgs2</depend>
   <depend>python3-pyqt5</depend>
+
+  <exec_depend>ros2launch</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
