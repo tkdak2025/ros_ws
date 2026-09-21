@@ -18,8 +18,9 @@ CCCIS 로봇 검증 코드는 `src/cable_pkg/cable_pkg/` 아래에 기능별로 
 - `grip_stability/`: Soft/Hard Grip과 Pull 반복 시험
 - `error_validation/`: Y/Z축 위치 오차 검증
 - `recipe/`: 검사 및 검증 레시피
-- `adaptive_grip_sequence.py`: Adaptive Grip 단계별 검증 인터페이스
-- `manual_check.py`: 실물 로봇 상태 수동 확인 API
+- `adaptive_grip/`: Adaptive Grip 단계별 검증 인터페이스
+- `diagnostics/`: 실물 로봇 상태 수동 확인 API
+- `safety/`: 작업공간과 금지영역 판정
 
 프로젝트 설계 및 검증 체크리스트는
 [`docs/ccc_inspection/`](docs/ccc_inspection/)에서 관리한다.

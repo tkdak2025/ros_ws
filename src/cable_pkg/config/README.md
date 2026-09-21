@@ -35,7 +35,7 @@ InspectionRecipe
 포인트명과 DART에서 확인한 TASK·JOINT를 입력해야 한다.
 
 ```python
-from recipe import InspectionRecipe
+from cable_pkg.recipe import InspectionRecipe
 
 recipe = InspectionRecipe.load_json("config/inspection_recipe.json")
 point = recipe.get_point("P01")
@@ -44,6 +44,6 @@ print(point.task)
 print(point.joint)
 ```
 
-TCP 허용영역과 금지영역은 `workspace_boundary.py`의 `WorkspaceBoundary`가 별도로
+TCP 허용영역과 금지영역은 `safety/workspace_boundary.py`의 `WorkspaceBoundary`가 별도로
 담당한다. 이는 목표 TCP만 판정하며 로봇 링크와 MoveJ 중간 경로의 충돌을
 확인하지 않는다.

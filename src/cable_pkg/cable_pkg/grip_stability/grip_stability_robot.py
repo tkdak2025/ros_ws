@@ -28,7 +28,7 @@ from dsr_msgs2.srv import (
 from onrobot_rg_msgs.srv import SetCommand
 from sensor_msgs.msg import JointState
 
-from grip_stability_data import Pose, _validate_numbers
+from .grip_stability_data import Pose, _validate_numbers
 
 
 class GripPullRobot:

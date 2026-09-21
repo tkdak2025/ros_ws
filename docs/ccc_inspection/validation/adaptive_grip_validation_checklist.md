@@ -1,7 +1,7 @@
 # Adaptive Grip 작업검증 체크리스트
 
 - 기준 문서: `CCCIS Adaptive Grip 작업검증계획서 v0.1`
-- 대응 코드: `src/adaptive_grip_sequence.py`
+- 대응 코드: `src/cable_pkg/cable_pkg/adaptive_grip/sequence.py`
 - 상태 표기: `미착수 / 진행 중 / 통과 / 실패 / 보류`
 - 작성 원칙: 측정하지 않은 항목은 추정값을 쓰지 않고 `TBD`로 남긴다.
 

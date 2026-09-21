@@ -16,7 +16,7 @@ DART에서 같은 자세의 BASE TASK와 JOINT를 확인한 뒤 한 쌍으로 �
 프로젝트 루트가 `PRJT_prototype`일 때 다음처럼 읽을 수 있다.
 
 ```python
-from recipe import InspectionRecipe
+from cable_pkg.recipe import InspectionRecipe
 
 recipe = InspectionRecipe.load_json(
     "src/recipe/examples/inspection_recipe.example.json"

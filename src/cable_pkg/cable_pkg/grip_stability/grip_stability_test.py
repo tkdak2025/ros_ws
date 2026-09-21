@@ -15,7 +15,7 @@ from typing import Any
 import rclpy
 from rclpy.executors import ExternalShutdownException
 
-from grip_stability_data import (
+from .grip_stability_data import (
     GripPullConfig,
     GripPullLogger,
     GripPullRecipe,
@@ -26,18 +26,19 @@ from grip_stability_data import (
     _validate_numbers,
     _wrench_columns,
 )
-from grip_stability_evaluator import ConnectionEvaluator, PullSample
-from grip_stability_robot import GripPullRobot
+from .grip_stability_evaluator import ConnectionEvaluator, PullSample
+from .grip_stability_robot import GripPullRobot
 
 
 # 실행하는 터미널 위치와 무관하게 프로젝트 안의 레시피를 찾는다.
-PROJECT_DIR = Path(__file__).resolve().parents[2]
-RECIPE_DIR = PROJECT_DIR / "src/recipe/grip_stability"
+PACKAGE_DIR = Path(__file__).resolve().parents[1]
+PROJECT_DIR = Path(__file__).resolve().parents[4]
+RECIPE_DIR = PACKAGE_DIR / "recipe/grip_stability"
 RECIPE_OPTIONS = {
     "1": ("USB", RECIPE_DIR / "grip_pull_recipe.json"),
     "2": ("LAN", RECIPE_DIR / "lan_grip_pull_recipe.json"),
 }
-OUTPUT_DIR = PROJECT_DIR / "measurement_results"
+OUTPUT_DIR = PROJECT_DIR / "measurement_results/grip_stability"
 
 
 class GripStabilityTest:

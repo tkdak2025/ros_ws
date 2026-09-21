@@ -36,7 +36,10 @@ class GripPoseObserver:
     SERVICE_PREFIX = "/dsr01/dsr_controller2"
     SAMPLE_RATE_HZ = 10.0
     SERVICE_TIMEOUT_S = 3.0
-    OUTPUT_DIR = Path(__file__).resolve().parents[2] / "measurement_results"
+    OUTPUT_DIR = (
+        Path(__file__).resolve().parents[4]
+        / "measurement_results/error_validation"
+    )
 
     def __init__(self):
         self.node = rclpy.create_node("grip_pose_observer")

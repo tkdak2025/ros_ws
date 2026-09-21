@@ -8,7 +8,6 @@ import argparse
 import csv
 import json
 import math
-import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -25,12 +24,7 @@ from dsr_msgs2.srv import (
 )
 from rclpy.executors import ExternalShutdownException
 
-# 파일을 직접 실행해도 형제 패키지인 recipe를 찾을 수 있게 src를 추가한다.
-SRC_DIR = Path(__file__).resolve().parents[1]
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-
-from recipe import InspectionPoint, InspectionRecipe
+from ..recipe import InspectionPoint, InspectionRecipe
 
 
 class PoseRangeTester:
@@ -41,7 +35,10 @@ class PoseRangeTester:
     # ------------------------------------------------------------------
 
     SERVICE_PREFIX = "/dsr01/dsr_controller2"
-    OUTPUT_DIR = Path(__file__).resolve().parents[2] / "measurement_results"
+    OUTPUT_DIR = (
+        Path(__file__).resolve().parents[4]
+        / "measurement_results/error_validation"
+    )
 
     REQUIRED_TCP = "GripperDA_v1"
     REQUIRED_TOOL = "ToolWeight"

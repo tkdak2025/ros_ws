@@ -1,7 +1,7 @@
 # Y/Z축 오차 검증 레시피
 
 이 폴더는 일반 검사포인트 예제와 분리된 로봇 위치 오차 시험 전용 영역이다.
-`src/error_validation/pose_range_test.py`가 여기 저장된 TASK·JOINT를
+`src/cable_pkg/cable_pkg/error_validation/pose_range_test.py`가 여기 저장된 TASK·JOINT를
 `sequence` 순서로 실행한다.
 
 ## 파일 구분
@@ -20,7 +20,7 @@ JOINT와 solution space는 이전에 같은 기준점에서 계산해 저장한 
 사용했다.
 
 ```python
-from recipe import InspectionRecipe
+from cable_pkg.recipe import InspectionRecipe
 
 recipe = InspectionRecipe.load_json(
     "src/recipe/error_validation/z_pose_range_recipe.json"
@@ -38,8 +38,8 @@ recipe = InspectionRecipe.load_json(
 source /opt/ros/jazzy/setup.bash
 source /home/rokey/ws_cobot_pjt/ws_dsr/install/setup.bash
 export ROS_DOMAIN_ID=50 ROS_LOCALHOST_ONLY=1
-/usr/bin/python3 src/error_validation/pose_range_test.py \
-  --recipe src/recipe/error_validation/y_pose_range_recipe.json \
+ros2 run cable_pkg pose_range_test --recipe \
+  src/cable_pkg/cable_pkg/recipe/error_validation/y_pose_range_recipe.json \
   --virtual-joint-only --prepare-start --confirm-virtual
 ```
 

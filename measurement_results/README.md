@@ -1,5 +1,12 @@
 # M0609 레시피 기반 MoveJ 오차 시험 결과
 
+## 기능별 폴더
+
+- `error_validation/`: Y/Z 위치 오차 및 가상 관절 경로 검증 결과
+- `grip_stability/`: Soft/Hard Grip과 Pull 반복시험 결과
+
+새 측정 결과도 해당 기능 폴더 아래에 실행 시각별 폴더로 저장한다.
+
 ## 시험 방식
 
 `src/error_validation/pose_range_test.py`는 레시피 JSON의 `sequence`
@@ -20,7 +27,7 @@ IK 계산, solution 선택은 하지 않는다.
 실행마다 다음 두 파일을 같은 폴더에 저장한다.
 
 ```text
-measurement_results/
+measurement_results/error_validation/
 └── {source_point_id}_{axis}_{YYYYMMDD_HHMMSS}/
     ├── pose_errors.csv
     └── run_summary.json

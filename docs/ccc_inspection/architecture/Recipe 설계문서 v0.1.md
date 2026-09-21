@@ -6,7 +6,7 @@
 Grip-Pull 검사, 결과 기록의 책임을 분리한다.
 
 이 문서는 구현 전 구조를 고정하기 위한 v0.1 명세다. 현재의
-`src/error_validation/pose_range_test.py`와 범위 시험 레시피는 도달 범위
+`src/cable_pkg/cable_pkg/error_validation/pose_range_test.py`와 범위 시험 레시피는 도달 범위
 확인용 시험 코드이며
 실제 검사 레시피 구조에 포함하지 않는다.
 

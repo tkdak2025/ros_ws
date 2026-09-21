@@ -6,16 +6,15 @@
 | `grip_stability_robot.py` | 실물·가상 로봇 및 그리퍼 연결 |
 | `grip_stability_data.py` | 레시피·시험조건·결과 저장 |
 
-프로젝트 루트에서 실행한다. `--mode`는 bringup 모드와 맞춘다.
+워크스페이스를 빌드하고 source한 뒤 실행한다.
 
 ```bash
-/usr/bin/python3 src/grip_stability/grip_stability_test.py --mode virtual --trials 1
+ros2 run cable_pkg grip_stability_test
 ```
 
-실물은 `--mode real`로 실행한다. `--point`를 생략하면 `TEST_P01`을 사용한다.
-실행 옵션은 `--mode`, `--point`, `--trials`만 사용한다.
-두 모드 모두 `START`를 입력해야 시험을 시작한다.
-검사 레시피는 `src/recipe/grip_stability/`, Tool·TCP 설정은 `config/`,
+실행 메뉴에서 USB 또는 LAN 레시피와 real 모드를 선택한다. 포인트는 선택한
+레시피의 `enabled` 순서대로 실행하며, 시작 전 `START` 입력을 요구한다.
+검사 레시피는 `cable_pkg/recipe/grip_stability/`, Tool·TCP 설정은 `config/`,
 결과는 `measurement_results/`에 둔다. 경로는 코드 위치를 기준으로 찾는다.
 레시피 파일과 결과 기본 경로는 실행 코드 상단의 `RECIPE_PATH`, `OUTPUT_DIR`로
 고정한다. 가상 결과는 `measurement_results/virtual/`에 저장한다.
