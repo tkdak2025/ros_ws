@@ -125,7 +125,7 @@ _check_link()       status 가 1.5 s 끊기면 'ROS2 통신 끊김' + STOP 외 �
 | Tool Weight | **로봇에서 못 읽음.** launch 인자 `tool_weight_kg`(1.47) 를 표시만 함 | — |
 
 - **진행률**: 모니터 노드는 검사를 하지 않아 진행률을 스스로 알 수 없다. 동작 코드가 `ProgressReporter` 로 알려 주면 status 의 진행률과 '현재 단계'(`Cycle 2 · 직선 이동 1`)에 넣는다.
-  완료(100 %)는 다음 실행 전까지 유지, 중단(`abort`)되면 0 으로 복귀. 예: `~/ros_ws/examples/move_async.py`.
+  완료(100 %)는 다음 실행 전까지 유지, 중단(`abort`)되면 0 으로 복귀. 예: `~/ros_ws/examples/inspect_async.py`.
 - 오래된 값은 표시하지 않는다: 1.5 s 안에 응답이 없으면 힘·위치·폭을 지운다.
 - 변위 기준은 노드 시작 시 자세. `ros2 service call /cable_inspection/zero_displacement std_srvs/srv/Trigger` 로 다시 0 으로 잡는다.
 

@@ -1,7 +1,7 @@
 """
 검사 뼈대 (측정 없음): HMI 에서 고른 Recipe 의 Point 를 차례로 돌며 결과를 HMI 로 보고한다.
 
-move_async.py 와 같은 구조(비동기 모션 + check_motion, HMI 검사 시작 / 일시정지 / 이어하기 / STOP)에
+비동기 모션(amove* + check_motion)과 HMI 검사 시작 / 일시정지 / 이어하기 / STOP 연동에
 'Recipe 읽기' 와 '결과 보고' 를 더한 것이다. sodvir(가상 로봇)에서 검사 흐름과 HMI 표시를 미리
 맞춰 보기 위한 것으로, 아직 없는 것은 다음과 같다.
 
@@ -54,7 +54,7 @@ DR_MV_RA_OVERRIDE = 1     # 진행 중인 모션을 버리고 새 모션으로 �
 SERVICE_TIMEOUT = 3.0     # move_pause / move_resume 응답을 기다리는 시간 (s)
 DRIVER_WAIT = 10.0        # 시작할 때 두산 드라이버가 보일 때까지 기다리는 시간 (s)
 
-# --make-test-recipe 가 만드는 레시피: move_async.py 가 쓰던 자세 근처의 관절각 (deg)
+# --make-test-recipe 가 만드는 레시피: 가상 로봇에서 안전하게 오가는 자세의 관절각 (deg)
 TEST_RECIPE_FILE = RECIPE_DIR / "virtual_test.json"
 TEST_RECIPE_ID = "VIRTUAL_TEST"
 TEST_POINTS = {
@@ -147,7 +147,7 @@ def main(args=None):
         return call(resume_client, MoveResume.Request(), "move_resume")
 
     def wait_motion(allow_pause=True):
-        """방금 건 비동기 모션이 끝날 때까지 기다린다 (move_async.py 의 wait_motion 과 같다)."""
+        """방금 건 비동기 모션이 끝날 때까지 기다린다."""
         time.sleep(MOTION_START_WAIT)
         while check_motion() != 0:          # 0 = 정지 (1 = 계산 중, 2 = 동작 중)
             if allow_pause and progress.check_pause(pause=pause_motion, resume=resume_motion):
@@ -312,7 +312,7 @@ def main(args=None):
     finally:
         progress.close()
         if moved and go_home and rclpy.ok():
-            # 앞 모션이 아직 진행 중일 수 있으므로 OVERRIDE 로 대체한다 (move_async.py 참고).
+            # 앞 모션이 아직 진행 중일 수 있으므로 OVERRIDE 로 대체한다.
             amovej(homej, vel=VELOCITY, acc=ACC, ra=DR_MV_RA_OVERRIDE)
             wait_motion(allow_pause=False)
         elif moved and go_home:

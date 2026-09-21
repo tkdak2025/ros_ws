@@ -255,7 +255,7 @@ progress.finish()                 # 100 %.  도중에 그만둘 때: progress.ab
 ```
 
 진행률 = (끝난 Point 수 + 현재 Point 안의 단계 위치) ÷ 전체 Point 수. `steps` 에 없는 이름은 글자만 표시되고 퍼센트는 그대로다.
-예제: `~/ros_ws/examples/move_async.py`. 실행 전에 `sod` 와 `source ~/ros_ws/install/setup.bash` 둘 다 필요하다.
+예제: `~/ros_ws/examples/inspect_async.py`. 실행 전에 `sod` 와 `source ~/ros_ws/install/setup.bash` 둘 다 필요하다.
 
 ## 동작 코드에서 검사 시작 / 일시정지 / 이어하기 받기
 
@@ -288,7 +288,7 @@ finally:
 - **비동기 모션에서만 된다.** 동기 모션(`movej`, `movel`, `mwait`)은 끝날 때까지 코드가 멈춰 있어 `check_pause()` 를 부를 수 없고,
   드라이버도 그동안 `move_pause` 에 답하지 않는다(`move_stop` 만 따로 처리된다).
 - 두산 파이썬 라이브러리에는 `move_pause` / `move_resume` 함수가 없다. 서비스 `dsr_controller2/motion/move_pause`,
-  `.../move_resume` (`dsr_msgs2/srv/MovePause`, `MoveResume`) 를 직접 부른다 - `move_async.py` 의 `pause_motion()` 참고.
+  `.../move_resume` (`dsr_msgs2/srv/MovePause`, `MoveResume`) 를 직접 부른다 - `inspect_async.py` 의 `pause_motion()` 참고.
 - 일시정지 중에는 `check_motion` 을 묻지 않는다. 그 값이 '정지' 로 나와도 도착으로 착각해 다음 단계로 넘어가지 않게 하기 위해서다.
 - 명령은 별도 스레드가 받아 표시만 하고, 로봇을 건드리는 호출은 전부 `check_pause()` 를 부른 스레드에서 한다.
 - 부품은 0.5 초마다 상태를 다시 알린다. 프로그램이 죽어 2 초 넘게 소식이 없으면 HMI 는 '모니터링' 으로 돌아간다.
@@ -298,7 +298,7 @@ finally:
   HMI 의 포인트 이동 버튼(`MOVE_TO_POINT`, args `point_id`, `reason`)도 받는다. 이동 전 `progress.moving(point_id)`(HMI '이동 중' - 일시정지 / STOP 은
   검사 중과 똑같이 받고 '검사 시작' 은 잠긴다), 끝나고 `progress.moved()`(이동 전 상태로 복귀, 결과 표·제품 판정은 그대로). `inspect_async.py` 는 마지막으로
   검사한 레시피에서 그 Point 의 접근 자세(joint)로 **이동만** 한다(재검사 없음). 티칭 안 된 Point 와 레시피에 없는 Point 는 거부하고 시스템 로그에 남긴다.
-  `wait_for_start()` 만 쓰는 코드(`move_async.py`)는 이 버튼을 무시하고 그 사실을 로그에 남긴다.
+  `wait_for_command()` 대신 `wait_for_start()` 만 쓰는 코드는 이 버튼을 무시하고 그 사실을 로그에 남긴다.
 - 모션을 기다리는 루프가 끝난 직후에도 `progress.check_pause()` 를 한 번 부를 것: HMI STOP(모니터 노드의 `move_stop`)으로 모션이 끝난 것을 '도착' 으로
   처리하지 않기 위해서다 (`wait_motion()` 참고).
 - **실제 장비 확인 필요**: `move_pause` 후 `move_resume` 이 가던 경로를 그대로 이어 가는지, 힘 제어 중 일시정지가 안전한지는

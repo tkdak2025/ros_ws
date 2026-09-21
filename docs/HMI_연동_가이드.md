@@ -126,7 +126,7 @@ STOP 은 어떤 상태에서도 열려 있다. HMI 의 STOP 을 누르면 **모�
 | 방식 | 쓰는 법 | 동작 |
 |---|---|---|
 | **Safe Pause Point** (문서 방식, 권장) | 원자 동작이 끝난 지점에서 `progress.check_pause()` | 버튼을 누르면 '일시정지 요청', 하던 동작을 마친 뒤 '일시정지'. 재개하면 다음 동작부터 |
-| 그 자리에서 정지 | 모션을 기다리는 루프에서 `progress.check_pause(pause=멈추는함수, resume=이어가는함수)` | 누른 순간 `motion/move_pause`, 재개하면 `motion/move_resume` 으로 가던 길을 마저 감. 예: `~/ros_ws/examples/move_async.py` |
+| 그 자리에서 정지 | 모션을 기다리는 루프에서 `progress.check_pause(pause=멈추는함수, resume=이어가는함수)` | 누른 순간 `motion/move_pause`, 재개하면 `motion/move_resume` 으로 가던 길을 마저 감. 예: `~/ros_ws/examples/inspect_async.py` |
 
 하위 시퀀스별 Safe Pause Point 는 **`check_pause()` 를 어디에 넣느냐** 로 정해진다. 힘 제어 중처럼 멈추면 안 되는 구간에는 넣지 않으면 된다.
 
@@ -178,5 +178,5 @@ sod && source ~/ros_ws/install/setup.bash && python3 <동작 코드>            
 ```
 
 참고 예제: **`~/ros_ws/examples/sequence_demo.py`(이 가이드를 그대로 따른 시험 코드 - 3 절의 흐름, Safe Pause, 통신 단절, Home 처리)**,
-`~/ros_ws/examples/move_async.py`(버튼 연동만, 그 자리에서 멈추는 일시정지), `~/ros_ws/examples/inspect_async.py`(레시피 읽기 + 결과 보고 + 포인트 이동).
+`~/ros_ws/examples/inspect_async.py`(레시피 읽기 + 결과 보고 + 포인트 이동, 그 자리에서 멈추는 일시정지).
 자세한 설명: `src/cable_hmi/README.md`, `src/cable_hmi/cable_hmi/hmi_progress.py` 의 머리말.
