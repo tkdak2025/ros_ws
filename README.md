@@ -21,6 +21,12 @@ source install/setup.bash
 | 레시피 DB 만들기 | `sqlite3 ~/ros_ws/results/inspection.db < ~/ros_ws/scripts/init_recipe_db.sql` |
 | 테스트 | `cd ~/ros_ws/src/cable_hmi && python3 -m pytest test` |
 
+- `sod` / `sodvir` / `sodreal` 은 두산 워크스페이스용 shell 별칭이다. 없으면 이렇게 쓴다.
+  ```bash
+  alias sod='source ~/ws_cobot_pjt/ws_dsr/install/setup.bash'
+  alias sodvir='ros2 launch m0609_rg2_bringup bringup.launch.py mode:=virtual host:=127.0.0.1 port:=12345 model:=m0609'
+  alias sodreal='ros2 launch m0609_rg2_bringup bringup.launch.py mode:=real host:=<로봇 IP> port:=12345 model:=m0609'
+  ```
 - `hmi.launch.py` 와 `hmi_monitor.launch.py` 를 **동시에 띄우지 말 것** — 둘 다 `status` 를 publish 해서 값이 섞인다.
 - `--symlink-install` 로 빌드하면 파이썬 코드와 `.ui` 를 고친 뒤 프로그램만 다시 실행하면 반영된다.
 - 동작 코드 예제는 ROS 패키지가 아니라서 `ros2 run` 이 아니라 `python3` 로 실행한다. 실행 전에 `sod` 와
