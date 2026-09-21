@@ -28,3 +28,27 @@
 
 HMI heartbeat timeout은 아직 설계값이 확정되지 않아 기본적으로 비활성화한다.
 실물 Backend 조립 코드가 확정값을 `heartbeat_timeout_s`로 전달해야 활성화된다.
+
+## HMI 동작시험
+
+한 명령으로 HMI와 Sequence Mock 노드를 실행한다.
+
+```bash
+ros2 launch cable_pkg sequence_hmi_test.launch.py
+```
+
+개별 실행이 필요하면 두 터미널을 사용한다. 기존 `mock_inspection_node`와 동시에
+실행하면 status가 섞이므로 HMI launch의 mock을 반드시 끈다.
+
+```bash
+# Terminal 1
+ros2 launch cable_hmi hmi.launch.py mock:=false
+
+# Terminal 2
+ros2 run cable_pkg sequence_test_node
+```
+
+HMI에서 `SEQUENCE_TEST_USB` 또는 `SEQUENCE_TEST_LAN`을 선택하고 시작한다.
+Mock 노드는 실제 로봇·그리퍼 서비스를 호출하지 않는다. 각 포인트는 화면 확인을
+위해 `READY_POSE → ENTRY_POSE → INSPECTION_PLACEHOLDER → READY_POSE_RETURN`으로
+표시된다. `INSPECTION_PLACEHOLDER`는 실제 Adaptive Grip/Pull 구현이 아니다.

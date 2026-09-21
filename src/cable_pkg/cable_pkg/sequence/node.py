@@ -23,6 +23,7 @@ class SequenceNode(Node):
         self,
         controller: SequenceController,
         *,
+        available_recipes: list[str] | None = None,
         heartbeat_timeout_s: float | None = None,
     ) -> None:
         super().__init__("ccc_sequence_node")
@@ -30,9 +31,11 @@ class SequenceNode(Node):
             raise ValueError("heartbeat_timeout_s는 0보다 커야 합니다.")
 
         self.controller = controller
+        self.available_recipes = available_recipes or []
         self.heartbeat_timeout_s = heartbeat_timeout_s
         self.last_heartbeat = time.monotonic()
         self.communication_lost_handled = False
+        self.run_id = 0
 
         self.status_pub = self.create_publisher(String, self.TOPIC_STATUS, 50)
         self.log_pub = self.create_publisher(String, self.TOPIC_LOG, 50)
@@ -55,6 +58,8 @@ class SequenceNode(Node):
 
         if name == "START":
             result = self.controller.start(str(args.get("recipe_id", "")))
+            if result.success:
+                self.run_id += 1
         elif name == "PAUSE":
             result = self.controller.pause()
         elif name == "RESUME":
@@ -63,6 +68,14 @@ class SequenceNode(Node):
             result = self.controller.stop()
         elif name in {"MOVE_HOME", "HOME_RETURN"}:
             result = self.controller.request_home_return()
+        elif name == "SELECT_RECIPE":
+            recipe_id = str(args.get("recipe_id", ""))
+            if recipe_id in self.available_recipes:
+                result = SequenceResult(True, "RECIPE_SELECTED", f"레시피 선택: {recipe_id}")
+            else:
+                result = SequenceResult(False, "RECIPE_NOT_FOUND", f"없는 레시피: {recipe_id}")
+        elif name in {"SYNC", "SET_SPEED"}:
+            result = SequenceResult(True, f"{name}_ACCEPTED", f"시험 노드가 {name}을 확인했습니다.")
         else:
             result = SequenceResult(False, "UNKNOWN_COMMAND", f"지원하지 않는 명령: {name}")
 
@@ -92,12 +105,31 @@ class SequenceNode(Node):
         status = {
             "state": self._hmi_state(self.controller.state),
             "alarm": self.controller.last_error,
+            "robot_connected": True,
+            "gripper_connected": True,
+            "tool": {
+                "configured": True,
+                "name": "MOCK_TOOL",
+                "tcp": "MOCK_TCP",
+                "force_zero_done": True,
+            },
+            "available_recipes": self.available_recipes,
+            "run_id": self.run_id,
             "recipe_id": context.recipe_id if context else "",
+            "total_points": len(context.enabled_point_ids) if context else 0,
             "current_point": context.current_point_id if context else "",
             "current_step": context.current_sequence if context else "",
             "judgement": self.controller.state.value,
+            "progress_percent": self._progress_percent(),
         }
         self.status_pub.publish(String(data=json.dumps(status, ensure_ascii=False)))
+
+    def _progress_percent(self) -> int:
+        context = self.controller.context
+        if context is None or not context.enabled_point_ids:
+            return 0
+        completed = min(context.current_point_index, len(context.enabled_point_ids))
+        return round(completed / len(context.enabled_point_ids) * 100)
 
     def _publish_result_log(self, result: SequenceResult) -> None:
         level = "INFO" if result.success else "ERROR"

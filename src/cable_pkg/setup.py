@@ -25,7 +25,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-    ] + resource_files('config') + resource_files('cable_pkg/recipe'),
+    ] + resource_files('config') + resource_files('cable_pkg/recipe') + resource_files('launch'),
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='hun',
@@ -45,6 +45,7 @@ setup(
             'pose_range_observer = cable_pkg.error_validation.pose_range_observer:main',
             'pose_range_test = cable_pkg.error_validation.pose_range_test:main',
             'grip_stability_test = cable_pkg.grip_stability.grip_stability_test:main',
+            'sequence_test_node = cable_pkg.sequence.mock_node:main',
         ],
     },
 )

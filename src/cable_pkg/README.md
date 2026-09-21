@@ -11,6 +11,7 @@ cable_pkg/
 ├── grip_stability/      # Soft/Hard Grip 및 Pull 반복시험
 ├── recipe/              # 검사포인트와 시험 레시피
 ├── safety/              # 작업영역 및 금지영역 판정
+├── sequence/            # 확정 공통 시퀀스와 HMI Mock 시험 노드
 └── pull_test_logger.py  # 기존 Pull baseline 기록기
 ```
 
@@ -24,6 +25,7 @@ ros2 run cable_pkg pose_range_test --recipe /path/to/y_pose_range_recipe.json
 ros2 run cable_pkg pose_range_observer
 ros2 run cable_pkg grip_stability_test
 ros2 run cable_pkg adaptive_grip_validate
+ros2 run cable_pkg sequence_test_node
 ```
 
 `adaptive_grip_validate`는 V01 레시피 정적 검증까지만 구현되어 있다. 미확정된
