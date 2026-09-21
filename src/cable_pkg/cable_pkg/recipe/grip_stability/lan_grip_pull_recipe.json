@@ -1,0 +1,102 @@
+{
+  "recipe_id": "CCCIS_LAN_GRIP_PULL_TEST_V1",
+  "recipe_version": "1.0.0",
+  "coordinate_frame": "BASE",
+  "connector_type": "RJ45_LAN",
+  "points": {
+    "LAN_L2": {
+      "point_id": "LAN_L2",
+      "point_name": "LAN_L2",
+      "enabled": true,
+      "cable_condition": {
+        "connector_type": "RJ45",
+        "cable_type": "LAN_CABLE",
+        "expected_state": "FULLY_SEATED",
+        "connection_direction": [0.0, -1.0, 0.0],
+        "connector_long_side_alignment": "HORIZONTAL",
+        "grip_orientation": {
+          "reference_frame": "BASE",
+          "task_rotation_axis": "rY",
+          "task_rotation_deg": -90.0
+        }
+      },
+      "ready_pose": {
+        "task": [602.36, -36.43, 347.74, 113.13, -136.43, -147.85],
+        "joint": [17.84, 26.59, 50.25, -223.65, -95.91, -70.74]
+      },
+      "entry_pose": {
+        "task": [610.0, -305.0, 360.0, 90.0, -90.0, 0.0],
+        "joint": [1.6, 38.56, 66.52, -269.6, -91.55, 105.09]
+      },
+      "pose_verification": {
+        "status": "FK_VERIFIED",
+        "verified_at": "2026-09-21",
+        "method": "DSR fkin service, BASE frame",
+        "ready_fk_task": [602.3612, -36.4132, 347.7206, 113.1329, -136.4288, -147.8485],
+        "ready_position_error_mm": 0.0257,
+        "ready_max_orientation_error_deg": 0.0029,
+        "entry_fk_task": [610.0207, -305.004, 359.9543, 89.9998, -90.0022, -0.0048],
+        "entry_position_error_mm": 0.0503,
+        "entry_max_orientation_error_deg": 0.0048
+      },
+      "entry_direction": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "entry_depth_mm": 5.0,
+      "grip_setting": {
+        "soft_close_width_mm": 22.0,
+        "soft_open_width_mm": 25.0,
+        "hard_width_mm": 16.0
+      }
+    },
+    "LAN_L5": {
+      "point_id": "LAN_L5",
+      "point_name": "LAN_L5",
+      "enabled": true,
+      "cable_condition": {
+        "connector_type": "RJ45",
+        "cable_type": "LAN_CABLE",
+        "expected_state": "FULLY_SEATED",
+        "connection_direction": [0.0, -1.0, 0.0],
+        "connector_long_side_alignment": "HORIZONTAL",
+        "grip_orientation": {
+          "reference_frame": "BASE",
+          "task_rotation_axis": "rY",
+          "task_rotation_deg": -90.0
+        }
+      },
+      "ready_pose": {
+        "task": [602.36, -36.43, 347.74, 113.13, -136.43, -147.85],
+        "joint": [17.84, 26.59, 50.25, -223.65, -95.91, -70.74]
+      },
+      "entry_pose": {
+        "task": [565.0, -300.0, 360.0, 90.0, -90.0, 0.0],
+        "joint": [2.23, 32.27, 77.05, -269.28, -92.12, 109.35]
+      },
+      "pose_verification": {
+        "status": "FK_VERIFIED",
+        "verified_at": "2026-09-21",
+        "method": "DSR fkin service, BASE frame",
+        "ready_fk_task": [602.3612, -36.4132, 347.7206, 113.1329, -136.4288, -147.8485],
+        "ready_position_error_mm": 0.0257,
+        "ready_max_orientation_error_deg": 0.0029,
+        "entry_fk_task": [564.9517, -300.0366, 360.0872, 89.9929, -89.9957, 0.0073],
+        "entry_position_error_mm": 0.1062,
+        "entry_max_orientation_error_deg": 0.0073
+      },
+      "entry_direction": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "entry_depth_mm": 6.0,
+      "grip_setting": {
+        "soft_close_width_mm": 22.0,
+        "soft_open_width_mm": 25.0,
+        "hard_width_mm": 16.0
+      }
+    }
+  }
+}

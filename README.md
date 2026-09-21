@@ -15,7 +15,7 @@ Doosan M0609 + OnRobot RG2 로 케이블·커넥터 체결 상태를 접촉식 P
 
 | 문서 | 내용 |
 |---|---|
-| [HMI 구현 요약](docs/HMI_구현_요약.md) | HMI 가 어떻게 구현돼 있는지: 구조, 파일별 역할, 통신 규격, 실제 로봇 값 출처, 검증 상태, 실제 장비에서 알게 된 사실, 남은 일 |
+| [HMI 구현 요약](../docs/concepts/hmi/HMI_구현_요약.md) | HMI 가 어떻게 구현돼 있는지: 구조, 파일별 역할, 통신 규격, 실제 로봇 값 출처, 검증 상태, 실제 장비에서 알게 된 사실, 남은 일 |
 | [BRD v0.1](<docs/M0609_전장판_케이블_커넥터_체결검사_BRD_v0.1 (1).md>) | 프로젝트 요구사항 (목표, 시나리오, Recipe, 결과 Sheet, KPI, Phase 구분) |
 | [BRD 합의사항 요약](<docs/M0609_Cable_Inspection_BRD_Summary (1).md>) | 범위·검사항목·결과 코드(PASS / FAIL_DISPLACEMENT / FAIL_DETACHED / MISSING) 합의 내용 |
 | [검사 시퀀스 컨셉](<docs/02_Inspection_Sequence_Concept (1).md>) | Inspection Point 마다 반복하는 표준 검사 절차 |
