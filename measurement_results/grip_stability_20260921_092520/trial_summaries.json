@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "run_metadata": {
+    "mode": "real",
+    "gripper_service_providers": [
+      "/dsr01/OnRobotRGControllerServer"
+    ]
+  },
+  "test_type": "two_stage_approach_and_grip_pull_baseline",
+  "force_limit_note": "10 N is a stop limit, not PASS/FAIL",
+  "recipe_id": "CCCIS_GRIP_PULL_TEST_V1",
+  "recipe_version": "1.0.0",
+  "test_conditions": {
+    "entry_speed_mm_s": 10.0,
+    "soft_grip_setting": {
+      "width_mm": 18.0,
+      "force_n": 10.0
+    },
+    "entry_motion_start_width_mm": 20.0,
+    "gripper_preclose_timeout_s": 20.0,
+    "max_entry_depth_note": "point.entry_depth_mm",
+    "entry_timeout_s": 20.0,
+    "pull_speed_mm_s": 10.0,
+    "pull_distance_limit_mm": 50.0,
+    "pull_force_limit_n": 10.0,
+    "pull_timeout_s": 20.0,
+    "grip_stabilization_time_s": 1.0,
+    "logging_rate_hz": 20.0,
+    "trial_count": 1
+  },
+  "trials": [
+    {
+      "trial_id": "TRIAL_01_TEST_P01",
+      "inspection_point_id": "TEST_P01",
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 23.9449462890625,
+      "peak_entry_force_n": 4.272396564483643,
+      "entry_force_baseline_base": [
+        -3.3707275390625,
+        -2.612495183944702,
+        1.0218150615692139,
+        0.1855780929327011,
+        -0.004539539571851492,
+        0.0007088804268278182
+      ],
+      "entry_force_baseline_tool": [
+        -1.0371702145386377,
+        -2.693118945097565,
+        -3.3018827515670384,
+        0.1855780929327011,
+        -0.004539539571851492,
+        0.0007088804268278182
+      ],
+      "peak_pull_force_n": 10.0455002784729,
+      "pull_displacement_at_stop_mm": 39.2110595703125,
+      "force_limit_reached": true,
+      "pull_force_baseline_base": [
+        -5.626061916351318,
+        -2.398839235305786,
+        2.4372894763946533,
+        0.5070677995681763,
+        -0.012494675815105438,
+        0.002093368209898472
+      ],
+      "pull_force_baseline_tool": [
+        -2.4624651397471844,
+        -2.534542451929526,
+        -5.555154723512628,
+        0.5070677995681763,
+        -0.012494675815105438,
+        0.002093368209898472
+      ],
+      "cable_detached": false,
+      "grip_slip": false,
+      "fixture_moved": true,
+      "abnormal_stop": false,
+      "stop_reason": "pull_force_limit"
+    }
+  ]
+}

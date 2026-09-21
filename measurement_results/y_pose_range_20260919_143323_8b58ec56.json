@@ -1,0 +1,198 @@
+{
+  "schema_version": 2,
+  "method": "reference TASK -> runtime ikin(0..7) -> MoveJ",
+  "path_note": "MoveJ path is not straight; endpoint pose only",
+  "score_note": "heuristic, not Jacobian manipulability",
+  "reference_task": [
+    700.08,
+    -24.59,
+    466.45,
+    177.57,
+    -90.0,
+    -180
+  ],
+  "reference_joint": [
+    -2.59,
+    1.76,
+    100.67,
+    -180.71,
+    12.44,
+    -179.33
+  ],
+  "baseline_task": null,
+  "baseline_joint": null,
+  "step_mm": 100.0,
+  "range_mm": 300.0,
+  "move_timeout_s": 60.0,
+  "max_step_joint_change_deg": 90.0,
+  "completed_offsets_mm": [],
+  "out_of_tolerance": [],
+  "ik_selections": [
+    {
+      "target_task": [
+        700.08,
+        -24.59,
+        466.45,
+        177.57,
+        -90.0,
+        -180
+      ],
+      "selected_solution_space": null,
+      "candidates": [
+        {
+          "solution_space": 0,
+          "joints": [
+            -2.5774333477020264,
+            94.85001373291016,
+            -100.75311279296875,
+            0.1421900987625122,
+            95.90318298339844,
+            -0.032266806811094284
+          ],
+          "within_limits": true,
+          "continuous": false,
+          "limit_margin": 0.32831258138020836,
+          "elbow_margin": 1.0,
+          "wrist_margin": 1.0,
+          "freedom_score": 0.32831258138020836,
+          "max_joint_change_deg": 201.4312286376953,
+          "joint_travel_deg": 738.138603258878
+        },
+        {
+          "solution_space": 1,
+          "joints": [
+            -2.564894199371338,
+            94.84906005859375,
+            -100.51177978515625,
+            -179.85850524902344,
+            -95.66280364990234,
+            -180.01593017578125
+          ],
+          "within_limits": true,
+          "continuous": false,
+          "limit_margin": 0.32992146809895834,
+          "elbow_margin": 1.0,
+          "wrist_margin": 1.0,
+          "freedom_score": 0.32992146809895834,
+          "max_joint_change_deg": 201.1898956298828,
+          "joint_travel_deg": 403.9344781637192
+        },
+        {
+          "solution_space": 2,
+          "joints": [
+            -2.5850048065185547,
+            1.7619558572769165,
+            100.67462921142578,
+            179.30136108398438,
+            12.437467575073242,
+            -179.3388214111328
+          ],
+          "within_limits": true,
+          "continuous": false,
+          "limit_margin": 0.32883580525716144,
+          "elbow_margin": 1.0,
+          "wrist_margin": 0.4145822525024414,
+          "freedom_score": 0.32883580525716144,
+          "max_joint_change_deg": 360.0094909667969,
+          "joint_travel_deg": 360.0265579223633
+        },
+        {
+          "solution_space": 3,
+          "joints": [
+            -2.5933899879455566,
+            1.7623488903045654,
+            100.43539428710938,
+            -0.785619854927063,
+            -12.198750495910645,
+            0.7504391074180603
+          ],
+          "within_limits": true,
+          "continuous": false,
+          "limit_margin": 0.33043070475260417,
+          "elbow_margin": 1.0,
+          "wrist_margin": 0.4066250165303548,
+          "freedom_score": 0.33043070475260417,
+          "max_joint_change_deg": 180.07810634374619,
+          "joint_travel_deg": 384.8872386813164
+        },
+        {
+          "solution_space": 4,
+          "joints": [
+            179.30474853515625,
+            -94.83250427246094,
+            100.84972381591797,
+            178.25132751464844,
+            96.01505279541016,
+            -0.17215198278427124
+          ],
+          "within_limits": true,
+          "continuous": false,
+          "limit_margin": 0.3276685078938802,
+          "elbow_margin": 1.0,
+          "wrist_margin": 1.0,
+          "freedom_score": 0.3276685078938802,
+          "max_joint_change_deg": 358.95945739746094,
+          "joint_travel_deg": 900.3508054614067
+        },
+        {
+          "solution_space": 5,
+          "joints": [
+            179.30899047851562,
+            -94.83152770996094,
+            100.60956573486328,
+            -1.7401975393295288,
+            -95.77598571777344,
+            179.8536376953125
+          ],
+          "within_limits": true,
+          "continuous": false,
+          "limit_margin": 0.3292695617675781,
+          "elbow_margin": 1.0,
+          "wrist_margin": 1.0,
+          "freedom_score": 0.3292695617675781,
+          "max_joint_change_deg": 359.1813049316406,
+          "joint_travel_deg": 924.9200451374054
+        },
+        {
+          "solution_space": 6,
+          "joints": [
+            179.3109130859375,
+            -1.5929921865463257,
+            -100.92481231689453,
+            8.079319953918457,
+            12.638214111328125,
+            172.13070678710938
+          ],
+          "within_limits": true,
+          "continuous": false,
+          "limit_margin": 0.3271679178873698,
+          "elbow_margin": 1.0,
+          "wrist_margin": 0.4212738037109375,
+          "freedom_score": 0.3271679178873698,
+          "max_joint_change_deg": 351.4583740234375,
+          "joint_travel_deg": 927.3027906417847
+        },
+        {
+          "solution_space": 7,
+          "joints": [
+            179.26644897460938,
+            -1.5939083099365234,
+            -100.68962097167969,
+            -172.0092315673828,
+            -12.400186538696289,
+            -7.786046504974365
+          ],
+          "within_limits": true,
+          "continuous": false,
+          "limit_margin": 0.3287358601888021,
+          "elbow_margin": 1.0,
+          "wrist_margin": 0.4133395512898763,
+          "freedom_score": 0.3287358601888021,
+          "max_joint_change_deg": 201.36773681640625,
+          "joint_travel_deg": 591.6545535326004
+        }
+      ]
+    }
+  ],
+  "stop_reason": "error: 관절 한계와 연속성 조건을 만족하는 IK 해가 없습니다."
+}

@@ -1,0 +1,628 @@
+{
+  "schema_version": 1,
+  "run_metadata": {
+    "mode": "real",
+    "gripper_service_providers": [
+      "/dsr01/OnRobotRGControllerServer"
+    ]
+  },
+  "test_type": "two_stage_approach_and_grip_pull_baseline",
+  "force_limit_note": "25 N is a stop limit, not PASS/FAIL",
+  "recipe_id": "CCCIS_LAN_GRIP_PULL_TEST_V1",
+  "recipe_version": "1.0.0",
+  "test_conditions": {
+    "entry_speed_mm_s": 10.0,
+    "soft_grip_setting": {
+      "open_width_mm": 25.0,
+      "close_width_mm": 22.0,
+      "force_n": 10.0
+    },
+    "entry_motion_start_width_mm": 25.0,
+    "gripper_preclose_timeout_s": 20.0,
+    "max_entry_depth_note": "point.entry_depth_mm",
+    "entry_timeout_s": 20.0,
+    "pull_speed_mm_s": 10.0,
+    "pull_distance_limit_mm": 50.0,
+    "pull_force_limit_n": 25.0,
+    "pull_timeout_s": 20.0,
+    "grip_stabilization_time_s": 1.0,
+    "logging_rate_hz": 20.0,
+    "completed_test_count": 6
+  },
+  "trials": [
+    {
+      "trial_id": "TEST_0001_LAN_L2",
+      "inspection_point_id": "LAN_L2",
+      "cable_condition": {
+        "connector_type": "RJ45",
+        "cable_type": "LAN_CABLE",
+        "expected_state": "FULLY_SEATED",
+        "connection_direction": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "connector_long_side_alignment": "HORIZONTAL",
+        "grip_orientation": {
+          "reference_frame": "BASE",
+          "task_rotation_axis": "rY",
+          "task_rotation_deg": -90.0
+        }
+      },
+      "soft_grip_setting": {
+        "open_width_mm": 25.0,
+        "close_width_mm": 22.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 19.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 1.32794189453125,
+      "peak_entry_force_n": 2.0303098168224096,
+      "entry_force_baseline_base": [
+        -5.369290828704834,
+        -1.9995437860488892,
+        1.253645658493042,
+        -0.5439227223396301,
+        -1.9217957258224487,
+        1.3493123054504395
+      ],
+      "entry_force_baseline_tool": [
+        -1.2512634602991184,
+        -5.381067291483755,
+        1.9691471085506878,
+        -0.5439227223396301,
+        -1.9217957258224487,
+        1.3493123054504395
+      ],
+      "peak_pull_force_n": 27.52904272824526,
+      "pull_displacement_at_stop_mm": 5.86785888671875,
+      "force_limit_reached": true,
+      "pull_force_baseline_base": [
+        -4.170163154602051,
+        -0.07714318484067917,
+        4.623951435089111,
+        -0.5283520221710205,
+        -1.755781888961792,
+        1.226476788520813
+      ],
+      "pull_force_baseline_tool": [
+        -4.621879867909491,
+        -4.172826008349216,
+        0.05374428217009168,
+        -0.5283520221710205,
+        -1.755781888961792,
+        1.226476788520813
+      ],
+      "cable_detached": false,
+      "grip_slip": false,
+      "fixture_moved": false,
+      "automatic_connection_abnormal": false,
+      "automatic_evaluation": {
+        "abnormal": false,
+        "reason": "no_clear_release_or_slip_pattern",
+        "peak_force_n": 27.529,
+        "peak_displacement_mm": 5.8679,
+        "settled_force_n": 24.6624,
+        "force_drop_n": 2.8666,
+        "settled_to_peak_ratio": 0.8959,
+        "gripper_width_range_mm": 0.2,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": true,
+      "suggested_connection_abnormal": false,
+      "judgement_basis": [
+        "힘 곡선=no_clear_release_or_slip_pattern, Peak=27.529 N, 안정구간=24.6624 N, 감소량=2.8666 N, 그리퍼 폭 변화=0.2 mm",
+        "작업자 관찰: Cable 이탈=n"
+      ],
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 20.0,
+        "pull_force_limit_n": 25.0,
+        "reasons": [
+          "이상 관찰 없음: 현재 설정 유지"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_force_limit"
+    },
+    {
+      "trial_id": "TEST_0001_LAN_L5",
+      "inspection_point_id": "LAN_L5",
+      "cable_condition": {
+        "connector_type": "RJ45",
+        "cable_type": "LAN_CABLE",
+        "expected_state": "FULLY_SEATED",
+        "connection_direction": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "connector_long_side_alignment": "HORIZONTAL",
+        "grip_orientation": {
+          "reference_frame": "BASE",
+          "task_rotation_axis": "rY",
+          "task_rotation_deg": -90.0
+        }
+      },
+      "soft_grip_setting": {
+        "open_width_mm": 25.0,
+        "close_width_mm": 22.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 19.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 5.36639404296875,
+      "peak_entry_force_n": 6.5996739864349365,
+      "entry_force_baseline_base": [
+        -1.90041983127594,
+        -2.113600015640259,
+        4.076594352722168,
+        0.31862059235572815,
+        -0.6590597033500671,
+        0.5851220488548279
+      ],
+      "entry_force_baseline_tool": [
+        -4.0756532211896666,
+        -1.9138188551039441,
+        2.103299573793544,
+        0.31862059235572815,
+        -0.6590597033500671,
+        0.5851220488548279
+      ],
+      "peak_pull_force_n": 28.142537117004395,
+      "pull_displacement_at_stop_mm": 7.696136474609375,
+      "force_limit_reached": true,
+      "pull_force_baseline_base": [
+        -1.5109893083572388,
+        4.594775199890137,
+        3.4158806800842285,
+        0.1212322786450386,
+        -0.8772190809249878,
+        0.6718265414237976
+      ],
+      "pull_force_baseline_tool": [
+        -3.415561645233672,
+        -1.4870208507981195,
+        -4.602824880900362,
+        0.1212322786450386,
+        -0.8772190809249878,
+        0.6718265414237976
+      ],
+      "cable_detached": false,
+      "grip_slip": false,
+      "fixture_moved": false,
+      "automatic_connection_abnormal": false,
+      "automatic_evaluation": {
+        "abnormal": false,
+        "reason": "no_clear_release_or_slip_pattern",
+        "peak_force_n": 28.1425,
+        "peak_displacement_mm": 7.6961,
+        "settled_force_n": 24.9483,
+        "force_drop_n": 3.1942,
+        "settled_to_peak_ratio": 0.8865,
+        "gripper_width_range_mm": 0.8,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": true,
+      "suggested_connection_abnormal": false,
+      "judgement_basis": [
+        "힘 곡선=no_clear_release_or_slip_pattern, Peak=28.1425 N, 안정구간=24.9483 N, 감소량=3.1942 N, 그리퍼 폭 변화=0.8 mm",
+        "작업자 관찰: Cable 이탈=n"
+      ],
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 20.0,
+        "pull_force_limit_n": 25.0,
+        "reasons": [
+          "이상 관찰 없음: 현재 설정 유지"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_force_limit"
+    },
+    {
+      "trial_id": "TEST_0002_LAN_L2",
+      "inspection_point_id": "LAN_L2",
+      "cable_condition": {
+        "connector_type": "RJ45",
+        "cable_type": "LAN_CABLE",
+        "expected_state": "FULLY_SEATED",
+        "connection_direction": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "connector_long_side_alignment": "HORIZONTAL",
+        "grip_orientation": {
+          "reference_frame": "BASE",
+          "task_rotation_axis": "rY",
+          "task_rotation_deg": -90.0
+        }
+      },
+      "soft_grip_setting": {
+        "open_width_mm": 25.0,
+        "close_width_mm": 22.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 19.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 1.339752197265625,
+      "peak_entry_force_n": 1.5411524772644043,
+      "entry_force_baseline_base": [
+        -5.116348743438721,
+        -1.9469441175460815,
+        1.2935863733291626,
+        -0.5369834303855896,
+        -1.9125462770462036,
+        1.1804267168045044
+      ],
+      "entry_force_baseline_tool": [
+        -1.2913644545902228,
+        -5.1278542646205825,
+        1.917933444801443,
+        -0.5369834303855896,
+        -1.9125462770462036,
+        1.1804267168045044
+      ],
+      "peak_pull_force_n": 29.464377403259277,
+      "pull_displacement_at_stop_mm": 5.82220458984375,
+      "force_limit_reached": true,
+      "pull_force_baseline_base": [
+        -3.7936482429504395,
+        6.181393623352051,
+        0.9114165306091309,
+        -0.5033708214759827,
+        -1.7551966905593872,
+        1.255527138710022
+      ],
+      "pull_force_baseline_tool": [
+        -0.9096002658337958,
+        -3.7591834723104443,
+        -6.202680341321637,
+        -0.5033708214759827,
+        -1.7551966905593872,
+        1.255527138710022
+      ],
+      "cable_detached": false,
+      "grip_slip": false,
+      "fixture_moved": false,
+      "automatic_connection_abnormal": false,
+      "automatic_evaluation": {
+        "abnormal": false,
+        "reason": "no_clear_release_or_slip_pattern",
+        "peak_force_n": 29.4644,
+        "peak_displacement_mm": 5.8222,
+        "settled_force_n": 24.7447,
+        "force_drop_n": 4.7197,
+        "settled_to_peak_ratio": 0.8398,
+        "gripper_width_range_mm": 0.2,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": true,
+      "suggested_connection_abnormal": false,
+      "judgement_basis": [
+        "힘 곡선=no_clear_release_or_slip_pattern, Peak=29.4644 N, 안정구간=24.7447 N, 감소량=4.7197 N, 그리퍼 폭 변화=0.2 mm",
+        "작업자 관찰: Cable 이탈=n"
+      ],
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 20.0,
+        "pull_force_limit_n": 25.0,
+        "reasons": [
+          "이상 관찰 없음: 현재 설정 유지"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_force_limit"
+    },
+    {
+      "trial_id": "TEST_0002_LAN_L5",
+      "inspection_point_id": "LAN_L5",
+      "cable_condition": {
+        "connector_type": "RJ45",
+        "cable_type": "LAN_CABLE",
+        "expected_state": "FULLY_SEATED",
+        "connection_direction": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "connector_long_side_alignment": "HORIZONTAL",
+        "grip_orientation": {
+          "reference_frame": "BASE",
+          "task_rotation_axis": "rY",
+          "task_rotation_deg": -90.0
+        }
+      },
+      "soft_grip_setting": {
+        "open_width_mm": 25.0,
+        "close_width_mm": 22.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 19.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 5.27679443359375,
+      "peak_entry_force_n": 9.304679691791534,
+      "entry_force_baseline_base": [
+        -1.9784417152404785,
+        -0.5341299176216125,
+        3.3602826595306396,
+        0.2846355438232422,
+        -0.6724361777305603,
+        0.5939619541168213
+      ],
+      "entry_force_baseline_tool": [
+        -3.3594216813735547,
+        -1.9827948299498388,
+        0.5232947839300056,
+        0.2846355438232422,
+        -0.6724361777305603,
+        0.5939619541168213
+      ],
+      "peak_pull_force_n": 27.123061180114746,
+      "pull_displacement_at_stop_mm": 6.635223388671875,
+      "force_limit_reached": true,
+      "pull_force_baseline_base": [
+        -2.003661870956421,
+        6.2321672439575195,
+        0.033570531755685806,
+        0.15854759514331818,
+        -0.8758068084716797,
+        0.6360347270965576
+      ],
+      "pull_force_baseline_tool": [
+        -0.03309056710163205,
+        -1.9690430696112746,
+        -6.243193826257834,
+        0.15854759514331818,
+        -0.8758068084716797,
+        0.6360347270965576
+      ],
+      "cable_detached": false,
+      "grip_slip": false,
+      "fixture_moved": true,
+      "automatic_connection_abnormal": false,
+      "automatic_evaluation": {
+        "abnormal": false,
+        "reason": "no_clear_release_or_slip_pattern",
+        "peak_force_n": 27.1231,
+        "peak_displacement_mm": 6.6352,
+        "settled_force_n": 22.7282,
+        "force_drop_n": 4.3948,
+        "settled_to_peak_ratio": 0.838,
+        "gripper_width_range_mm": 0.5,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": true,
+      "suggested_connection_abnormal": false,
+      "judgement_basis": [
+        "힘 곡선=no_clear_release_or_slip_pattern, Peak=27.1231 N, 안정구간=22.7282 N, 감소량=4.3948 N, 그리퍼 폭 변화=0.5 mm",
+        "작업자 관찰: Cable 이탈=n"
+      ],
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 20.0,
+        "pull_force_limit_n": 5.0,
+        "reasons": [
+          "Fixture 이동: 다음 시험 Pull 힘을 보수적으로 제한"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_force_limit"
+    },
+    {
+      "trial_id": "TEST_0003_LAN_L2",
+      "inspection_point_id": "LAN_L2",
+      "cable_condition": {
+        "connector_type": "RJ45",
+        "cable_type": "LAN_CABLE",
+        "expected_state": "FULLY_SEATED",
+        "connection_direction": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "connector_long_side_alignment": "HORIZONTAL",
+        "grip_orientation": {
+          "reference_frame": "BASE",
+          "task_rotation_axis": "rY",
+          "task_rotation_deg": -90.0
+        }
+      },
+      "soft_grip_setting": {
+        "open_width_mm": 25.0,
+        "close_width_mm": 22.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 19.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 1.37457275390625,
+      "peak_entry_force_n": 1.5660372823476791,
+      "entry_force_baseline_base": [
+        -4.364454746246338,
+        -1.8045316934585571,
+        1.4955440759658813,
+        -0.5215069055557251,
+        -1.9233158826828003,
+        1.252774715423584
+      ],
+      "entry_force_baseline_tool": [
+        -1.4936334577439423,
+        -4.375261569989209,
+        1.7797745559059572,
+        -0.5215069055557251,
+        -1.9233158826828003,
+        1.252774715423584
+      ],
+      "peak_pull_force_n": 24.71034637093544,
+      "pull_displacement_at_stop_mm": 49.438995361328125,
+      "force_limit_reached": false,
+      "pull_force_baseline_base": [
+        -2.7825732231140137,
+        -0.3915136754512787,
+        4.208223819732666,
+        -0.5155975818634033,
+        -1.7339650392532349,
+        1.0379103422164917
+      ],
+      "pull_force_baseline_tool": [
+        -4.206792858546608,
+        -2.786885555545353,
+        0.37590905988415496,
+        -0.5155975818634033,
+        -1.7339650392532349,
+        1.0379103422164917
+      ],
+      "cable_detached": false,
+      "grip_slip": true,
+      "fixture_moved": false,
+      "automatic_connection_abnormal": true,
+      "automatic_evaluation": {
+        "abnormal": true,
+        "reason": "pull_force_peak_then_drop",
+        "peak_force_n": 24.7103,
+        "peak_displacement_mm": 6.5384,
+        "settled_force_n": 5.6455,
+        "force_drop_n": 19.0649,
+        "settled_to_peak_ratio": 0.2285,
+        "gripper_width_range_mm": 1.2,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": null,
+      "suggested_connection_abnormal": true,
+      "judgement_basis": [
+        "힘 곡선=pull_force_peak_then_drop, Peak=24.7103 N, 안정구간=5.6455 N, 감소량=19.0649 N, 그리퍼 폭 변화=1.2 mm",
+        "작업자 관찰: Cable 이탈=n"
+      ],
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 22.5,
+        "pull_force_limit_n": 25.0,
+        "reasons": [
+          "Grip Slip 발생: Hard Grip을 2.5 N 증가"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_motion_completed"
+    },
+    {
+      "trial_id": "TEST_0003_LAN_L5",
+      "inspection_point_id": "LAN_L5",
+      "cable_condition": {
+        "connector_type": "RJ45",
+        "cable_type": "LAN_CABLE",
+        "expected_state": "FULLY_SEATED",
+        "connection_direction": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "connector_long_side_alignment": "HORIZONTAL",
+        "grip_orientation": {
+          "reference_frame": "BASE",
+          "task_rotation_axis": "rY",
+          "task_rotation_deg": -90.0
+        }
+      },
+      "soft_grip_setting": {
+        "open_width_mm": 25.0,
+        "close_width_mm": 22.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 19.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 5.2374267578125,
+      "peak_entry_force_n": 3.4869648218154907,
+      "entry_force_baseline_base": [
+        -2.0058693885803223,
+        -1.87203848361969,
+        3.6657874584198,
+        0.2813294231891632,
+        -0.6631906628608704,
+        0.6691693067550659
+      ],
+      "entry_force_baseline_tool": [
+        -3.664908857009034,
+        -2.017627769160594,
+        1.861090971344885,
+        0.2813294231891632,
+        -0.6631906628608704,
+        0.6691693067550659
+      ],
+      "peak_pull_force_n": 21.536343812942505,
+      "pull_displacement_at_stop_mm": 49.150482177734375,
+      "force_limit_reached": false,
+      "pull_force_baseline_base": [
+        -2.7462544441223145,
+        3.141467332839966,
+        3.226454734802246,
+        0.10130384564399719,
+        -0.8907603621482849,
+        0.775111734867096
+      ],
+      "pull_force_baseline_tool": [
+        -3.2255662207233176,
+        -2.730103718503106,
+        -3.156421637090539,
+        0.10130384564399719,
+        -0.8907603621482849,
+        0.775111734867096
+      ],
+      "cable_detached": false,
+      "grip_slip": true,
+      "fixture_moved": false,
+      "automatic_connection_abnormal": false,
+      "automatic_evaluation": {
+        "abnormal": false,
+        "reason": "no_clear_release_or_slip_pattern",
+        "peak_force_n": 21.5363,
+        "peak_displacement_mm": 5.4777,
+        "settled_force_n": 12.3136,
+        "force_drop_n": 9.2227,
+        "settled_to_peak_ratio": 0.5718,
+        "gripper_width_range_mm": 1.6,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": null,
+      "suggested_connection_abnormal": false,
+      "judgement_basis": [
+        "힘 곡선=no_clear_release_or_slip_pattern, Peak=21.5363 N, 안정구간=12.3136 N, 감소량=9.2227 N, 그리퍼 폭 변화=1.6 mm",
+        "작업자 관찰: Cable 이탈=n"
+      ],
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 22.5,
+        "pull_force_limit_n": 25.0,
+        "reasons": [
+          "Grip Slip 발생: Hard Grip을 2.5 N 증가"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_motion_completed"
+    }
+  ]
+}
