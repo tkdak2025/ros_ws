@@ -1,0 +1,12 @@
+{
+  "name": "GripperDA_v1",
+  "reference_frame": "FLANGE",
+  "pos": [0.0, 0.0, 208.0, 0.0, 0.0, 0.0],
+  "axis_order": ["X", "Y", "Z", "A", "B", "C"],
+  "units": {
+    "translation": "mm",
+    "rotation": "deg"
+  },
+  "source": "../이슈리스트.md — 제공된 툴 설정 화면 기록",
+  "note": "화면 표시값이며 실제 장착 치수와의 일치 여부는 미검증."
+}

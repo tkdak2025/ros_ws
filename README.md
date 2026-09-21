@@ -9,7 +9,20 @@ Doosan M0609 + OnRobot RG2 로 케이블·커넥터 체결 상태를 접촉식 P
 | [`src/cable_hmi/`](src/cable_hmi/) | **PyQt5 HMI.** 화면, ROS 통신, 실제 로봇 값 모니터 노드, 가상 검사 노드(mock), 진행률 보고 부품. 자세한 설명은 [패키지 README](src/cable_hmi/README.md) |
 | [`src/cable_pkg/`](src/cable_pkg/) | **로봇 동작 패키지.** 현재 baseline 측정 스크립트 `pull_test_logger.py` |
 | [`docs/`](docs/) | 문서 (md) |
+| [`measurement_results/`](measurement_results/) | 위치 오차 및 Grip/Pull 실험 원본 CSV·JSON |
+| [`tools/ccc_inspection/`](tools/ccc_inspection/) | 초기 검증·수동 확인용 보조 스크립트 |
 | [`move_async.py`](move_async.py) | 비동기 심플무브 예제 |
+
+CCCIS 로봇 검증 코드는 `src/cable_pkg/cable_pkg/` 아래에 기능별로 정리되어 있다.
+
+- `grip_stability/`: Soft/Hard Grip과 Pull 반복 시험
+- `error_validation/`: Y/Z축 위치 오차 검증
+- `recipe/`: 검사 및 검증 레시피
+- `adaptive_grip_sequence.py`: Adaptive Grip 단계별 검증 인터페이스
+- `manual_check.py`: 실물 로봇 상태 수동 확인 API
+
+프로젝트 설계 및 검증 체크리스트는
+[`docs/ccc_inspection/`](docs/ccc_inspection/)에서 관리한다.
 
 ## 문서 (`docs/`)
 
