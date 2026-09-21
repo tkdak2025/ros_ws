@@ -70,7 +70,7 @@ def _pose_text(values, names, units) -> str:
 
 RESULT_LABELS = {'결과 코드': 'resultCodeValue', '검사 시간': 'timeValue',
                  '대표 측정값': 'measuredValue', '판정 사유': 'reasonValue', '처리': 'actionValue'}
-CRITERIA_LABELS = {'허용 변위': 'limitValue', 'Pull 힘': 'pullForceValue',
+CRITERIA_LABELS = {'허용 변위': 'limitValue', 'Pull 정지 상한': 'pullForceValue',
                    '반복 횟수': 'repeatValue', '파지 폭': 'gripWidthValue'}
 
 
@@ -110,9 +110,9 @@ def _fill_pose(labels, task, joint, missing_text='—'):
 
 
 def _fill_criteria(labels, limit, force, repeat, grip):
-    """'판정 기준' 패널을 채운다. 0 은 '값이 없음' 이다."""
+    """'검사 조건' 패널을 채운다. 0 은 '값이 없음' 이다."""
     labels['허용 변위'].setText(f'{limit:g} mm' if limit > 0 else '—')
-    labels['Pull 힘'].setText(f'{force:g} N' if force > 0 else '—')
+    labels['Pull 정지 상한'].setText(f'{force:g} N' if force > 0 else '—')
     labels['반복 횟수'].setText(f'{repeat} 회' if repeat > 0 else '—')
     labels['파지 폭'].setText(f'{grip:g} mm' if grip > 0 else '—')
 
@@ -150,7 +150,7 @@ class ResultDetailDialog(_UiDialog):
 
         _fill_result(self._info, result)
         # 결과에 실려 온 값이다. 0 은 '기준이 실려 오지 않음' (DB 에 이 포인트가 없을 때 등).
-        _fill_criteria(self._criteria, result.displacement_limit_mm, result.pull_force_n,
+        _fill_criteria(self._criteria, result.displacement_limit_mm, result.pull_force_limit_n,
                        result.repeat_count, result.grip_width_mm)
         _fill_pose(self._pose, result.task, result.joint, '— (결과에 위치가 실려 오지 않음)')
 
@@ -198,7 +198,7 @@ class LookupDetailDialog(_UiDialog):
 
         _fill_result(self._info, row.result)
         if row.in_db:
-            _fill_criteria(self._criteria, row.max_displacement_mm, row.pull_force_n,
+            _fill_criteria(self._criteria, row.max_displacement_mm, row.pull_force_limit_n,
                            row.repeat_count, row.grip_width_mm)
         else:
             for label in self._criteria.values():

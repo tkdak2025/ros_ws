@@ -8,13 +8,16 @@ Doosan M0609 + OnRobot RG2 로 케이블·커넥터 체결 상태를 접촉식 P
 |---|---|
 | [`src/cable_hmi/`](src/cable_hmi/) | **PyQt5 HMI.** 화면, ROS 통신, 실제 로봇 값 모니터 노드, 가상 검사 노드(mock), 진행률 보고 부품. 자세한 설명은 [패키지 README](src/cable_hmi/README.md) |
 | [`src/cable_pkg/`](src/cable_pkg/) | **로봇 동작 패키지.** 현재 baseline 측정 스크립트 `pull_test_logger.py` |
+| [`examples/`](examples/) | **동작 코드 예제 3개.** HMI 와 붙여 보는 시험용 코드 (아래 표) |
+| [`recipe_prototype/`](recipe_prototype/) | 검사 레시피 JSON 과 생성 코드. launch 의 기본 `recipe_dir` |
+| [`scripts/`](scripts/) | 레시피 DB 초기화 SQL 등 거드는 스크립트 |
 | [`docs/`](docs/) | 문서 (md) |
-| [`move_async.py`](move_async.py) | 비동기 심플무브 예제 |
 
 ## 문서 (`docs/`)
 
 | 문서 | 내용 |
 |---|---|
+| [HMI 연동 가이드](docs/HMI_연동_가이드.md) | **동작 코드 담당자용.** 진행률·버튼·일시정지·통신 단절·결과 보고를 어떻게 붙이는지 |
 | [HMI 구현 요약](docs/HMI_구현_요약.md) | HMI 가 어떻게 구현돼 있는지: 구조, 파일별 역할, 통신 규격, 실제 로봇 값 출처, 검증 상태, 실제 장비에서 알게 된 사실, 남은 일 |
 | [BRD v0.1](<docs/M0609_전장판_케이블_커넥터_체결검사_BRD_v0.1 (1).md>) | 프로젝트 요구사항 (목표, 시나리오, Recipe, 결과 Sheet, KPI, Phase 구분) |
 | [BRD 합의사항 요약](<docs/M0609_Cable_Inspection_BRD_Summary (1).md>) | 범위·검사항목·결과 코드(PASS / FAIL_DISPLACEMENT / FAIL_DETACHED / MISSING) 합의 내용 |
@@ -63,12 +66,24 @@ ros2 launch cable_hmi hmi_monitor.launch.py
 
 1)과 2)를 동시에 띄우지 말 것 — 둘 다 `status` 를 publish 해서 값이 섞인다.
 
-## 비동기 심플무브 예제 — `move_async.py`
+## 동작 코드 예제 (`examples/`)
+
+세 개 모두 **HMI 와 붙여 보는 시험용**이고, 실제 검사 동작(측정·판정·그리퍼)은 아직 자리만 있다.
+ROS 패키지가 아니라서 `ros2 run` 이 아니라 `python3` 로 실행한다. 실행 전에 `sod` 와
+`source ~/ros_ws/install/setup.bash` 둘 다 필요하다 (`cable_hmi` 를 import 하기 때문).
+
+| 파일 | 무엇을 보여 주는가 |
+|---|---|
+| [`move_async.py`](examples/move_async.py) | HMI 버튼 연동의 최소 형태. 비동기 모션 + 진행률 보고, 누른 자리에서 바로 멈추는 일시정지 |
+| [`inspect_async.py`](examples/inspect_async.py) | 위 + 레시피 읽기(JSON·DB), Point 순회, 결과 보고, FAIL/MISSING 포인트 이동 |
+| [`sequence_demo.py`](examples/sequence_demo.py) | 설계 문서(CCCIS Sequence v0.2) 흐름. Safe Pause Point 방식 일시정지, HMI 통신 단절 감시, Home Return 처리 |
+
+### `move_async.py` — 왜 비동기인가
 
 교육용 `rokey/move.py`(simple_move)와 같은 자세·순서로 움직이되, 모션을 비동기로 건다.
 
 ```bash
-sod && source ~/ros_ws/install/setup.bash && python3 ~/ros_ws/move_async.py
+sod && source ~/ros_ws/install/setup.bash && python3 ~/ros_ws/examples/move_async.py
 ```
 
 - 동기 모션(`movej`, `movel`)은 이동이 끝날 때까지 두산 드라이버가 다른 서비스에 답하지 못해, 이동 중 HMI 의 힘·위치·변위가 멈추고 "Robot 연결 끊김" 으로 보인다 (실제 장비에서 확인).

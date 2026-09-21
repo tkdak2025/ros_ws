@@ -22,8 +22,8 @@ Point 하나의 동작:  접근(레시피의 joint 로 관절 이동) -> 파지 
 
 실행:
   sod && source ~/ros_ws/install/setup.bash
-  python3 ~/ros_ws/inspect_async.py --make-test-recipe   # (한 번만) 가상 로봇용 레시피 VIRTUAL_TEST 를 만든다
-  python3 ~/ros_ws/inspect_async.py                       # HMI 에서 Recipe 를 고르고 '검사 시작'
+  python3 ~/ros_ws/examples/inspect_async.py --make-test-recipe   # (한 번만) 가상 로봇용 레시피 VIRTUAL_TEST 를 만든다
+  python3 ~/ros_ws/examples/inspect_async.py                       # HMI 에서 Recipe 를 고르고 '검사 시작'
 """
 
 import json
@@ -72,8 +72,10 @@ def judge(point, info):
     측정·판정 자리. (결과 코드, 사유, 측정값 dict) 를 돌려준다.
 
     아직 측정이 없으므로 '유효한 검사를 하지 못함' 으로 보고한다. 실제 로봇에서는 Pull 중에 읽은
-    힘·변위를 info 의 기준(max_displacement_mm, pull_force_n)과 비교해 PASS / FAIL_DISPLACEMENT /
-    FAIL_DETACHED 를 돌려주고, 측정값은 {'max_force_n': ..., 'displacement_mm': ...} 로 채운다.
+    변위를 info.max_displacement_mm 와 비교해 PASS / FAIL_DISPLACEMENT / FAIL_DETACHED 를 돌려주고,
+    측정값은 {'max_force_n': ..., 'displacement_mm': ...} 로 채운다.
+    info.pull_force_limit_n 은 판정 기준이 아니라 Pull 을 멈추는 힘(안전 상한)이다 - 비교 대상이
+    아니라 '여기까지만 당긴다' 는 조건이고, 상한에 닿아 멈췄다면 그 사실을 사유에 적는다.
     """
     return itf.ResultCode.MISSING, "측정 미구현 (동작 뼈대만 실행)", {}
 
@@ -190,13 +192,15 @@ def main(args=None):
         info = db_info.points.get(point.point_id) if db_info else None
         info = info or recipe_db.PointInfo(point.point_id)
         progress.point(index, point.point_id, criteria=itf.Criteria(
-            info.max_displacement_mm, info.pull_force_n, info.repeat_count, info.grip_width_mm))
+            info.max_displacement_mm, info.pull_force_limit_n, info.repeat_count,
+            info.grip_width_mm))
         result = itf.PointResult(
             recipe_id=recipe.recipe_id, recipe_version=recipe.recipe_version,
             product_id=db_info.product_id if db_info else "",
             point_id=point.point_id, point_name=info.point_name or point.point_name,
             cable_id=info.cable_id, cable_type=info.cable_type,
-            pull_force_n=info.pull_force_n, displacement_limit_mm=info.max_displacement_mm,
+            pull_force_limit_n=info.pull_force_limit_n,
+            displacement_limit_mm=info.max_displacement_mm,
             repeat_count=info.repeat_count, grip_width_mm=info.grip_width_mm,
             task=list(point.task), joint=list(point.joint))
 

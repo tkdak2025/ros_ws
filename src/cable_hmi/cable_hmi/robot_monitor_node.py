@@ -173,8 +173,10 @@ HOME_START_TIMEOUT_SEC = 2.0  # 이 시간 안에 모션이 안 보이면 '이�
 NAME_FRESH_SEC = 4.0         # Tool/TCP 이름(1 s 주기)을 '방금 읽은 값' 으로 보는 시간
 RECIPE_RESCAN_SEC = 5.0      # 레시피 폴더를 다시 확인하는 주기
 PROGRESS_STALE_SEC = 2.0     # HMI 버튼을 받는 동작 코드의 소식(0.5 s 주기)이 끊겼다고 보는 시간
-CONTROL_STATES = (itf.State.IDLE, itf.State.RUNNING, itf.State.PAUSED, itf.State.DONE,
-                  itf.State.MOVING)         # MOVING: 동작 코드가 FAIL / MISSING 포인트로 이동 중
+CONTROL_STATES = (itf.State.IDLE, itf.State.RUNNING, itf.State.PAUSE_REQUEST, itf.State.PAUSED,
+                  itf.State.DONE,
+                  itf.State.MOVING)         # MOVING: 동작 코드가 FAIL / MISSING 포인트나 홈으로 이동 중
+BUSY_STATES = (itf.State.RUNNING, itf.State.PAUSE_REQUEST, itf.State.PAUSED, itf.State.MOVING)
 CONTROL_COMMANDS = (itf.CommandName.START, itf.CommandName.PAUSE, itf.CommandName.RESUME,
                     itf.CommandName.MOVE_TO_POINT)
 SETUP_RETRY_SEC = 3.0        # Tool/TCP 설정 요청 사이의 최소 간격
@@ -344,6 +346,7 @@ class RobotMonitorNode(Node):
         self._progress = itf.Progress()  # 동작 코드가 마지막으로 알려 준 진행 상황
         self._progress_at = 0.0          # 그것을 받은 시각
         self._run_id = 0                 # 동작 코드가 마지막으로 알려 준 검사 번호
+        self._end_reason = ''            # 그 검사가 끝난 이유 (다음 검사가 시작될 때까지 유지)
         self._home_active = False      # Home 이동을 걸었고 아직 끝을 확인하지 않음
         self._home_seen_motion = False
         self._home_started = 0.0
@@ -467,7 +470,11 @@ class RobotMonitorNode(Node):
         self._progress = progress
         self._progress_at = time.monotonic()
         if progress.run_id:
+            if int(progress.run_id) != self._run_id:
+                self._end_reason = ''               # 새 검사가 시작됐다
             self._run_id = int(progress.run_id)
+        if progress.end_reason:
+            self._end_reason = progress.end_reason
         if progress.active and not was_active:
             self._log('INFO', '동작 코드 시작 - 진행률 수신')
         elif progress.aborted:
@@ -480,6 +487,10 @@ class RobotMonitorNode(Node):
         if progress.run_state != old.run_state:
             if progress.run_state == itf.State.IDLE:
                 self._log('INFO', "동작 코드 연결 - '검사 시작' 을 기다리는 중")
+            elif progress.run_state == itf.State.PAUSE_REQUEST:
+                why = ('HMI 통신 단절' if progress.pause_reason == itf.PauseReason.COMM_LOST
+                       else '사용자 요청')
+                self._log('WARN', f'일시정지 요청 ({why}) - 안전한 지점에서 멈춥니다')
             elif progress.run_state == itf.State.PAUSED:
                 self._log('WARN', '동작 코드 일시정지')
             elif old.run_state == itf.State.PAUSED:
@@ -503,6 +514,8 @@ class RobotMonitorNode(Node):
             self._log('INFO', '동작 코드 종료 - 모니터링으로 돌아갑니다.')
         else:
             # 프로그램이 죽었다. 마지막 진행 상황(단계 이름, 퍼센트)도 더는 사실이 아니므로 지운다.
+            if old.active:
+                self._end_reason = itf.EndReason.LOST       # 검사 도중이었다 -> 작업 기록에 남는다
             self._progress = itf.Progress()
             self._log('WARN', '동작 코드 응답 없음 - 모니터링으로 돌아갑니다.')
         return ''
@@ -526,6 +539,10 @@ class RobotMonitorNode(Node):
             self._select_recipe(str(cmd.args.get('recipe_id', '')))
             return
         if cmd.name == itf.CommandName.MOVE_HOME:
+            if self._control_state() and self._progress.handles_home:
+                # 동작 코드가 Home Return 시퀀스(작업영역 확인, Safe Escape ...)로 처리한다.
+                self._log('INFO', 'MOVE_HOME - 동작 코드가 처리합니다.')
+                return
             self._move_home()
             return
         if cmd.name == itf.CommandName.SET_SPEED:
@@ -616,14 +633,14 @@ class RobotMonitorNode(Node):
             self._log('WARN', '레시피 JSON 에 없는 포인트(위치 없음): ' + ', '.join(only_db))
         for p in db_info.points.values():
             self._log('INFO', f'  {p.point_id}: {p.cable_id or "-"} ({p.cable_type or "-"}) '
-                              f'변위≤{p.max_displacement_mm} mm, Pull≥{p.pull_force_n} N, '
+                              f'변위≤{p.max_displacement_mm} mm, Pull 정지 {p.pull_force_limit_n} N, '
                               f'{p.repeat_count}회, 파지 {p.grip_width_mm} mm')
 
     def _uniform_criteria(self):
-        """모든 포인트의 판정 기준이 같으면 그 기준, 아니면 None."""
+        """모든 포인트의 검사 조건이 같으면 그 조건, 아니면 None."""
         if self._recipe_db_info is None:
             return None
-        found = {(p.max_displacement_mm, p.pull_force_n, p.repeat_count, p.grip_width_mm)
+        found = {(p.max_displacement_mm, p.pull_force_limit_n, p.repeat_count, p.grip_width_mm)
                  for p in self._recipe_db_info.points.values()}
         return itf.Criteria(*found.pop()) if len(found) == 1 else None
 
@@ -647,7 +664,7 @@ class RobotMonitorNode(Node):
             return '로봇이 이미 움직이는 중'
         if self._home_active:
             return '이전 Home 이동을 확인하는 중'
-        if self._control_state() in (itf.State.RUNNING, itf.State.PAUSED, itf.State.MOVING):
+        if self._control_state() in BUSY_STATES:
             return '동작 코드가 검사 중 / 이동 중 / 일시정지 중'
         # Tool/TCP 설정은 조건이 아니다. 홈 이동은 고정된 관절각으로 가는 관절 이동이라 TCP 와 무관하고,
         # 툴 무게는 도착 자세가 아니라 힘 계산(힘 값, 충돌 감지)에만 영향을 준다. 설정 이상은
@@ -790,6 +807,8 @@ class RobotMonitorNode(Node):
             else:
                 self._log('ERROR', 'RG2 그리퍼 드라이버 수신 끊김')
 
+        # 먼저 판단한다: 동작 코드가 죽은 것을 여기서 알아채면 끝난 이유(LOST)가 같은 status 에 실린다.
+        control_state = self._control_state()
         st = itf.SystemStatus(robot_connected=connected, gripper_connected=gripper)
         st.speed_percent = self._speed_percent
         st.available_recipes = sorted(self._recipes)
@@ -802,6 +821,8 @@ class RobotMonitorNode(Node):
                 st.criteria = self._uniform_criteria() or itf.Criteria()
         st.progress_percent = max(0, min(100, int(self._progress.percent)))
         st.run_id = self._run_id
+        st.end_reason = self._end_reason
+        st.pause_reason = self._progress.pause_reason
         st.judgement = self._progress.judgement
         st.product_result = self._progress.product_result
         if self._progress.active and self._progress.criteria != itf.Criteria():
@@ -820,7 +841,6 @@ class RobotMonitorNode(Node):
         estop = connected and self._robot_state == STATE_EMERGENCY_STOP
         moving = connected and self._motion_poll.fresh and self._motion != DR_STATE_IDLE
         st.estop = estop
-        control_state = self._control_state()
         if estop:
             st.state = itf.State.ESTOP
         elif control_state and connected:
@@ -844,7 +864,8 @@ class RobotMonitorNode(Node):
             st.alarm = self._setup_alarm
 
         if connected:
-            reported = ' · '.join(t for t in (self._progress.point, self._progress.step) if t)
+            reported = ' · '.join(t for t in (self._progress.sequence, self._progress.point,
+                                              self._progress.step) if t)
             if control_state == itf.State.MOVING and self._progress.step:
                 st.current_step = self._progress.step       # 예: 'VT_P02 (으)로 이동'
             elif self._progress.active and reported and not self._home_active:

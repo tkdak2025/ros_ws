@@ -59,6 +59,10 @@ QPushButton { border: none; border-radius: 8px; font-size: 15px; font-weight: bo
 #failBtn:hover, #missingBtn:hover { background: #7C9194; }
 #homeBtn { background: #FFFFFF; color: #2B3440; border: 1px solid #9AA5B1; }
 #homeBtn:hover { background: #EEF2F6; }
+#exportBtn { background: #FFFFFF; color: #2B3440; border: 1px solid #9AA5B1; font-size: 12px;
+    padding: 3px 10px; border-radius: 6px; }
+#exportBtn:hover { background: #EEF2F6; }
+#exportBtn:disabled { background: #F2F4F7; color: #B5BDC7; border: 1px solid #D9E0E7; }
 /* ID 선택자가 QPushButton:disabled 보다 우선하므로 버튼마다 :disabled 를 따로 둔다 */
 #startBtn:disabled, #pauseBtn:disabled, #resumeBtn:disabled, #failBtn:disabled, #missingBtn:disabled {
     background: #D5DBE3; color: #F5F7FA; }
@@ -766,14 +770,41 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
             <number>8</number>
            </property>
            <item>
-            <widget class="QLabel" name="resultsTitle">
-             <property name="text">
-              <string>케이블 검사 결과</string>
-             </property>
-             <property name="role" stdset="0">
-              <string>panelTitle</string>
-             </property>
-            </widget>
+            <layout class="QHBoxLayout" name="resultsTitleRow">
+             <item>
+              <widget class="QLabel" name="resultsTitle">
+               <property name="text">
+                <string>케이블 검사 결과</string>
+               </property>
+               <property name="role" stdset="0">
+                <string>panelTitle</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="resultsTitleSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="exportBtn">
+               <property name="text">
+                <string>결과 파일 저장</string>
+               </property>
+               <property name="toolTip">
+                <string>지금 표에 있는 검사 결과만 새 파일(.db + .csv)로 저장합니다. 공용 DB 는 건드리지 않습니다.</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <layout class="QHBoxLayout" name="layout19">
@@ -1129,7 +1160,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                 <item>
                  <widget class="QLabel" name="criteriaPanelTitle">
                   <property name="text">
-                   <string>판정 기준</string>
+                   <string>검사 조건</string>
                   </property>
                   <property name="role" stdset="0">
                    <string>groupTitle</string>
@@ -1167,7 +1198,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                   <item row="1" column="0">
                    <widget class="QLabel" name="critForceKey">
                     <property name="text">
-                     <string>Pull Force</string>
+                     <string>Pull 정지 상한</string>
                     </property>
                     <property name="role" stdset="0">
                      <string>key</string>

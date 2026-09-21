@@ -1,0 +1,69 @@
+{
+  "recipe_id": "VIRTUAL_TEST",
+  "recipe_version": "0.1.0",
+  "points": {
+    "VT_P01": {
+      "point_id": "VT_P01",
+      "point_name": "VIRTUAL_POINT_1",
+      "task": [
+        472.789,
+        6.25,
+        485.5,
+        0.0,
+        120.0,
+        0.0
+      ],
+      "joint": [
+        0.0,
+        0.0,
+        90.0,
+        0.0,
+        30.0,
+        0.0
+      ],
+      "coordinate_frame": "BASE"
+    },
+    "VT_P02": {
+      "point_id": "VT_P02",
+      "point_name": "VIRTUAL_POINT_2",
+      "task": [
+        467.586,
+        176.838,
+        434.967,
+        20.0,
+        150.0,
+        0.0
+      ],
+      "joint": [
+        20.0,
+        10.0,
+        80.0,
+        0.0,
+        60.0,
+        0.0
+      ],
+      "coordinate_frame": "BASE"
+    },
+    "VT_P03": {
+      "point_id": "VT_P03",
+      "point_name": "VIRTUAL_POINT_3",
+      "task": [
+        471.861,
+        -165.092,
+        434.967,
+        160.0,
+        -150.0,
+        180.0
+      ],
+      "joint": [
+        -20.0,
+        10.0,
+        80.0,
+        0.0,
+        60.0,
+        0.0
+      ],
+      "coordinate_frame": "BASE"
+    }
+  }
+}

@@ -8,11 +8,16 @@
 
     필수 컬럼   recipe_id, point_id
     선택 컬럼   recipe_version, product_id, point_name, cable_id, cable_type,
-                max_displacement_mm, pull_force_n, repeat_count, grip_width_mm, point_order
+                max_displacement_mm, pull_force_limit_n, repeat_count, grip_width_mm, point_order
 
 나중에 테이블을 설계하는 쪽에서 자기 테이블을 위 컬럼 이름으로 묶는 뷰만 만들면, 이 파일을
 고치지 않아도 값이 채워진다. 테이블을 쪼개거나 이름을 바꿔도 뷰만 고치면 된다.
 선택 컬럼은 없어도 된다(해당 값은 기본값). point_order 가 있으면 그 순서로 정렬한다.
+
+pull_force_limit_n 은 Pull 을 멈추는 힘(안전 상한)이다. 합격 기준이 아니다 - 이 값에 닿으면
+그만 당긴다는 뜻이고, 합격 여부는 그때의 변위(max_displacement_mm)로 본다. 예전 뷰에서 쓰던
+이름 pull_force_n 도 아직 읽는다(뷰를 고치기 전까지). 합격 기준 힘은 아직 정해지지 않았고,
+정해지면 별도 컬럼으로 추가한다.
 
 DB 파일이 없거나 뷰가 아직 없는 것은 정상적인 상황이다. 그때는 RecipeDbError 를 던지고,
 부르는 쪽은 경고만 남긴 채 DB 없이 계속 동작해야 한다.
@@ -45,7 +50,7 @@ class PointInfo:
     cable_id: str = ''
     cable_type: str = ''
     max_displacement_mm: float = 0.0
-    pull_force_n: float = 0.0
+    pull_force_limit_n: float = 0.0    # Pull 정지 상한 (합격 기준이 아니다)
     repeat_count: int = 0
     grip_width_mm: float = 0.0
 
@@ -138,7 +143,11 @@ class RecipeDb:
                 cable_id=_text(row, keys, 'cable_id'),
                 cable_type=_text(row, keys, 'cable_type'),
                 max_displacement_mm=_number(row, keys, 'max_displacement_mm', float),
-                pull_force_n=_number(row, keys, 'pull_force_n', float),
+                # 예전 뷰는 같은 값을 pull_force_n 으로 내보냈다. 뷰를 고치기 전까지 둘 다 읽는다.
+                pull_force_limit_n=_number(
+                    row, keys,
+                    'pull_force_limit_n' if 'pull_force_limit_n' in keys else 'pull_force_n',
+                    float),
                 repeat_count=_number(row, keys, 'repeat_count', int),
                 grip_width_mm=_number(row, keys, 'grip_width_mm', float))
         return info

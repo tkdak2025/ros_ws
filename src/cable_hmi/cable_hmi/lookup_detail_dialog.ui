@@ -459,7 +459,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
      <item>
       <widget class="QLabel" name="criteriaTitle">
        <property name="text">
-        <string>판정 기준 (DB)</string>
+        <string>검사 조건 (DB)</string>
        </property>
        <property name="role" stdset="0">
         <string notr="true">groupTitle</string>
@@ -519,7 +519,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
         <item row="1" column="0" alignment="Qt::AlignTop">
          <widget class="QLabel" name="pullForceKey">
           <property name="text">
-           <string>Pull 힘</string>
+           <string>Pull 정지 상한</string>
           </property>
           <property name="role" stdset="0">
            <string notr="true">key</string>

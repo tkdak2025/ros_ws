@@ -49,8 +49,11 @@ HEARTBEAT_PERIOD_SEC = 0.5
 class State:
     """검사 노드의 상위 상태. HMI 버튼 활성화는 전적으로 이 값에 따른다."""
 
+    # 설계 문서(CCCIS Sequence #0)의 SYSTEM_READY = 여기의 IDLE 과 DONE 이다. 둘 다 START 를 받을 수
+    # 있는 정지 대기 상태이고, DONE 은 '직전 검사의 결과가 화면에 남아 있다' 는 것만 다르다.
     IDLE = 'IDLE'          # 대기 - 검사 시작/이동 명령 가능
     RUNNING = 'RUNNING'    # 검사 시퀀스 수행 중
+    PAUSE_REQUEST = 'PAUSE_REQUEST'   # 일시정지를 받았고 안전한 정지 지점까지 가는 중 (Common Sequence #1)
     PAUSED = 'PAUSED'      # 일시정지 - 이어하기 가능
     MOVING = 'MOVING'      # Home / Point 이동 중
     DONE = 'DONE'          # 검사 완료 - 검사 시작/이동 명령 가능
@@ -63,6 +66,7 @@ class State:
     LABELS = {
         IDLE: '대기',
         RUNNING: '검사 중',
+        PAUSE_REQUEST: '일시정지 요청',
         PAUSED: '일시정지',
         MOVING: '이동 중',
         DONE: '검사 완료',
@@ -102,6 +106,27 @@ class ProductResult:
     INCOMPLETE = 'INCOMPLETE'   # FAIL 은 없지만 미검사(MISSING) Point 존재
 
 
+class PauseReason:
+    """왜 일시정지했는가 (Common Sequence #1)."""
+
+    NONE = ''
+    USER = 'USER'                # 사용자가 일시정지를 눌렀다
+    COMM_LOST = 'COMM_LOST'      # HMI heartbeat 가 끊겼다. 복구돼도 사용자가 이어하기를 눌러야 재개한다
+
+
+class EndReason:
+    """검사(run) 1회가 어떻게 끝났는가. 작업 단위 기록(result_db 의 inspection_run)에 남는다."""
+
+    NONE = ''
+    COMPLETED = 'COMPLETED'      # 마지막 Point 까지 검사하고 정상 완료
+    STOP = 'STOP'                # HMI STOP
+    ERROR = 'ERROR'              # 로봇·시퀀스 오류
+    COMM_ERROR = 'COMM_ERROR'    # HMI 통신이 제한 시간 안에 복구되지 않음
+    INIT_FAIL = 'INIT_FAIL'      # Work Initialize 에서 시작 조건 불만족
+    ABORTED = 'ABORTED'          # 동작 코드가 스스로 중단 (Ctrl+C, 예외 ...)
+    LOST = 'LOST'                # 동작 코드가 검사 도중에 소식이 끊김 (프로그램이 죽음)
+
+
 class CommandName:
     """HMI 가 보내는 명령. args 는 Command.args 참고."""
 
@@ -130,10 +155,17 @@ class ToolInfo:
 
 @dataclass
 class Criteria:
-    """현재 Point 에 적용 중인 판정 기준 (우측 패널 상단)."""
+    """
+    현재 Point 에 적용 중인 검사 조건 (우측 패널 상단).
 
-    max_displacement_mm: float = 0.0
-    pull_force_n: float = 0.0
+    합격 여부를 가르는 것은 max_displacement_mm 이다. pull_force_limit_n 은 Pull 을 멈추는
+    힘(안전 상한)이지 합격선이 아니다 - '이 힘까지만 당긴다' 는 뜻이고, 도달해도 그 자체로는
+    합격도 불합격도 아니다. 합격 기준 힘은 아직 정해지지 않았다. 정해지면 이 상한과 헷갈리지
+    않는 별도 필드로 추가할 것.
+    """
+
+    max_displacement_mm: float = 0.0   # 허용 변위. 이 값을 넘으면 FAIL_DISPLACEMENT
+    pull_force_limit_n: float = 0.0    # Pull 정지 상한. 판정 기준이 아니다
     repeat_count: int = 0
     grip_width_mm: float = 0.0
 
@@ -157,7 +189,9 @@ class SystemStatus:
     product_id: str = ''
     total_points: int = 0
     product_result: str = ProductResult.NONE
+    end_reason: str = EndReason.NONE       # 이번 run 이 끝난 이유. 다음 run 이 시작될 때까지 남는다
 
+    pause_reason: str = PauseReason.NONE   # state 가 PAUSE_REQUEST / PAUSED 일 때
     current_point: str = ''      # 예: 'Place 2', 'HOME'
     current_step: str = ''       # 예: 'Pull Test (2/3)'
     judgement: str = ''          # 예: '검사 중', 'PASS'
@@ -181,10 +215,12 @@ class PointResult:
     cable_id: str = ''           # 예: 'LAN-3'
     cable_type: str = ''         # 예: 'RJ45'
     result: str = ''             # ResultCode
-    max_force_n: float = 0.0
-    pull_force_n: float = 0.0
-    displacement_mm: float = 0.0
-    displacement_limit_mm: float = 0.0
+    # 측정값과 그때 쓴 조건을 짝지어 싣는다 (max_force_n ↔ pull_force_limit_n,
+    # displacement_mm ↔ displacement_limit_mm). 합격 여부는 변위로 가른다.
+    max_force_n: float = 0.0           # 측정: 이번 Pull 의 최대 힘
+    pull_force_limit_n: float = 0.0    # 조건: Pull 정지 상한 (합격 기준이 아니다)
+    displacement_mm: float = 0.0       # 측정: Pull 방향 변위
+    displacement_limit_mm: float = 0.0  # 조건: 허용 변위 (이 값을 넘으면 FAIL_DISPLACEMENT)
     reason: str = ''             # 판정 사유 / 미수행 사유
     action: str = ''             # 처리 내용
     force_data_id: str = ''      # 원본 Force 데이터(CSV 등) 식별자
@@ -220,6 +256,12 @@ class Progress:
     # HMI 의 검사 시작 / 일시정지 / 이어하기를 받는 동작 코드만 채운다: State.IDLE(시작 대기) /
     # RUNNING / PAUSED / DONE. 비어 있으면 진행률만 알리는 코드다(HMI 버튼은 잠긴 채로 둔다).
     run_state: str = ''
+    sequence: str = ''           # 현재 시퀀스. 예: 'Work Initialize', 'Home Return', 'Pull Inspection'
+    pause_reason: str = PauseReason.NONE
+    end_reason: str = EndReason.NONE
+    # True 면 HMI 의 Home 이동(MOVE_HOME)을 이 동작 코드가 받아 처리한다(Home Return 시퀀스).
+    # False 면 지금까지처럼 모니터 노드가 홈 관절각으로 바로 이동시킨다.
+    handles_home: bool = False
     # 검사 결과를 보고하는 동작 코드만 채운다 (ProgressReporter.report_result 참고).
     run_id: int = 0              # 검사 1회의 번호. 바뀌면 HMI 가 결과 표를 비운다. 0 = 알리지 않음
     criteria: Criteria = field(default_factory=Criteria)   # 현재 Point 의 판정 기준

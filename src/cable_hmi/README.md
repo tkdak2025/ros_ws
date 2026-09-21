@@ -28,6 +28,7 @@ HMI 와 mock 은 두산 워크스페이스 없이도 빌드·실행된다. `robo
 | 파일 | 역할 |
 |---|---|
 | `interface.py` | **통합 시 고칠 유일한 파일.** 토픽 이름, 메시지 타입, dataclass ↔ ROS 메시지 변환 |
+| `hmi_main.py` | HMI 실행 진입점 (`ros2 run cable_hmi hmi`). ROS 브리지와 Qt 창을 띄운다 |
 | `ros_bridge.py` | ROS 수신 스레드 → Qt signal, 명령/heartbeat publish |
 | `main_window.ui` | **화면 배치 + 스타일시트(QSS).** Qt Designer 로 편집 |
 | `main_window.py` | 화면 동작. `.ui` 를 `uic.loadUi` 로 읽고 objectName 으로 위젯을 찾는다. ROS 를 모르고 `interface` 의 dataclass 만 사용 |
@@ -37,9 +38,9 @@ HMI 와 mock 은 두산 워크스페이스 없이도 빌드·실행된다. `robo
 | `robot_monitor_node.py` | 실제 로봇 값 → status (두산 조회 서비스를 비동기로 읽음). STOP, Tool/TCP 자동 설정, 속도 설정, Home 이동. `dsr_msgs2` 가 필요한 유일한 파일 |
 | `hmi_progress.py` | 동작 코드에 붙이는 부품 (`ProgressReporter`): 진행률 보고 + HMI 의 검사 시작 / 일시정지 / 이어하기 / STOP 수신 |
 | `recipe_catalog.py` | 레시피 JSON 폴더를 읽어 목록 · 버전 · 포인트(티칭 여부)를 돌려준다 |
-| `recipe_db.py` | 레시피 정보(케이블, 판정 기준)를 SQLite 의 뷰 `v_recipe_point` 에서 읽는다. 읽기 전용, ROS·Qt 무관 |
+| `recipe_db.py` | 레시피 정보(케이블, 검사 조건)를 SQLite 의 뷰 `v_recipe_point` 에서 읽는다. 읽기 전용, ROS·Qt 무관 |
 | `lookup_tab.py` | '통합 조회' 탭. 레시피 DB · JSON · 저장된 검사 결과를 한 표에서 검색 (읽기 전용, 백그라운드 조회) |
-| `result_db.py` | 검사 결과를 SQLite 테이블 `inspection_result` 에 쓰고 읽는다 |
+| `result_db.py` | 검사 결과를 SQLite (`inspection_result` · 작업 단위 `inspection_run`)에 쓰고 읽는다. HMI 의 '결과 파일 저장'(`export_run`)도 여기 있다 |
 | `result_recorder_node.py` | 결과 토픽을 받아 DB 에 저장하고 `db_saved=true` 로 다시 보내는 노드 (두 launch 파일이 함께 띄운다) |
 
 ## 화면 수정 (Qt Designer)
@@ -51,7 +52,7 @@ designer ~/ros_ws/src/cable_hmi/cable_hmi/main_window.ui
 - `.ui` 는 파이썬 패키지 폴더 안에 있어 `--symlink-install` 빌드에서는 **저장 후 HMI 만 다시 실행하면 반영**된다(재빌드 불필요).
 - 위젯 위치·크기·글자·색은 자유롭게 바꿔도 된다. 색/모양은 `MainWindow` 의 `styleSheet` 속성에 있다.
 - 코드는 objectName 으로 위젯을 찾는다 (`startBtn`, `pauseBtn`, `resumeBtn`, `estopBtn`, `estopResetBtn`, `homeBtn`,
-  `failBtn`, `missingBtn`, `speedSlider`, `resultTable`, `logView`, `recipeCombo`, `toolName` ...).
+  `failBtn`, `missingBtn`, `exportBtn`, `speedSlider`, `resultTable`, `logView`, `recipeCombo`, `toolName` ...).
   위젯을 **지우거나 이름을 바꾸면 그 항목만 화면에서 빠지고 HMI 는 그대로 뜬다.** 빠진 이름은 시작 시
   터미널과 "시스템 로그" 탭에 `main_window.ui 에 없는 위젯` 경고로 나온다. 값이 안 나오면 이 경고부터 볼 것.
 - 예외: 비상정지 버튼 `estopBtn` 은 없으면 실행을 거부한다.
@@ -69,11 +70,12 @@ designer ~/ros_ws/src/cable_hmi/cable_hmi/main_window.ui
 
 | 토픽 | 방향 | 내용 |
 |---|---|---|
-| `cable_inspection/status` | 검사 노드 → HMI, 10 Hz | `SystemStatus` - 상태, 연결, Tool, 판정 기준, 현재 Point/단계/힘/변위/그리퍼 폭, 진행률 |
+| `cable_inspection/status` | 검사 노드 → HMI, 10 Hz | `SystemStatus` - 상태(+ 일시정지 사유 `pause_reason`, 끝난 이유 `end_reason`), 연결, Tool, 검사 조건, 현재 Point/단계/힘/변위/그리퍼 폭, 진행률 |
 | `cable_inspection/result` | 검사 노드 → HMI | `PointResult` - Point 1개 완료마다 |
 | `cable_inspection/log` | 검사 노드 → HMI | `LogEntry` - 시스템 로그 |
 | `cable_inspection/command` | HMI → 검사 노드 | `Command{name, args}` |
 | `cable_inspection/hmi_heartbeat` | HMI → 검사 노드, 2 Hz | `std_msgs/Empty`. 끊기면 검사 노드가 안전 정지할 것 |
+| `cable_inspection/progress` | 동작 코드 → 모니터 노드, 2 Hz | `Progress` - 진행률 · 시퀀스 · 단계 · 현재 Point 의 검사 조건 · 상태. 동작 코드는 status 를 직접 보내지 않는다(발행자가 둘이 되면 값이 섞인다) |
 
 | 버튼 | command | args | 활성 조건(status.state) |
 |---|---|---|---|
@@ -86,6 +88,7 @@ designer ~/ros_ws/src/cable_hmi/cable_hmi/main_window.ui
 | FAIL / MISSING 포인트 이동 | `MOVE_TO_POINT` | `point_id`, `reason` | IDLE, DONE + 해당 결과 존재 |
 | 속도 슬라이더 | `SET_SPEED` | `percent` | 통신 정상 |
 | (자동) | `SYNC` | | HMI 가 연결 직후 1회 - 현재 run 결과 재전송 요청, 미구현이어도 무방 |
+| 결과 파일 저장 | (명령 없음) | | 표에 결과가 1건 이상 - HMI 안에서 파일로 내보낸다 |
 
 status 가 1.5 s 이상 끊기면 HMI 는 "ROS2 통신 끊김" 으로 표시하고 비상정지 외 버튼을 잠근다.
 HMI 비상정지는 소프트웨어 정지 요청일 뿐이며, 물리 비상정지 스위치와 TP 가 최종 권한이다.
@@ -147,7 +150,7 @@ ros2 launch cable_hmi hmi_monitor.launch.py recipe_dir:=/path/to/recipes     # �
 
 ## 레시피 DB (SQLite)
 
-케이블 번호·종류와 판정 기준(허용 변위, Pull 힘, 반복 횟수, 파지 폭)은 SQLite 에서 읽는다. 위치 좌표는 레시피 JSON, 케이블·기준은 DB 가 맡고 `recipe_id + point_id` 로 묶인다.
+케이블 번호·종류와 검사 조건(허용 변위, Pull 정지 상한, 반복 횟수, 파지 폭)은 SQLite 에서 읽는다. 위치 좌표는 레시피 JSON, 케이블·기준은 DB 가 맡고 `recipe_id + point_id` 로 묶인다.
 
 ```bash
 ros2 launch cable_hmi hmi.launch.py          recipe_db:=/path/to/inspection.db   # 기본: ~/ros_ws/results/inspection.db
@@ -161,22 +164,31 @@ ros2 launch cable_hmi hmi_monitor.launch.py  recipe_db:=/path/to/inspection.db
   |---|---|
   | `recipe_id`, `point_id` | 필수 |
   | `recipe_version`, `product_id`, `point_name`, `cable_id`, `cable_type` | 선택 |
-  | `max_displacement_mm`, `pull_force_n`, `repeat_count`, `grip_width_mm` | 선택 |
+  | `max_displacement_mm`, `pull_force_limit_n`, `repeat_count`, `grip_width_mm` | 선택 |
+
+  `pull_force_limit_n` 은 **Pull 을 멈추는 힘(안전 상한)이지 합격선이 아니다.** 합격 여부는 그때의 변위(`max_displacement_mm`)로 가른다.
+  합격 기준 힘은 아직 정해지지 않았고, 정해지면 상한과 헷갈리지 않는 별도 컬럼으로 추가한다.
+  예전 이름 `pull_force_n` 컬럼도 아직 읽는다 - 뷰를 새 이름으로 고치기 전까지의 한시적 조치다.
   | `point_order` | 선택. 있으면 이 순서로 정렬 |
 
 - DB 파일이 없거나 뷰가 아직 없으면 경고만 남기고 DB 없이 동작한다 (mock 은 내장 예제 레시피, 모니터 노드는 해당 칸 빈 값).
-- 읽기 전용(`mode=ro`)으로 열기 때문에 이 코드가 DB 를 만들거나 고치는 일은 없다. DB 파일은 `.gitignore` 로 저장소에서 제외한다.
+- 읽기 전용(`mode=ro`)으로 열기 때문에 이 코드가 DB 를 만들거나 고치는 일은 없다. DB 파일은 `.gitignore` 로 저장소에서 제외한다(공개 저장소).
+  그래서 **DB 를 처음 만들거나 잃어버렸을 때는 `scripts/init_recipe_db.sql`** 로 다시 만든다. 결과 테이블은 저장 노드가 알아서 만들므로 이 스크립트에 없다.
+
+  ```bash
+  sqlite3 ~/ros_ws/results/inspection.db < ~/ros_ws/scripts/init_recipe_db.sql
+  ```
 - mock: DB 를 읽을 수 있으면 Recipe 목록·케이블·기준을 DB 에서 가져온다 (Point 결과는 PASS → FAIL_DISPLACEMENT → MISSING 순으로 돌려 씀).
-- 모니터 노드: Recipe 를 고르면 제품 ID 를 채우고, 레시피 JSON 과 DB 중 한쪽에만 있는 포인트를 경고한다. 이 노드에는 "현재 포인트" 가 없어서, 판정 기준 칸은 모든 포인트의 기준이 같을 때만 채운다.
+- 모니터 노드: Recipe 를 고르면 제품 ID 를 채우고, 레시피 JSON 과 DB 중 한쪽에만 있는 포인트를 경고한다. 이 노드에는 "현재 포인트" 가 없어서, 검사 조건 칸은 모든 포인트의 조건이 같을 때만 채운다.
 
 ## 통합 조회 탭
 
 "시스템 로그" 옆의 **통합 조회** 탭에서 레시피 DB 와 레시피 JSON 의 내용을 한 표로 검색한다 (포인트 1개 = 1행).
 
 - 검색어는 Recipe · Point · 이름 · 케이블 · 종류 · 제품 · 위치 상태에서 찾는다 (대소문자 무시, 띄어 쓰면 모두 포함). Recipe 콤보로 범위를 좁히고, 열 제목을 누르면 정렬된다.
-- 표의 열은 '현재 검사 결과' 표와 같다: `Recipe / 검사 시간 / Point / 케이블 / 종류 / 결과 / 상세` (Recipe 를 하나 고르면 Recipe 열은 숨는다). 판정 기준, 좌표 등 나머지는 상세 팝업에 있다.
+- 표의 열은 '현재 검사 결과' 표와 같다: `Recipe / 검사 시간 / Point / 케이블 / 종류 / 결과 / 상세` (Recipe 를 하나 고르면 Recipe 열은 숨는다). 검사 조건, 좌표 등 나머지는 상세 팝업에 있다.
 - 행의 바탕색은 레시피 JSON 과 대조한 결과다: JSON 에만 있고 DB 에 없는 포인트는 빨간색(케이블 칸에 `DB 없음`), 위치가 없거나 미티칭(좌표가 전부 0)인 포인트는 노란색. 자세한 상태는 말풍선과 상세 팝업의 배지(`티칭됨` / `미티칭` / `위치 없음` / `DB 없음`)에 나온다.
-- 행을 누르면 그 포인트의 **상세 팝업**이 뜬다 (현재 검사 결과의 상세 팝업과 같은 구성, 비모달이라 STOP 을 막지 않음): 레시피·버전, Point·이름·케이블, 최근 검사 결과(DB), 판정 기준(DB), 위치 좌표 Task/Joint(레시피 JSON), 제품 ID, Force 원본 ID, DB·JSON 어느 쪽에 있는지.
+- 행을 누르면 그 포인트의 **상세 팝업**이 뜬다 (현재 검사 결과의 상세 팝업과 같은 구성, 비모달이라 STOP 을 막지 않음): 레시피·버전, Point·이름·케이블, 최근 검사 결과(DB), 검사 조건(DB), 위치 좌표 Task/Joint(레시피 JSON), 제품 ID, Force 원본 ID, DB·JSON 어느 쪽에 있는지.
 - 이 탭은 진행 중인 검사가 아니라 **지금 DB·파일에 들어 있는 내용**을 보여 준다. 그래서 HMI 의 다른 부분과 달리 DB 를 직접 읽는다 (`recipe_db`, `recipe_dir` 실행 인자). 읽기 전용이고, 조회는 별도 스레드에서 하므로 DB 가 잠겨 있어도 화면과 STOP 은 멈추지 않는다. 검사에 쓰는 기준은 여전히 노드가 보낸 값이다.
 - DB 를 고친 뒤에는 **조회** 버튼을 누르면 다시 읽는다. DB 파일이나 뷰가 없으면 이유를 아래 줄에 표시하고 레시피 JSON 의 포인트만 보여 준다.
 - **결과 / 검사 시간** 열은 DB 에 저장된 그 포인트의 가장 최근 검사 결과다(없으면 `—`). 검색어에 `PASS`, `MISSING` 처럼 결과 코드를 넣어 찾을 수 있고, 상세 팝업의 '최근 검사 결과 (DB)' 패널에 결과 코드 · 검사 시간 · 대표 측정값 · 판정 사유 · 처리가 나온다. 검사를 마친 뒤 **조회** 를 눌러야 새 결과가 보인다.
@@ -189,9 +201,31 @@ ros2 launch cable_hmi hmi_monitor.launch.py  recipe_db:=/path/to/inspection.db
 열은 `PointResult` 의 필드 그대로 + `saved_at` 이다.
 
 - 저장에 성공하면 같은 결과를 `db_saved=true` 로 다시 보낸다. HMI 는 같은 run 의 같은 Point 를 덮어쓰므로 상세 팝업의 `○ 저장 안 됨` 이 `● 저장 완료` 로 바뀐다.
-- 결과에는 검사 당시의 판정 기준과 **위치(`task`, `joint`)** 도 실려 와 함께 저장된다(좌표는 JSON 글자로). 그래서 나중에 레시피를 고쳐도 지난 결과의 상세 팝업은 검사 당시 값을 보여 준다. 위치를 채우지 않는 쪽(mock)의 결과는 위치 칸이 `—` 로 나온다.
+- **작업(run) 단위 기록**: 같은 노드가 status 를 보고 검사 1회의 시작과 끝을 테이블 `inspection_run` 에 남긴다 (`run_id`, Recipe, 제품 ID,
+  `started_at`, `ended_at`, `end_reason`, 제품 판정, 전체 Point 수, PASS / FAIL / MISSING 건수). `end_reason` 은 status 에 실려 오는
+  `itf.EndReason` 이다: `COMPLETED`(정상 완료) / `STOP`(HMI STOP) / `ERROR` / `COMM_ERROR`(HMI 통신 Timeout) / `INIT_FAIL`(Work Initialize 실패) /
+  `ABORTED`(동작 코드가 스스로 중단 - Ctrl+C, 예외) / `LOST`(동작 코드가 검사 도중에 죽음 - 모니터 노드가 알아챈다) / `UNKNOWN`(이유가 실려 오지 않음).
+  '검사 중' 은 state 가 `RUNNING` / `PAUSE_REQUEST` / `PAUSED` 인 동안이다. `ended_at` 이 빈 행은 끝나는 것을 보지 못한 검사다(저장 노드가 먼저 꺼짐).
+  Recipe 와 제품 ID 는 status 의 값(HMI 에서 고른 Recipe)이다.
+
+  ```bash
+  sqlite3 -header -column ~/ros_ws/results/inspection.db "SELECT run_id, recipe_id, started_at, ended_at, end_reason, product_result, pass_count, fail_count, missing_count FROM inspection_run ORDER BY run_id DESC LIMIT 20;"
+  ```
+- 결과에는 검사 당시의 검사 조건과 **위치(`task`, `joint`)** 도 실려 와 함께 저장된다(좌표는 JSON 글자로). 그래서 나중에 레시피를 고쳐도 지난 결과의 상세 팝업은 검사 당시 값을 보여 준다. 위치를 채우지 않는 쪽(mock)의 결과는 위치 칸이 `—` 로 나온다.
 - 결과를 누가 보냈는지는 따지지 않는다 (mock, 동작 코드의 `report_result()`). 그래서 결과를 보내는 쪽은 `db_saved` 를 채우지 않는다.
-- HMI 화면 프로세스는 저장하지 않는다 - DB 가 잠겨 있어도 화면과 STOP 이 멈추면 안 되기 때문이다. 저장 실패는 시스템 로그에 경고로만 남고 검사는 계속된다.
+- HMI 화면 프로세스는 공용 DB 에 저장하지 않는다 - DB 가 잠겨 있어도 화면과 STOP 이 멈추면 안 되기 때문이다. 저장 실패는 시스템 로그에 경고로만 남고 검사는 계속된다.
+- **'결과 파일 저장' 버튼** ('케이블 검사 결과' 제목 오른쪽): 지금 표에 있는 **이번 검사(run)의 결과만** 새 파일 두 개로 내보낸다.
+  공용 DB 는 열지도 않으므로 저장 노드와 부딪히지 않는다 (자동 저장은 그대로 돌아간다). 결과가 0 건이면 버튼이 잠긴다.
+
+  | | |
+  |---|---|
+  | 저장 위치 | 레시피 DB 옆의 `runs/` 폴더 (`recipe_db` 인자가 없으면 `~/ros_ws/results/runs/`) |
+  | 파일 이름 | `run_<run_id>_<YYYYMMDD_HHMMSS>.db` 와 같은 이름의 `.csv` |
+  | `.db` | 공용 DB 와 같은 스키마 - 결과 `inspection_result` + 이번 run 요약 1행 `inspection_run`. 요약의 `started_at`/`ended_at` 은 결과에 실려 온 `stamp` 의 처음과 끝이다(내보낸 시각이 아니다) |
+  | `.csv` | 열 이름은 `PointResult` 필드 그대로, 좌표는 JSON 글자. 엑셀에서 한글이 깨지지 않게 BOM 을 붙인다 |
+
+  누르면 먼저 **확인 / 취소** 창이 뜬다(기본 선택은 확인 - 로봇을 움직이지 않는 동작이라서). 저장을 마치면 경로를 알리는 창이 뜨는데,
+  이 알림과 실패 팝업은 **비모달**이라 떠 있어도 STOP 을 누를 수 있다. 경로는 시스템 로그에도 남고 버튼 말풍선에도 표시된다.
 - mock 은 실행할 때마다 `run_id` 가 1 부터라서, mock 을 다시 띄워 검사하면 지난 mock 결과를 덮어쓴다. 동작 코드(`ProgressReporter`)의 `run_id` 는 시각 기반이라 겹치지 않는다.
 - '현재 검사 결과' 표의 열(`검사 시간 / Point / 케이블 / 종류 / 결과 / 상세`)과 두 상세 팝업의 구성은 통합 조회 탭의 용어에 맞췄다. 표의 열 제목은 코드(`main_window.RESULT_HEADERS`)가 정하며 `.ui` 에 적힌 제목보다 우선한다.
 
@@ -221,7 +255,7 @@ progress.finish()                 # 100 %.  도중에 그만둘 때: progress.ab
 ```
 
 진행률 = (끝난 Point 수 + 현재 Point 안의 단계 위치) ÷ 전체 Point 수. `steps` 에 없는 이름은 글자만 표시되고 퍼센트는 그대로다.
-예제: `~/ros_ws/move_async.py`. 실행 전에 `sod` 와 `source ~/ros_ws/install/setup.bash` 둘 다 필요하다.
+예제: `~/ros_ws/examples/move_async.py`. 실행 전에 `sod` 와 `source ~/ros_ws/install/setup.bash` 둘 다 필요하다.
 
 ## 동작 코드에서 검사 시작 / 일시정지 / 이어하기 받기
 
@@ -270,18 +304,40 @@ finally:
 - **실제 장비 확인 필요**: `move_pause` 후 `move_resume` 이 가던 경로를 그대로 이어 가는지, 힘 제어 중 일시정지가 안전한지는
   아직 확인하지 않았다. `sodvir` 에서 먼저 확인할 것.
 
+## 설계 문서(CCCIS Sequence v0.2)의 흐름에 맞춘 연동
+
+동작 코드 담당자용 요약은 **`docs/HMI_연동_가이드.md`** 에 있다. 아래 기능은 전부 선택 사항이고, 쓰지 않으면 앞 절의 동작은 그대로다.
+
+| 문서의 요구 | `ProgressReporter` |
+|---|---|
+| START VALIDATION - DENY / INIT FAIL / ERROR 의 "HMI reason" | `wait_for_command(auto_start=False)` 로 받고 `reject(사유)` / `start()` → `fail(사유)` / `error(사유)`. 사유는 HMI 팝업으로 뜬다 |
+| 현재 시퀀스 표시 | `sequence('Home Return')` → '현재 단계' 가 `시퀀스 · Point · 단계` 로 나온다 |
+| PAUSE → PAUSE_REQUEST → Safe Pause Point → PAUSED | 일시정지를 누르면 곧바로 상태 `일시정지 요청`, 동작 코드가 `check_pause()` 를 부르는 지점에서 `일시정지`. `check_pause()` 를 원자 동작이 끝난 지점에서만 부르면 문서 방식이다 |
+| HMI 통신 단절 → Safe Pause → 복구 대기 → Timeout 이면 종료 | `watch_heartbeat=True` (+ `heartbeat_lost_sec`, `comm_timeout_sec`). 사유 `COMM_LOST` 로 일시정지, 복구돼도 사용자의 이어하기를 기다림, Timeout 이면 `HmiCommError`(`HmiStop` 의 한 종류). 사용자가 일시정지해 둔 상태에서 HMI 가 꺼진 것은 종료로 치지 않는다 |
+| HOME_RETURN 을 Home Return 시퀀스가 처리 | `handles_home=True` → `wait_for_command()` 가 `MOVE_HOME` 도 돌려준다. `moving('HOME')` … `home_done(성공, 사유)`. 선언하지 않으면 지금까지처럼 모니터 노드가 홈 관절각으로 바로 이동한다 |
+| STOP / ERROR / COMM_ERROR 구분 | `abort(메모, itf.EndReason.…)` |
+
+- 문서의 `SYSTEM_READY` 는 HMI 상태 `IDLE`(대기)과 `DONE`(검사 완료 - 직전 결과가 화면에 남아 있음)에 해당한다. 새 상태는 `PAUSE_REQUEST` 하나다.
+- 일시정지 사유는 status 의 `pause_reason`(`USER` / `COMM_LOST`)으로 오고, 통신 단절이면 상태 배지에 `일시정지 · 통신 단절` 로 표시된다.
+- `일시정지 요청` 상태에서는 STOP 만 열려 있다. 누르자마자 멈추는 방식(`check_pause(pause=, resume=)`)에서는 이 상태가 0.05 초 만에 지나가 화면에 안 보일 수 있다.
+- START / 이동 명령은 대기·완료 상태에서만 받고, 받은 명령을 확인하는 동안(`wait_for_command` 가 돌아온 뒤 ~ `start()` / 다음 대기)에는 새로 눌린 것을 받지 않는다.
+- 예제: **`~/ros_ws/examples/sequence_demo.py`** - 이 절의 기능을 전부 쓴 시험 코드다. `SYSTEM_READY → START VALIDATION →
+  Work Initialize → Home Return → [Point Unit] → Work Finish → Home Return` 순서와 Safe Pause Point 방식의 일시정지,
+  통신 단절 감시, Home Return 처리를 담고 있다. 로봇 동작의 알맹이(Adaptive Grip, Pull, 판정)는 아직 자리만 있어
+  모든 Point 를 `MISSING` 으로 보고한다.
+
 ## 동작 코드에서 검사 결과 보고하기
 
 모니터 노드는 판정하지 않는다. 동작 코드가 결과를 `cable_inspection/result` 로 직접 보내고, 모니터 노드는 동작 코드가 알려 준
-`run_id` · 현재 Point 의 판정 기준 · 현재 판정 · 제품 판정을 status 에 옮겨 싣는다. HMI 의 '현재 검사 결과' 표, 상세 팝업,
+`run_id` · 현재 Point 의 검사 조건 · 현재 판정 · 제품 판정을 status 에 옮겨 싣는다. HMI 의 '현재 검사 결과' 표, 상세 팝업,
 PASS / MISSING / FAIL 집계, 제품 판정 배지가 그대로 채워진다.
 
 ```python
-progress.point(i, point_id, criteria=itf.Criteria(max_displacement_mm, pull_force_n, repeat_count, grip_width_mm))
+progress.point(i, point_id, criteria=itf.Criteria(max_displacement_mm, pull_force_limit_n, repeat_count, grip_width_mm))
 ...
 progress.report_result(itf.PointResult(
     recipe_id=..., recipe_version=..., product_id=..., point_id=point_id, cable_id=..., cable_type=...,
-    result=itf.ResultCode.PASS, max_force_n=..., pull_force_n=..., displacement_mm=..., displacement_limit_mm=...,
+    result=itf.ResultCode.PASS, max_force_n=..., pull_force_limit_n=..., displacement_mm=..., displacement_limit_mm=...,
     reason='...', action='...'))
 ...
 progress.finish()                 # 보고된 결과로 제품 판정을 낸다: FAIL 있음 -> FAIL, MISSING 있음 -> 미검사 Point 있음, 아니면 PASS
@@ -290,13 +346,13 @@ progress.finish()                 # 보고된 결과로 제품 판정을 낸다:
 - `run_id`(검사 1회의 번호)와 시각은 부품이 채운다. 검사를 시작할 때마다 새 번호가 되고 HMI 는 표를 비운다. 프로그램을 닫아도
   모니터 노드는 마지막 `run_id` 와 완료 표시(100 %, 제품 판정)를 유지하므로 표가 지워지지 않는다.
 - HMI 를 검사 도중에 켜도 `SYNC` 로 이번 실행의 결과를 다시 받는다 (`control=True` 일 때).
-- 예제: `~/ros_ws/inspect_async.py` - HMI 에서 고른 Recipe(JSON 위치 + DB 케이블·기준)의 Point 를 차례로 돌며
+- 예제: `~/ros_ws/examples/inspect_async.py` - HMI 에서 고른 Recipe(JSON 위치 + DB 케이블·기준)의 Point 를 차례로 돌며
   `접근 -> 파지 -> Pull -> 후퇴` 를 하고 결과를 보고하는 **검사 뼈대**다. `sodvir` 에서 흐름과 화면을 미리 맞춰 보는 용도이며
   **측정·판정(`judge()`)과 그리퍼(`grip()` / `release()`)는 자리만 있다.** 측정이 없으므로 모든 Point 를
   `MISSING`(사유 '측정 미구현')으로 보고하고 제품 판정은 '미검사 Point 있음' 이 된다. 티칭 안 된(좌표가 전부 0) Point 는
   움직이지 않고 `MISSING`(사유 '미티칭')으로 보고한다.
 - 예제 레시피 JSON 은 좌표가 전부 0 이라 움직이지 않는다. 가상 로봇에서 움직여 보려면 한 번
-  `python3 ~/ros_ws/inspect_async.py --make-test-recipe` 를 실행한다. 레시피 폴더에 `virtual_test.json`(`VIRTUAL_TEST`, Point 3개)을
+  `python3 ~/ros_ws/examples/inspect_async.py --make-test-recipe` 를 실행한다. 레시피 폴더에 `virtual_test.json`(`VIRTUAL_TEST`, Point 3개)을
   만들며, task 좌표는 드라이버의 정기구학(`fkin`)으로 joint 에서 계산한다(로봇은 움직이지 않는다).
 
 ## 실제 검사 노드와 통합하기

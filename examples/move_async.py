@@ -17,7 +17,7 @@ HMI 버튼 (hmi_monitor.launch.py 로 HMI 를 띄운 상태에서):
   - 'STOP': 로봇은 모니터 노드가 멈추고(move_stop), 이 프로그램은 홈 복귀 없이 바로 끝난다.
   두산 파이썬 라이브러리에는 move_pause / move_resume 함수가 없어서 서비스를 직접 부른다.
 
-실행:  sod && source ~/ros_ws/install/setup.bash && python3 ~/ros_ws/move_async.py
+실행:  sod && source ~/ros_ws/install/setup.bash && python3 ~/ros_ws/examples/move_async.py
 먼저 sodvir(에뮬레이터)에서 모션이 겹치지 않고 하나씩 끝나는지 확인한 뒤 실제 로봇에서 돌릴 것.
 """
 

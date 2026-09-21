@@ -9,6 +9,7 @@
 from datetime import datetime
 import html
 import os
+from pathlib import Path
 import sys
 import time
 
@@ -21,6 +22,7 @@ from PyQt5.QtWidgets import (
 )
 
 from . import interface as itf
+from . import result_db
 from .detail_dialog import ResultDetailDialog
 from .lookup_tab import LookupTab
 from .style import (
@@ -45,6 +47,7 @@ SPEED_DEBOUNCE_MS = 300
 
 STATE_BADGE_COLORS = {
     State.RUNNING: '#1E8E5A', State.MOVING: '#1E8E5A', State.PAUSED: '#B7791F',
+    State.PAUSE_REQUEST: '#B7791F',
     State.MONITOR_MOVING: '#1E8E5A',
     State.ESTOP: '#D12F3A', State.ERROR: '#D12F3A',
 }
@@ -70,6 +73,7 @@ class MainWindow(QMainWindow):
         self._speed_hold_until = 0.0
         self._detail = ResultDetailDialog(self)
         self._popup = None            # 떠 있는 에러 팝업 (없으면 None)
+        self._export_popup = None     # 떠 있는 '결과 파일 저장 완료' 알림
 
         self._missing_widgets = []
         self._load_ui()
@@ -140,7 +144,7 @@ class MainWindow(QMainWindow):
             '현재 힘 값': w('pointForce'), '현재 변위': w('pointDisplacement'),
             '현재 판정': w('pointJudgement')}
         self.criteria_rows = {
-            '허용 변위': w('critDisplacement'), 'Pull Force': w('critForce'),
+            '허용 변위': w('critDisplacement'), 'Pull 정지 상한': w('critForce'),
             'Push / Pull 반복': w('critRepeat'), 'Grip 폭': w('critGrip')}
         self.chips = {'전체': w('chipTotal'), 'PASS': w('chipPass'),
                       'MISSING': w('chipMissing'), 'FAIL': w('chipFail')}
@@ -155,6 +159,7 @@ class MainWindow(QMainWindow):
         self.recipe_combo, self.recipe_version = w('recipeCombo', QComboBox), w('recipeVersion')
         self.product_id, self.product_result = w('productId'), w('productResult')
         self.table, self.log_view = w('resultTable', QTableWidget), w('logView', QPlainTextEdit)
+        self.export_btn = w('exportBtn', QPushButton)
         self.speed_slider, self.speed_label = w('speedSlider', QSlider), w('speedLabel')
         self.progress_bar, self.progress_text = w('progressBar', QProgressBar), w('progressText')
 
@@ -179,6 +184,7 @@ class MainWindow(QMainWindow):
         self.home_btn.clicked.connect(self._on_home)
         self.fail_btn.clicked.connect(lambda: self._on_move_to('FAIL'))
         self.missing_btn.clicked.connect(lambda: self._on_move_to('MISSING'))
+        self.export_btn.clicked.connect(self._on_export)
         self.speed_slider.valueChanged.connect(self._on_speed_changed)
         self.recipe_combo.activated.connect(self._on_recipe_chosen)   # 사용자가 고를 때만 발생
         self.table.cellClicked.connect(self._on_cell_clicked)
@@ -253,6 +259,54 @@ class MainWindow(QMainWindow):
         box.show()
         self._popup = box
 
+    # ------------------------------------------------------- 결과 파일 저장
+    def _export_dir(self) -> Path:
+        """결과 파일을 둘 곳: 레시피 DB 옆의 runs 폴더. 경로 인자가 없으면 ~/ros_ws/results/runs."""
+        read = getattr(self._bridge, 'parameter', lambda _name: '')
+        configured = str(read('recipe_db') or '')
+        if configured:
+            return Path(configured).expanduser().parent / 'runs'
+        return Path('~/ros_ws/results/runs').expanduser()
+
+    def _on_export(self):
+        """
+        지금 표에 있는 검사 결과만 새 파일 둘(.db + .csv)로 내보낸다. 누르면 먼저 확인 창이 뜬다.
+
+        공용 DB 는 건드리지 않는다 - 늘 새 파일을 만들므로 저장 노드와 부딪히지 않고,
+        자동 저장(result_recorder_node)은 그대로 돌아간다.
+        """
+        if not self._results:
+            self._append_log('WARN', '[HMI] 저장할 검사 결과가 없습니다.')
+            return
+        count = len(self._results)
+        run_id = self._status.run_id or self._results[0].run_id
+        if not self._confirm_ok_cancel(
+                '결과 파일 저장',
+                f'이번 검사 결과 {count}건을 파일로 저장합니다.\n\n'
+                f'저장 위치: {self._export_dir()}\n'
+                f'파일 이름: run_{run_id}_<날짜_시각>.db / .csv\n\n'
+                '공용 DB 는 바뀌지 않습니다.'):
+            self._append_log('INFO', '[HMI] 결과 파일 저장 취소')
+            return
+        try:
+            db_path, csv_path = result_db.export_run(
+                self._export_dir(), self._results, self._status)
+        except result_db.ResultDbError as e:
+            self._append_log('ERROR', f'[HMI] 결과 파일 저장 실패 - {e}')
+            self._show_popup('ERROR', f'결과 파일 저장 실패\n{e}')
+            return
+        self._append_log('INFO', f'[HMI] 결과 {count}건 저장: {db_path}')
+        self._append_log('INFO', f'[HMI] 결과 {count}건 저장: {csv_path}')
+        self.export_btn.setToolTip(f'마지막 저장: {db_path}')
+        # 저장을 마쳤다는 알림은 비모달이다 - 창이 떠 있어도 STOP 을 누를 수 있다.
+        box = self._message_box(
+            QMessageBox.Information, '결과 파일 저장 완료',
+            f'결과 {count}건을 저장했습니다.\n\n{db_path}\n{csv_path}', QMessageBox.Ok)
+        box.button(QMessageBox.Ok).setText('확인')
+        box.setModal(False)
+        box.show()
+        self._export_popup = box        # 참조를 남겨 둬야 창이 바로 닫히지 않는다
+
     def _ensure_run(self, run_id: int):
         """새 검사(run)가 시작되면 이전 결과를 비운다."""
         if run_id == self._run_id:
@@ -287,6 +341,9 @@ class MainWindow(QMainWindow):
 
         if linked:
             label = State.LABELS.get(s.state, s.state)
+            if (s.state in (State.PAUSE_REQUEST, State.PAUSED)
+                    and s.pause_reason == itf.PauseReason.COMM_LOST):
+                label += ' · 통신 단절'        # 통신이 돌아와도 이어하기를 눌러야 재개된다
             color = STATE_BADGE_COLORS.get(s.state, '')
         else:
             label, color = '통신 끊김', BAD_COLOR
@@ -321,7 +378,7 @@ class MainWindow(QMainWindow):
         _set(self.point_rows['현재 판정'], s.judgement or '—', judge_color)
 
         _set(self.criteria_rows['허용 변위'], f'≤ {c.max_displacement_mm:.1f} mm')
-        _set(self.criteria_rows['Pull Force'], f'≥ {c.pull_force_n:.1f} N')
+        _set(self.criteria_rows['Pull 정지 상한'], f'{c.pull_force_limit_n:.1f} N')
         _set(self.criteria_rows['Push / Pull 반복'], f'{c.repeat_count}회')
         _set(self.criteria_rows['Grip 폭'], f'{c.grip_width_mm:.1f} mm')
 
@@ -334,7 +391,7 @@ class MainWindow(QMainWindow):
         self.progress_bar.setValue(max(0, min(100, s.progress_percent)))
         # 진행률 옆에는 '어디를 검사 중인가'(현재 단계)를 쓴다. current_point 는 모니터 노드에서는
         # TCP 좌표라서 여기에 맞지 않는다. 검사 중이 아닐 때는 상태만 쓴다.
-        busy = s.state in (State.RUNNING, State.PAUSED, State.MOVING)
+        busy = s.state in (State.RUNNING, State.PAUSE_REQUEST, State.PAUSED, State.MOVING)
         where = f'{s.current_step} · ' if busy and s.current_step else ''
         self.progress_text.setText(
             f'{s.progress_percent}%   {where}{State.LABELS.get(s.state, s.state)}')
@@ -399,6 +456,8 @@ class MainWindow(QMainWindow):
         self.resume_btn.setEnabled(state == State.PAUSED)
         # 모니터 노드는 검사는 못 하지만 Home 이동은 받는다(로봇이 멈춰 있을 때만).
         self.home_btn.setEnabled(ready or (state == State.MONITOR and not s.estop))
+        # 결과 파일 저장은 상태와 무관하다: 검사 중에도, 중단된 뒤에도 표에 있는 것을 저장할 수 있다.
+        self.export_btn.setEnabled(bool(self._results))
         self.fail_btn.setEnabled(ready and 'FAIL' in categories)
         self.missing_btn.setEnabled(ready and 'MISSING' in categories)
         # 모니터 모드에서는 검사는 못 하지만 Recipe 내용을 보려고 고를 수는 있다(로봇이 멈춰 있을 때).
@@ -459,6 +518,20 @@ class MainWindow(QMainWindow):
         부모를 이 창으로 두어야 _load_ui 에서 덧붙인 대화상자 버튼 스타일(DIALOG_QSS)을 물려받는다.
         """
         return QMessageBox(icon, title, text, buttons, self)
+
+    def _confirm_ok_cancel(self, title: str, text: str) -> bool:
+        """
+        확인/취소 창. 기본 선택은 '확인'.
+
+        로봇을 움직이지 않는 동작(파일 저장 등)에 쓴다. 로봇이 움직이는 동작은 _confirm 을 쓴다
+        (기본 선택이 '아니오' 라서 엔터를 잘못 눌러도 움직이지 않는다).
+        """
+        box = self._message_box(QMessageBox.Question, title, text,
+                                QMessageBox.Ok | QMessageBox.Cancel)
+        box.button(QMessageBox.Ok).setText('확인')
+        box.button(QMessageBox.Cancel).setText('취소')
+        box.setDefaultButton(QMessageBox.Ok)
+        return box.exec_() == QMessageBox.Ok
 
     def _confirm(self, title: str, text: str) -> bool:
         """예/아니오 확인 창. 기본 선택은 '아니오'."""

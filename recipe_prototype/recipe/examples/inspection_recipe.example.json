@@ -1,0 +1,34 @@
+{
+  "recipe_id": "AUTOMOTIVE_CABLE_INSPECTION_EXAMPLE",
+  "recipe_version": "0.1.0",
+  "points": {
+    "BCM_P01": {
+      "point_id": "BCM_P01",
+      "point_name": "BCM_POWER_CONNECTOR",
+      "task": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "joint": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "coordinate_frame": "BASE"
+    },
+    "BCM_P02": {
+      "point_id": "BCM_P02",
+      "point_name": "BCM_CAN_CONNECTOR",
+      "task": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "joint": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "coordinate_frame": "BASE"
+    },
+    "VCU_P01": {
+      "point_id": "VCU_P01",
+      "point_name": "VCU_POWER_CONNECTOR",
+      "task": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "joint": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "coordinate_frame": "BASE"
+    },
+    "VCU_P02": {
+      "point_id": "VCU_P02",
+      "point_name": "VCU_SIGNAL_CONNECTOR",
+      "task": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "joint": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "coordinate_frame": "BASE"
+    }
+  }
+}

@@ -46,7 +46,7 @@ class MockPoint:
     cable_id: str
     cable_type: str
     grip_width_mm: float
-    pull_force_n: float
+    pull_force_limit_n: float
     max_displacement_mm: float
     outcome: str
     repeat_count: int = 3
@@ -211,7 +211,7 @@ class MockInspectionNode(Node):
                 'product_id': info.product_id,
                 'points': [
                     MockPoint(p.point_id, p.cable_id, p.cable_type, p.grip_width_mm,
-                              p.pull_force_n, p.max_displacement_mm,
+                              p.pull_force_limit_n, p.max_displacement_mm,
                               MOCK_OUTCOME_CYCLE[i % len(MOCK_OUTCOME_CYCLE)],
                               p.repeat_count or 3)
                     for i, p in enumerate(info.points.values())],
@@ -233,6 +233,7 @@ class MockInspectionNode(Node):
         st.recipe_version = recipe['version']
         st.product_id = recipe['product_id']
         st.product_result = itf.ProductResult.NONE
+        st.end_reason = itf.EndReason.NONE
         st.progress_percent = 0
         self._points = list(recipe['points'])
         st.total_points = len(self._points)
@@ -268,6 +269,7 @@ class MockInspectionNode(Node):
         st.alarm = '비상정지 작동'
         st.force_n = 0.0
         st.judgement = '중단'
+        st.end_reason = itf.EndReason.STOP
         self._log('ERROR', f'비상정지! 모든 동작 중단 ({st.current_point} · {st.current_step})')
 
     def _cmd_estop_reset(self, _args):
@@ -363,7 +365,7 @@ class MockInspectionNode(Node):
         st.force_n = 0.0
         st.gripper_width_mm = GRIPPER_OPEN_MM
         st.criteria = itf.Criteria(
-            point.max_displacement_mm, point.pull_force_n, point.repeat_count,
+            point.max_displacement_mm, point.pull_force_limit_n, point.repeat_count,
             point.grip_width_mm)
         self._log('INFO', f'{point.point_id} ({point.cable_id}) 검사 시작')
 
@@ -421,7 +423,7 @@ class MockInspectionNode(Node):
                 st.force_n = abs(0.4 + noise)
                 st.displacement_mm = 8.5
             else:
-                st.force_n = max(0.0, (point.pull_force_n + 0.8) * wave + noise)
+                st.force_n = max(0.0, (point.pull_force_limit_n + 0.8) * wave + noise)
                 st.displacement_mm = round(final_disp * max(wave, ratio), 2)
             self._max_force = max(self._max_force, st.force_n)
         elif step.kind in ('retreat', 'recover'):
@@ -447,7 +449,7 @@ class MockInspectionNode(Node):
             cable_type=point.cable_type,
             result=point.outcome,
             max_force_n=0.0 if missing else round(self._max_force, 2),
-            pull_force_n=point.pull_force_n,
+            pull_force_limit_n=point.pull_force_limit_n,
             displacement_mm=0.0 if missing else round(st.displacement_mm, 2),
             displacement_limit_mm=point.max_displacement_mm,
             reason=reason,
@@ -473,6 +475,7 @@ class MockInspectionNode(Node):
         else:
             st.product_result = itf.ProductResult.PASS
         st.state = State.DONE
+        st.end_reason = itf.EndReason.COMPLETED
         st.current_point = 'HOME'
         st.current_step = ''
         st.judgement = st.product_result
