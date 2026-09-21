@@ -1,0 +1,588 @@
+{
+  "schema_version": 1,
+  "run_metadata": {
+    "mode": "real",
+    "gripper_service_providers": [
+      "/dsr01/OnRobotRGControllerServer"
+    ]
+  },
+  "test_type": "two_stage_approach_and_grip_pull_baseline",
+  "force_limit_note": "10 N is a stop limit, not PASS/FAIL",
+  "recipe_id": "CCCIS_GRIP_PULL_TEST_V1",
+  "recipe_version": "1.0.0",
+  "test_conditions": {
+    "entry_speed_mm_s": 10.0,
+    "soft_grip_setting": {
+      "open_width_mm": 22.0,
+      "close_width_mm": 18.0,
+      "force_n": 10.0
+    },
+    "entry_motion_start_width_mm": 22.0,
+    "gripper_preclose_timeout_s": 20.0,
+    "max_entry_depth_note": "point.entry_depth_mm",
+    "entry_timeout_s": 20.0,
+    "pull_speed_mm_s": 10.0,
+    "pull_distance_limit_mm": 25.0,
+    "pull_force_limit_n": 10.0,
+    "pull_timeout_s": 20.0,
+    "grip_stabilization_time_s": 1.0,
+    "logging_rate_hz": 20.0,
+    "completed_test_count": 7
+  },
+  "trials": [
+    {
+      "trial_id": "TEST_0001_TEST_P01",
+      "inspection_point_id": "TEST_P01",
+      "soft_grip_setting": {
+        "open_width_mm": 22.0,
+        "close_width_mm": 18.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 5.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 24.2088623046875,
+      "peak_entry_force_n": 8.313607692718506,
+      "entry_force_baseline_base": [
+        -3.1260485649108887,
+        -2.7093663215637207,
+        1.0596351623535156,
+        0.22444745898246765,
+        -0.005495447665452957,
+        0.0008623296162113547
+      ],
+      "entry_force_baseline_tool": [
+        -1.0741974212116412,
+        -2.7840213422597464,
+        -3.0546681586605935,
+        0.22444745898246765,
+        -0.005495447665452957,
+        0.0008623296162113547
+      ],
+      "peak_pull_force_n": 9.290670394897461,
+      "pull_displacement_at_stop_mm": 49.10858154296875,
+      "force_limit_reached": false,
+      "pull_force_baseline_base": [
+        -2.209458827972412,
+        -1.647935390472412,
+        -2.0685462951660156,
+        0.6020605564117432,
+        -0.01484043337404728,
+        0.002507398836314678
+      ],
+      "pull_force_baseline_tool": [
+        2.05798001312333,
+        -1.703703034780678,
+        -2.1767861281524867,
+        0.6020605564117432,
+        -0.01484043337404728,
+        0.002507398836314678
+      ],
+      "cable_detached": false,
+      "grip_slip": false,
+      "fixture_moved": false,
+      "automatic_connection_abnormal": false,
+      "automatic_evaluation": {
+        "abnormal": false,
+        "reason": "no_clear_release_or_slip_pattern",
+        "peak_force_n": 9.2907,
+        "peak_displacement_mm": 7.2634,
+        "settled_force_n": 2.0457,
+        "force_drop_n": 7.245,
+        "settled_to_peak_ratio": 0.2202,
+        "gripper_width_range_mm": 0.2,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": false,
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 20.0,
+        "pull_force_limit_n": 25.0,
+        "pull_distance_limit_mm": 50.0,
+        "reasons": [
+          "이상 관찰 없음: 현재 설정 유지"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_motion_completed"
+    },
+    {
+      "trial_id": "TEST_0002_TEST_P01",
+      "inspection_point_id": "TEST_P01",
+      "soft_grip_setting": {
+        "open_width_mm": 22.0,
+        "close_width_mm": 18.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 5.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 24.274658203125,
+      "peak_entry_force_n": 9.593374490737915,
+      "entry_force_baseline_base": [
+        -3.186786413192749,
+        -2.7341954708099365,
+        0.7121228575706482,
+        0.2044946700334549,
+        -0.005002217832952738,
+        0.0007867547683417797
+      ],
+      "entry_force_baseline_tool": [
+        -0.7270071844900836,
+        -2.8106575130427,
+        -3.1161218980235863,
+        0.2044946700334549,
+        -0.005002217832952738,
+        0.0007867547683417797
+      ],
+      "peak_pull_force_n": 12.229476928710938,
+      "pull_displacement_at_stop_mm": 49.33074951171875,
+      "force_limit_reached": false,
+      "pull_force_baseline_base": [
+        -4.718003273010254,
+        -1.8348281383514404,
+        -3.254031181335449,
+        0.6011108160018921,
+        -0.0148182837292552,
+        0.002469681901857257
+      ],
+      "pull_force_baseline_tool": [
+        3.233071901880874,
+        -1.9533560339253038,
+        -4.684710539978672,
+        0.6011108160018921,
+        -0.0148182837292552,
+        0.002469681901857257
+      ],
+      "cable_detached": null,
+      "grip_slip": null,
+      "fixture_moved": false,
+      "automatic_connection_abnormal": true,
+      "automatic_evaluation": {
+        "abnormal": true,
+        "reason": "progressive_grip_slip_or_extraction",
+        "peak_force_n": 12.2295,
+        "peak_displacement_mm": 48.8267,
+        "settled_force_n": 12.0506,
+        "force_drop_n": 0.1789,
+        "settled_to_peak_ratio": 0.9854,
+        "gripper_width_range_mm": 3.0,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": null,
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 20.0,
+        "pull_force_limit_n": 25.0,
+        "pull_distance_limit_mm": 50.0,
+        "reasons": [
+          "이상 관찰 없음: 현재 설정 유지"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_motion_completed"
+    },
+    {
+      "trial_id": "TEST_0003_TEST_P01",
+      "inspection_point_id": "TEST_P01",
+      "soft_grip_setting": {
+        "open_width_mm": 22.0,
+        "close_width_mm": 18.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 5.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 24.20758056640625,
+      "peak_entry_force_n": 11.285844326019287,
+      "entry_force_baseline_base": [
+        -2.796553134918213,
+        -2.6303231716156006,
+        0.941989004611969,
+        0.2543782889842987,
+        -0.0062303501181304455,
+        0.0009736490319482982
+      ],
+      "entry_force_baseline_tool": [
+        -0.955167883386266,
+        -2.6970516885695566,
+        -2.7276765929459215,
+        0.2543782889842987,
+        -0.0062303501181304455,
+        0.0009736490319482982
+      ],
+      "peak_pull_force_n": 11.279030799865723,
+      "pull_displacement_at_stop_mm": 49.32147216796875,
+      "force_limit_reached": false,
+      "pull_force_baseline_base": [
+        -4.149296283721924,
+        -2.8842411041259766,
+        0.25868532061576843,
+        0.5985257625579834,
+        -0.014758056960999966,
+        0.002472212538123131
+      ],
+      "pull_force_baseline_tool": [
+        -0.27815842747549746,
+        -2.9853907426272546,
+        -4.07584278083455,
+        0.5985257625579834,
+        -0.014758056960999966,
+        0.002472212538123131
+      ],
+      "cable_detached": true,
+      "grip_slip": false,
+      "fixture_moved": true,
+      "automatic_connection_abnormal": false,
+      "automatic_evaluation": {
+        "abnormal": false,
+        "reason": "no_clear_release_or_slip_pattern",
+        "peak_force_n": 11.279,
+        "peak_displacement_mm": 48.838,
+        "settled_force_n": 10.7254,
+        "force_drop_n": 0.5537,
+        "settled_to_peak_ratio": 0.9509,
+        "gripper_width_range_mm": 0.2,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": false,
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 20.0,
+        "pull_force_limit_n": 5.0,
+        "pull_distance_limit_mm": 5.0,
+        "reasons": [
+          "정상 케이블 이탈: Pull 힘과 최대 이동거리 축소",
+          "Fixture 이동: 다음 시험 하중을 보수적으로 제한"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_motion_completed"
+    },
+    {
+      "trial_id": "TEST_0004_TEST_P01",
+      "inspection_point_id": "TEST_P01",
+      "soft_grip_setting": {
+        "open_width_mm": 22.0,
+        "close_width_mm": 18.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 5.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 23.931884765625,
+      "peak_entry_force_n": 6.20653223991394,
+      "entry_force_baseline_base": [
+        -3.772463083267212,
+        -2.629455804824829,
+        0.5835862159729004,
+        0.24405647814273834,
+        -0.005976163782179356,
+        0.000934016949031502
+      ],
+      "entry_force_baseline_tool": [
+        -0.6005045048117744,
+        -2.720455302181948,
+        -3.7046734813646505,
+        0.24405647814273834,
+        -0.005976163782179356,
+        0.000934016949031502
+      ],
+      "peak_pull_force_n": 2.5423178672790527,
+      "pull_displacement_at_stop_mm": 4.27679443359375,
+      "force_limit_reached": false,
+      "pull_force_baseline_base": [
+        -6.740177154541016,
+        -1.979299783706665,
+        1.0551198720932007,
+        0.5884745717048645,
+        -0.014502836391329765,
+        0.0024068879429250956
+      ],
+      "pull_force_baseline_tool": [
+        -1.0843564809564756,
+        -2.1437899348068497,
+        -6.685000145496104,
+        0.5884745717048645,
+        -0.014502836391329765,
+        0.0024068879429250956
+      ],
+      "cable_detached": false,
+      "grip_slip": false,
+      "fixture_moved": false,
+      "automatic_connection_abnormal": false,
+      "automatic_evaluation": {
+        "abnormal": false,
+        "reason": "no_clear_release_or_slip_pattern",
+        "peak_force_n": 2.5423,
+        "peak_displacement_mm": 0.9734,
+        "settled_force_n": 1.952,
+        "force_drop_n": 0.5904,
+        "settled_to_peak_ratio": 0.7678,
+        "gripper_width_range_mm": 0.1,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": false,
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 20.0,
+        "pull_force_limit_n": 5.0,
+        "pull_distance_limit_mm": 5.0,
+        "reasons": [
+          "이상 관찰 없음: 현재 설정 유지"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_motion_completed"
+    },
+    {
+      "trial_id": "TEST_0005_TEST_P01",
+      "inspection_point_id": "TEST_P01",
+      "soft_grip_setting": {
+        "open_width_mm": 22.0,
+        "close_width_mm": 18.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 5.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 24.2645263671875,
+      "peak_entry_force_n": 9.950735092163086,
+      "entry_force_baseline_base": [
+        -2.9206953048706055,
+        -2.562384843826294,
+        0.8404719233512878,
+        0.2410670965909958,
+        -0.005900351330637932,
+        0.0009256401099264622
+      ],
+      "entry_force_baseline_tool": [
+        -0.8541283009505829,
+        -2.632274834663981,
+        -2.8538155866123356,
+        0.2410670965909958,
+        -0.005900351330637932,
+        0.0009256401099264622
+      ],
+      "peak_pull_force_n": 2.5022754669189453,
+      "pull_displacement_at_stop_mm": 4.35260009765625,
+      "force_limit_reached": false,
+      "pull_force_baseline_base": [
+        -8.7399320602417,
+        -3.026674509048462,
+        -4.407670497894287,
+        0.5810285210609436,
+        -0.014322961680591106,
+        0.0025179272051900625
+      ],
+      "pull_force_baseline_tool": [
+        4.36711312605909,
+        -3.2451402612181597,
+        -8.681711822104296,
+        0.5810285210609436,
+        -0.014322961680591106,
+        0.0025179272051900625
+      ],
+      "cable_detached": false,
+      "grip_slip": false,
+      "fixture_moved": false,
+      "automatic_connection_abnormal": false,
+      "automatic_evaluation": {
+        "abnormal": false,
+        "reason": "no_clear_release_or_slip_pattern",
+        "peak_force_n": 2.5023,
+        "peak_displacement_mm": 2.7618,
+        "settled_force_n": 2.3734,
+        "force_drop_n": 0.1288,
+        "settled_to_peak_ratio": 0.9485,
+        "gripper_width_range_mm": 0.1,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": true,
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 20.0,
+        "pull_force_limit_n": 5.0,
+        "pull_distance_limit_mm": 5.0,
+        "reasons": [
+          "이상 관찰 없음: 현재 설정 유지"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_motion_completed"
+    },
+    {
+      "trial_id": "TEST_0006_TEST_P01",
+      "inspection_point_id": "TEST_P01",
+      "soft_grip_setting": {
+        "open_width_mm": 22.0,
+        "close_width_mm": 18.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 5.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 24.33380126953125,
+      "peak_entry_force_n": 10.675191640853882,
+      "entry_force_baseline_base": [
+        -3.51808762550354,
+        -2.687699794769287,
+        0.8364815711975098,
+        0.22722485661506653,
+        -0.0055620321072638035,
+        0.0008696517907083035
+      ],
+      "entry_force_baseline_tool": [
+        -0.852468294136511,
+        -2.7721883075172684,
+        -3.4479911368178775,
+        0.22722485661506653,
+        -0.0055620321072638035,
+        0.0008696517907083035
+      ],
+      "peak_pull_force_n": 5.575462341308594,
+      "pull_displacement_at_stop_mm": 3.84344482421875,
+      "force_limit_reached": true,
+      "pull_force_baseline_base": [
+        -4.835700035095215,
+        -2.4277429580688477,
+        -2.053205966949463,
+        0.6379755139350891,
+        -0.01572796143591404,
+        0.002659315476194024
+      ],
+      "pull_force_baseline_tool": [
+        2.0310025430113825,
+        -2.5479740082694815,
+        -4.782932315529719,
+        0.6379755139350891,
+        -0.01572796143591404,
+        0.002659315476194024
+      ],
+      "cable_detached": false,
+      "grip_slip": false,
+      "fixture_moved": false,
+      "automatic_connection_abnormal": false,
+      "automatic_evaluation": {
+        "abnormal": false,
+        "reason": "no_clear_release_or_slip_pattern",
+        "peak_force_n": 5.5755,
+        "peak_displacement_mm": 3.8434,
+        "settled_force_n": 4.5474,
+        "force_drop_n": 1.0281,
+        "settled_to_peak_ratio": 0.8156,
+        "gripper_width_range_mm": 0.0,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": true,
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 20.0,
+        "pull_force_limit_n": 5.0,
+        "pull_distance_limit_mm": 5.0,
+        "reasons": [
+          "이상 관찰 없음: 현재 설정 유지"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_force_limit"
+    },
+    {
+      "trial_id": "TEST_0007_TEST_P01",
+      "inspection_point_id": "TEST_P01",
+      "soft_grip_setting": {
+        "open_width_mm": 22.0,
+        "close_width_mm": 18.0,
+        "force_n": 10.0
+      },
+      "hard_grip_setting": {
+        "width_mm": 5.0,
+        "force_n": 20.0
+      },
+      "soft_grip_completed": true,
+      "hard_grip_completed": true,
+      "entry_depth_at_stop_mm": 24.28131103515625,
+      "peak_entry_force_n": 10.077719926834106,
+      "entry_force_baseline_base": [
+        -3.0824620723724365,
+        -2.6243724822998047,
+        0.985210120677948,
+        0.24286338686943054,
+        -0.005946943070739508,
+        0.0009295581257902086
+      ],
+      "entry_force_baseline_tool": [
+        -0.999476579252351,
+        -2.698079711358744,
+        -3.0134622447228288,
+        0.24286338686943054,
+        -0.005946943070739508,
+        0.0009295581257902086
+      ],
+      "peak_pull_force_n": 7.727752327919006,
+      "pull_displacement_at_stop_mm": 24.509521484375,
+      "force_limit_reached": false,
+      "pull_force_baseline_base": [
+        -1.9027639627456665,
+        -2.742198944091797,
+        -1.7181761264801025,
+        0.6388871669769287,
+        -0.015750810503959656,
+        0.002633853815495968
+      ],
+      "pull_force_baseline_tool": [
+        1.7081592724873276,
+        -2.7897522560168757,
+        -1.8416757104559265,
+        0.6388871669769287,
+        -0.015750810503959656,
+        0.002633853815495968
+      ],
+      "cable_detached": true,
+      "grip_slip": false,
+      "fixture_moved": false,
+      "automatic_connection_abnormal": false,
+      "automatic_evaluation": {
+        "abnormal": false,
+        "reason": "no_clear_release_or_slip_pattern",
+        "peak_force_n": 7.7278,
+        "peak_displacement_mm": 17.4012,
+        "settled_force_n": 0.9942,
+        "force_drop_n": 6.7336,
+        "settled_to_peak_ratio": 0.1286,
+        "gripper_width_range_mm": 0.0,
+        "rule_version": "force_release_and_slip_v0.2"
+      },
+      "automatic_judgement_correct": false,
+      "setting_recommendation": {
+        "soft_grip_force_n": 10.0,
+        "hard_grip_force_n": 20.0,
+        "pull_force_limit_n": 5.0,
+        "pull_distance_limit_mm": 10.0,
+        "reasons": [
+          "정상 케이블 이탈: Pull 힘과 최대 이동거리 축소"
+        ]
+      },
+      "abnormal_stop": false,
+      "stop_reason": "pull_motion_completed"
+    }
+  ]
+}
