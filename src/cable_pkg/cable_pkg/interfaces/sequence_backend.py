@@ -2,7 +2,7 @@
 
 from typing import Any, Protocol
 
-from .models import JobContext, SequenceResult
+from cable_pkg.data_models.sequence_models import JobContext, SequenceResult
 
 
 class SequenceBackend(Protocol):

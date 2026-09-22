@@ -8,9 +8,11 @@
   <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>dsr_common2</depend>
   <depend>dsr_msgs2</depend>
+  <depend>onrobot_rg_msgs</depend>
   <exec_depend>cable_hmi</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

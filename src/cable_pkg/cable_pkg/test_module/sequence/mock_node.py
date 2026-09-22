@@ -3,11 +3,11 @@
 import rclpy
 from rclpy.executors import ExternalShutdownException
 
-from .backend import UnimplementedPointExecutor
-from .controller import SequenceController
+from cable_pkg.interfaces.sequence_backend import UnimplementedPointExecutor
+from cable_pkg.sequence.seq_00_main_work import SequenceController
 from .mock_backend import MockSequenceBackend
-from .models import SystemState
-from .node import SequenceNode
+from cable_pkg.data_models.sequence_models import SystemState
+from cable_pkg.sequence.seq_00_hmi_interface import SequenceNode
 
 
 class MockSequenceNode(SequenceNode):

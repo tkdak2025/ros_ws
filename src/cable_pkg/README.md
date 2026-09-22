@@ -11,8 +11,8 @@ cable_pkg/
 ├── grip_stability/      # Soft/Hard Grip 및 Pull 반복시험
 ├── recipe/              # 검사포인트와 시험 레시피
 ├── safety/              # 작업영역 및 금지영역 판정
-├── sequence/            # 확정 공통 시퀀스와 HMI Mock 시험 노드
-└── pull_test_logger.py  # 기존 Pull baseline 기록기
+├── sequence/            # 실제 운전 시퀀스
+└── test_module/         # 기능·실물 검증용 코드
 ```
 
 ## 실행 명령

@@ -1,7 +1,7 @@
 """Sequence #1 Work Initialize의 확정된 검사 순서를 구현한다."""
 
-from .backend import SequenceBackend
-from .models import SequenceResult
+from cable_pkg.interfaces.sequence_backend import SequenceBackend
+from cable_pkg.data_models.sequence_models import SequenceResult
 
 
 class WorkInitializeSequence:

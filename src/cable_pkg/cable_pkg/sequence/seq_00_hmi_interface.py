@@ -7,8 +7,8 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Empty, String
 
-from .controller import SequenceController
-from .models import SequenceResult, SystemState
+from .seq_00_main_work import SequenceController
+from cable_pkg.data_models.sequence_models import SequenceResult, SystemState
 
 
 class SequenceNode(Node):

@@ -1,7 +1,7 @@
 """Sequence #2 Home Return의 확정된 분기와 실행 순서를 구현한다."""
 
-from .backend import SequenceBackend
-from .models import SequenceResult
+from cable_pkg.interfaces.sequence_backend import SequenceBackend
+from cable_pkg.data_models.sequence_models import SequenceResult
 
 
 class HomeReturnSequence:

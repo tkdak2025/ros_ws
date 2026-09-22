@@ -40,6 +40,7 @@ class GripPullPoint:
     entry_direction: list[float]
     entry_depth_mm: float
     grip_setting: dict[str, float] | None = None
+    pull_setting: dict[str, float] | None = None
 
     def validate(self) -> None:
         if not self.point_id.strip() or not self.point_name.strip():
@@ -81,6 +82,11 @@ class GripPullPoint:
                 "soft_close_width_mm"
             ]:
                 raise ValueError("Soft Open 폭은 Soft Close 폭 이상이어야 합니다.")
+        if self.pull_setting is not None:
+            for key in ("force_limit_n", "max_distance_mm", "timeout_s", "speed_mm_s"):
+                value = self.pull_setting.get(key)
+                if value is None or not math.isfinite(float(value)) or float(value) <= 0:
+                    raise ValueError(f"pull_setting.{key}는 0보다 큰 값이어야 합니다.")
 
     def normalized_entry_direction(self) -> list[float]:
         """이 검사포인트의 Depth 진입축을 단위벡터로 반환한다."""
@@ -142,6 +148,10 @@ class GripPullRecipe:
                     }
                     if "grip_setting" in raw
                     else None
+                ),
+                pull_setting=(
+                    {key: float(value) for key, value in raw["pull_setting"].items()}
+                    if "pull_setting" in raw else None
                 ),
             )
             for point_id, raw in data["points"].items()

@@ -1,6 +1,6 @@
 """HMI 시퀀스 시험을 위한 비동작 Backend를 제공한다."""
 
-from .models import JobContext, SequenceResult
+from cable_pkg.data_models.sequence_models import JobContext, SequenceResult
 
 
 class MockSequenceBackend:

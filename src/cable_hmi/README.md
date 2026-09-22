@@ -221,7 +221,6 @@ progress.finish()                 # 100 %.  도중에 그만둘 때: progress.ab
 ```
 
 진행률 = (끝난 Point 수 + 현재 Point 안의 단계 위치) ÷ 전체 Point 수. `steps` 에 없는 이름은 글자만 표시되고 퍼센트는 그대로다.
-예제: `~/ros_ws/move_async.py`. 실행 전에 `sod` 와 `source ~/ros_ws/install/setup.bash` 둘 다 필요하다.
 
 ## 동작 코드에서 검사 시작 / 일시정지 / 이어하기 받기
 
@@ -254,7 +253,7 @@ finally:
 - **비동기 모션에서만 된다.** 동기 모션(`movej`, `movel`, `mwait`)은 끝날 때까지 코드가 멈춰 있어 `check_pause()` 를 부를 수 없고,
   드라이버도 그동안 `move_pause` 에 답하지 않는다(`move_stop` 만 따로 처리된다).
 - 두산 파이썬 라이브러리에는 `move_pause` / `move_resume` 함수가 없다. 서비스 `dsr_controller2/motion/move_pause`,
-  `.../move_resume` (`dsr_msgs2/srv/MovePause`, `MoveResume`) 를 직접 부른다 - `move_async.py` 의 `pause_motion()` 참고.
+  `.../move_resume` (`dsr_msgs2/srv/MovePause`, `MoveResume`) 를 직접 호출한다.
 - 일시정지 중에는 `check_motion` 을 묻지 않는다. 그 값이 '정지' 로 나와도 도착으로 착각해 다음 단계로 넘어가지 않게 하기 위해서다.
 - 명령은 별도 스레드가 받아 표시만 하고, 로봇을 건드리는 호출은 전부 `check_pause()` 를 부른 스레드에서 한다.
 - 부품은 0.5 초마다 상태를 다시 알린다. 프로그램이 죽어 2 초 넘게 소식이 없으면 HMI 는 '모니터링' 으로 돌아간다.
@@ -262,9 +261,7 @@ finally:
   끝날 때까지 '검사 시작' 을 잠근다.
 - **FAIL / MISSING 포인트 이동**: `wait_for_start()` 대신 `name, args = progress.wait_for_command()` 를 쓰면 대기 중에 '검사 시작' 뿐 아니라
   HMI 의 포인트 이동 버튼(`MOVE_TO_POINT`, args `point_id`, `reason`)도 받는다. 이동 전 `progress.moving(point_id)`(HMI '이동 중' - 일시정지 / STOP 은
-  검사 중과 똑같이 받고 '검사 시작' 은 잠긴다), 끝나고 `progress.moved()`(이동 전 상태로 복귀, 결과 표·제품 판정은 그대로). `inspect_async.py` 는 마지막으로
-  검사한 레시피에서 그 Point 의 접근 자세(joint)로 **이동만** 한다(재검사 없음). 티칭 안 된 Point 와 레시피에 없는 Point 는 거부하고 시스템 로그에 남긴다.
-  `wait_for_start()` 만 쓰는 코드(`move_async.py`)는 이 버튼을 무시하고 그 사실을 로그에 남긴다.
+  검사 중과 똑같이 받고 '검사 시작' 은 잠긴다), 끝나고 `progress.moved()`를 호출해 이동 전 상태로 복귀한다.
 - 모션을 기다리는 루프가 끝난 직후에도 `progress.check_pause()` 를 한 번 부를 것: HMI STOP(모니터 노드의 `move_stop`)으로 모션이 끝난 것을 '도착' 으로
   처리하지 않기 위해서다 (`wait_motion()` 참고).
 - **실제 장비 확인 필요**: `move_pause` 후 `move_resume` 이 가던 경로를 그대로 이어 가는지, 힘 제어 중 일시정지가 안전한지는
@@ -290,15 +287,6 @@ progress.finish()                 # 보고된 결과로 제품 판정을 낸다:
 - `run_id`(검사 1회의 번호)와 시각은 부품이 채운다. 검사를 시작할 때마다 새 번호가 되고 HMI 는 표를 비운다. 프로그램을 닫아도
   모니터 노드는 마지막 `run_id` 와 완료 표시(100 %, 제품 판정)를 유지하므로 표가 지워지지 않는다.
 - HMI 를 검사 도중에 켜도 `SYNC` 로 이번 실행의 결과를 다시 받는다 (`control=True` 일 때).
-- 예제: `~/ros_ws/inspect_async.py` - HMI 에서 고른 Recipe(JSON 위치 + DB 케이블·기준)의 Point 를 차례로 돌며
-  `접근 -> 파지 -> Pull -> 후퇴` 를 하고 결과를 보고하는 **검사 뼈대**다. `sodvir` 에서 흐름과 화면을 미리 맞춰 보는 용도이며
-  **측정·판정(`judge()`)과 그리퍼(`grip()` / `release()`)는 자리만 있다.** 측정이 없으므로 모든 Point 를
-  `MISSING`(사유 '측정 미구현')으로 보고하고 제품 판정은 '미검사 Point 있음' 이 된다. 티칭 안 된(좌표가 전부 0) Point 는
-  움직이지 않고 `MISSING`(사유 '미티칭')으로 보고한다.
-- 예제 레시피 JSON 은 좌표가 전부 0 이라 움직이지 않는다. 가상 로봇에서 움직여 보려면 한 번
-  `python3 ~/ros_ws/inspect_async.py --make-test-recipe` 를 실행한다. 레시피 폴더에 `virtual_test.json`(`VIRTUAL_TEST`, Point 3개)을
-  만들며, task 좌표는 드라이버의 정기구학(`fkin`)으로 joint 에서 계산한다(로봇은 움직이지 않는다).
-
 ## 실제 검사 노드와 통합하기
 
 1. 검사 노드(`cable_pkg`)가 위 토픽을 제공한다. 가장 빠른 방법은 `cable_hmi.interface` 를
