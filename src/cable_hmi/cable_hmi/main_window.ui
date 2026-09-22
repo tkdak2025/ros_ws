@@ -59,12 +59,17 @@ QPushButton { border: none; border-radius: 8px; font-size: 15px; font-weight: bo
 #failBtn:hover, #missingBtn:hover { background: #7C9194; }
 #homeBtn { background: #FFFFFF; color: #2B3440; border: 1px solid #9AA5B1; }
 #homeBtn:hover { background: #EEF2F6; }
+#exportBtn { background: #FFFFFF; color: #2B3440; border: 1px solid #9AA5B1; font-size: 12px;
+    padding: 3px 10px; border-radius: 6px; }
+#exportBtn:hover { background: #EEF2F6; }
+#exportBtn:disabled { background: #F2F4F7; color: #B5BDC7; border: 1px solid #D9E0E7; }
 /* ID 선택자가 QPushButton:disabled 보다 우선하므로 버튼마다 :disabled 를 따로 둔다 */
 #startBtn:disabled, #pauseBtn:disabled, #resumeBtn:disabled, #failBtn:disabled, #missingBtn:disabled {
     background: #D5DBE3; color: #F5F7FA; }
 #homeBtn:disabled, #estopResetBtn:disabled { background: #F2F4F7; color: #B5BDC7; border: 1px solid #D9E0E7; }
 
 QComboBox { background: #FFFFFF; border: 1px solid #C5CED8; border-radius: 4px; padding: 3px 8px; min-width: 110px; }
+QComboBox#recipeCombo { min-width: 160px; }
 QTabWidget::pane { border: 1px solid #D9E0E7; border-radius: 4px; top: -1px; }
 QTabBar::tab { background: #F2F4F7; border: 1px solid #D9E0E7; padding: 5px 14px;
     border-top-left-radius: 4px; border-top-right-radius: 4px; }
@@ -159,7 +164,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
            </layout>
           </item>
           <item>
-           <layout class="QGridLayout" name="layout5" columnstretch="0,1">
+           <layout class="QGridLayout" name="layout5" columnstretch="0,0">
             <property name="horizontalSpacing">
              <number>8</number>
             </property>
@@ -176,40 +181,10 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
               </property>
              </widget>
             </item>
-            <item row="0" column="1">
-             <widget class="QLabel" name="toolName">
-              <property name="text">
-               <string>—</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>value</string>
-              </property>
-             </widget>
-            </item>
             <item row="1" column="0">
              <widget class="QLabel" name="toolWeightKey">
               <property name="text">
                <string>Tool Weight</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>key</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLabel" name="toolWeight">
-              <property name="text">
-               <string>—</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>value</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="toolTcpKey">
-              <property name="text">
-               <string>TCP</string>
               </property>
               <property name="role" stdset="0">
                <string>key</string>
@@ -246,18 +221,28 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
               </property>
              </widget>
             </item>
-            <item row="4" column="0">
-             <widget class="QLabel" name="toolAlarmKey">
+            <item row="1" column="1">
+             <widget class="QLabel" name="toolWeight">
               <property name="text">
-               <string>현재 알람</string>
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="toolTcpKey">
+              <property name="text">
+               <string>TCP</string>
               </property>
               <property name="role" stdset="0">
                <string>key</string>
               </property>
              </widget>
             </item>
-            <item row="4" column="1">
-             <widget class="QLabel" name="toolAlarm">
+            <item row="0" column="1">
+             <widget class="QLabel" name="toolName">
               <property name="text">
                <string>—</string>
               </property>
@@ -280,7 +265,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
           <item>
            <widget class="QLabel" name="connPanelTitle">
             <property name="text">
-             <string>연결 및 상태</string>
+             <string>연결 및 통신 상태</string>
             </property>
             <property name="role" stdset="0">
              <string>groupTitle</string>
@@ -361,6 +346,148 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
         </widget>
        </item>
        <item>
+        <widget class="QFrame" name="extraPanel">
+         <property name="role" stdset="0">
+          <string>subPanel</string>
+         </property>
+         <layout class="QVBoxLayout" name="layoutExtraPanel">
+          <item>
+           <widget class="QLabel" name="extraPanelTitle">
+            <property name="text">
+             <string>로봇 상태</string>
+            </property>
+            <property name="role" stdset="0">
+             <string>groupTitle</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QGridLayout" name="layoutExtraRows" columnstretch="0,1">
+            <property name="horizontalSpacing">
+             <number>8</number>
+            </property>
+            <property name="verticalSpacing">
+             <number>7</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="extraRow1Key">
+              <property name="text">
+               <string>Task좌표</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="extraRow1">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="extraRow2Key">
+              <property name="text">
+               <string>Joint 좌표</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="extraRow2">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="extraRow3Key">
+              <property name="text">
+               <string>로봇 동작</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLabel" name="extraRow3">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+                       <item row="4" column="0">
+             <widget class="QLabel" name="extraRow4Key">
+              <property name="text">
+               <string>현재 알람</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1">
+             <widget class="QLabel" name="extraRow4">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="extraRow5Key">
+              <property name="text">
+               <string>서보 상태</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>key</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QLabel" name="extraRow5">
+              <property name="text">
+               <string>—</string>
+              </property>
+              <property name="role" stdset="0">
+               <string>value</string>
+              </property>
+             </widget>
+            </item>
+</layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="spacer10">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
         <widget class="QFrame" name="pointPanel">
          <property name="role" stdset="0">
           <string>subPanel</string>
@@ -369,7 +496,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
           <item>
            <widget class="QLabel" name="pointPanelTitle">
             <property name="text">
-             <string/>
+             <string>검사 진행</string>
             </property>
             <property name="role" stdset="0">
              <string>groupTitle</string>
@@ -529,19 +656,6 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
          </layout>
         </widget>
        </item>
-       <item>
-        <spacer name="spacer10">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
       </layout>
      </widget>
     </item>
@@ -614,25 +728,45 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
         </property>
         <layout class="QHBoxLayout" name="layout14">
          <property name="spacing">
-          <number>20</number>
+          <number>8</number>
          </property>
          <property name="leftMargin">
-          <number>18</number>
+          <number>10</number>
          </property>
          <property name="topMargin">
           <number>12</number>
          </property>
          <property name="rightMargin">
-          <number>18</number>
+          <number>10</number>
          </property>
          <property name="bottomMargin">
           <number>12</number>
          </property>
          <item>
+          <widget class="QLabel" name="recipeKey">
+          <property name="text">
+          <string>Recipe</string>
+          </property>
+          <property name="role" stdset="0">
+          <string>key</string>
+          </property>
+          </widget>
+          </item>
+         <item>
+          <widget class="QComboBox" name="recipeCombo">
+          <property name="minimumSize">
+          <size>
+          <width>160</width>
+          <height>40</height>
+          </size>
+          </property>
+          </widget>
+          </item>
+         <item>
           <widget class="QPushButton" name="startBtn">
            <property name="minimumSize">
             <size>
-             <width>140</width>
+             <width>126</width>
              <height>55</height>
             </size>
            </property>
@@ -645,7 +779,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
           <widget class="QPushButton" name="pauseBtn">
            <property name="minimumSize">
             <size>
-             <width>140</width>
+             <width>126</width>
              <height>55</height>
             </size>
            </property>
@@ -658,7 +792,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
           <widget class="QPushButton" name="resumeBtn">
            <property name="minimumSize">
             <size>
-             <width>140</width>
+             <width>126</width>
              <height>55</height>
             </size>
            </property>
@@ -674,7 +808,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>40</width>
+             <width>8</width>
              <height>20</height>
             </size>
            </property>
@@ -766,14 +900,41 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
             <number>8</number>
            </property>
            <item>
-            <widget class="QLabel" name="resultsTitle">
-             <property name="text">
-              <string>케이블 검사 결과</string>
-             </property>
-             <property name="role" stdset="0">
-              <string>panelTitle</string>
-             </property>
-            </widget>
+            <layout class="QHBoxLayout" name="resultsTitleRow">
+             <item>
+              <widget class="QLabel" name="resultsTitle">
+               <property name="text">
+                <string>케이블 검사 결과</string>
+               </property>
+               <property name="role" stdset="0">
+                <string>panelTitle</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="resultsTitleSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="exportBtn">
+               <property name="toolTip">
+                <string>지금 표에 있는 검사 결과만 새 파일(.db + .csv)로 저장합니다. 공용 DB 는 건드리지 않습니다.</string>
+               </property>
+               <property name="text">
+                <string>결과 파일 저장</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <layout class="QHBoxLayout" name="layout19">
@@ -789,45 +950,6 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
              <property name="bottomMargin">
               <number>0</number>
              </property>
-             <item>
-              <widget class="QLabel" name="recipeKey">
-               <property name="text">
-                <string>Recipe</string>
-               </property>
-               <property name="role" stdset="0">
-                <string>key</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QComboBox" name="recipeCombo"/>
-             </item>
-             <item>
-              <widget class="QLabel" name="recipeVersion">
-               <property name="text">
-                <string/>
-               </property>
-               <property name="role" stdset="0">
-                <string>key</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="spacer20">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeType">
-                <enum>QSizePolicy::Fixed</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>14</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
              <item>
               <widget class="QLabel" name="productIdKey">
                <property name="text">
@@ -1091,7 +1213,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
             <number>0</number>
            </property>
            <property name="bottomMargin">
-            <number>12</number>
+            <number>6</number>
            </property>
            <item>
             <widget class="QLabel" name="moveTitle">
@@ -1106,7 +1228,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
            <item>
             <layout class="QVBoxLayout" name="layout28">
              <property name="spacing">
-              <number>10</number>
+              <number>6</number>
              </property>
              <property name="leftMargin">
               <number>14</number>
@@ -1126,10 +1248,22 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                 <string>subPanel</string>
                </property>
                <layout class="QVBoxLayout" name="layout29">
+                <property name="leftMargin">
+                 <number>12</number>
+                </property>
+                <property name="topMargin">
+                 <number>8</number>
+                </property>
+                <property name="rightMargin">
+                 <number>12</number>
+                </property>
+                <property name="bottomMargin">
+                 <number>8</number>
+                </property>
                 <item>
                  <widget class="QLabel" name="criteriaPanelTitle">
                   <property name="text">
-                   <string>판정 기준</string>
+                   <string>검사 조건</string>
                   </property>
                   <property name="role" stdset="0">
                    <string>groupTitle</string>
@@ -1142,7 +1276,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                    <number>8</number>
                   </property>
                   <property name="verticalSpacing">
-                   <number>7</number>
+                   <number>2</number>
                   </property>
                   <item row="0" column="0">
                    <widget class="QLabel" name="critDisplacementKey">
@@ -1165,9 +1299,9 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                    </widget>
                   </item>
                   <item row="1" column="0">
-                   <widget class="QLabel" name="critForceKey">
+                   <widget class="QLabel" name="critRequiredKey">
                     <property name="text">
-                     <string>Pull Force</string>
+                     <string>기준 Pull 힘</string>
                     </property>
                     <property name="role" stdset="0">
                      <string>key</string>
@@ -1175,7 +1309,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                    </widget>
                   </item>
                   <item row="1" column="1">
-                   <widget class="QLabel" name="critForce">
+                   <widget class="QLabel" name="critRequired">
                     <property name="text">
                      <string>—</string>
                     </property>
@@ -1185,9 +1319,9 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                    </widget>
                   </item>
                   <item row="2" column="0">
-                   <widget class="QLabel" name="critRepeatKey">
+                   <widget class="QLabel" name="critForceKey">
                     <property name="text">
-                     <string>Push / Pull 반복</string>
+                     <string>Pull 정지 상한</string>
                     </property>
                     <property name="role" stdset="0">
                      <string>key</string>
@@ -1195,7 +1329,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                    </widget>
                   </item>
                   <item row="2" column="1">
-                   <widget class="QLabel" name="critRepeat">
+                   <widget class="QLabel" name="critForce">
                     <property name="text">
                      <string>—</string>
                     </property>
@@ -1205,6 +1339,46 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                    </widget>
                   </item>
                   <item row="3" column="0">
+                   <widget class="QLabel" name="critMaxDistanceKey">
+                    <property name="text">
+                     <string>Pull 최대 거리</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="1">
+                   <widget class="QLabel" name="critMaxDistance">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="4" column="0">
+                   <widget class="QLabel" name="critRepeatKey">
+                    <property name="text">
+                     <string>Push / Pull 반복</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="4" column="1">
+                   <widget class="QLabel" name="critRepeat">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="5" column="0">
                    <widget class="QLabel" name="critGripKey">
                     <property name="text">
                      <string>Grip 폭</string>
@@ -1214,7 +1388,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                     </property>
                    </widget>
                   </item>
-                  <item row="3" column="1">
+                  <item row="5" column="1">
                    <widget class="QLabel" name="critGrip">
                     <property name="text">
                      <string>—</string>

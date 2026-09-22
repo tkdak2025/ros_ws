@@ -61,8 +61,9 @@ class LookupRow:
     cable_id: str = ''
     cable_type: str = ''
     max_displacement_mm: float = 0.0
-    pull_force_n: float = 0.0
+    pull_force_limit_n: float = 0.0
     repeat_count: int = 0
+    required_pull_force_n: float = 0.0
     grip_width_mm: float = 0.0
     in_db: bool = True
     position: str = POSITION_UNKNOWN
@@ -149,7 +150,8 @@ def load_rows(db_path: str, recipe_dir: str) -> Tuple[List[LookupRow], List[str]
                         recipe_id, p.point_id, info.recipe_version, info.product_id,
                         name_of(recipe_id, p.point_id, p.point_name),
                         p.cable_id, p.cable_type, p.max_displacement_mm,
-                        p.pull_force_n, p.repeat_count, p.grip_width_mm,
+                        p.pull_force_limit_n, p.repeat_count, p.grip_width_mm,
+                        required_pull_force_n=p.required_pull_force_n,
                         in_db=True, position=position_of(recipe_id, p.point_id),
                         in_json=point is not None,
                         task=list(point.task) if point else [],

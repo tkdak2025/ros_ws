@@ -68,10 +68,14 @@ def _pose_text(values, names, units) -> str:
     return f'{"   ".join(parts[:3])}  {units[0]}\n{"   ".join(parts[3:])}  {units[1]}'
 
 
-RESULT_LABELS = {'결과 코드': 'resultCodeValue', '검사 시간': 'timeValue',
-                 '대표 측정값': 'measuredValue', '판정 사유': 'reasonValue', '처리': 'actionValue'}
-CRITERIA_LABELS = {'허용 변위': 'limitValue', 'Pull 힘': 'pullForceValue',
-                   '반복 횟수': 'repeatValue', '파지 폭': 'gripWidthValue'}
+RESULT_LABELS = {'결과 코드': 'resultCodeValue', '판정 코드': 'reasonCodeValue',
+                 '판정 상태': 'judgmentStatusValue', '검사 시간': 'timeValue',
+                 '대표 측정값': 'measuredValue', '종료 사유': 'terminationValue',
+                 '판정 사유': 'reasonValue', '처리': 'actionValue'}
+CRITERIA_LABELS = {'허용 변위': 'limitValue', '기준 Pull 힘': 'requiredForceValue',
+                   'Pull 정지 상한': 'pullForceValue', 'Pull 최대 거리': 'maxDistanceValue',
+                   '반복 횟수': 'repeatValue', '파지 폭': 'gripWidthValue',
+                   '파지 폭 변화': 'gripChangeValue'}
 
 
 def _fill_result(labels, result):
@@ -85,12 +89,25 @@ def _fill_result(labels, result):
     category = itf.ResultCode.category(result.result)
     labels['결과 코드'].setText(result.result)
     labels['결과 코드'].setStyleSheet(f'color: {RESULT_COLORS[category][0]};')
+    code = result.reason_code
+    label_text = itf.ReasonCode.LABELS.get(code, '')
+    labels['판정 코드'].setText(f'{code}  ({label_text})' if label_text else code or '-')
+    status = result.judgment_status
+    status_text = itf.JudgmentStatus.LABELS.get(status, '')
+    labels['판정 상태'].setText(f'{status_text} ({status})' if status_text else status or '-')
     labels['검사 시간'].setText(result.stamp.replace('T', ' ')[:19] or '-')
-    if result.result == itf.ResultCode.MISSING:
+    # MISSING 이어도 측정값이 있으면 보여 준다 (#06: 기준 미정·미끄러짐은 측정은 됐다).
+    if result.max_force_n == 0.0 and result.displacement_mm == 0.0:
         labels['대표 측정값'].setText('— (유효 검사 미완료)')
     else:
-        labels['대표 측정값'].setText(
-            f'변위 {result.displacement_mm:.1f} mm  ·  Pull Max {result.max_force_n:.1f} N')
+        measured = f'Pull Max {result.max_force_n:.1f} N  ·  변위 {result.displacement_mm:.1f} mm'
+        if result.grip_width_hard_mm > 0:
+            # 지시한 파지 폭이 아니라 Hard Grip 직후 실제로 측정된 폭이다.
+            measured += f'  ·  파지 폭(실측) {result.grip_width_hard_mm:.1f} mm'
+        labels['대표 측정값'].setText(measured)
+    term = result.termination_reason
+    term_text = itf.TerminationReason.label(term)
+    labels['종료 사유'].setText(f'{term_text} ({term})' if term_text else term or '-')
     labels['판정 사유'].setText(result.reason or '-')
     labels['처리'].setText(result.action or '-')
 
@@ -109,12 +126,18 @@ def _fill_pose(labels, task, joint, missing_text='—'):
         _pose_text(joint, ('J1', 'J2', 'J3', 'J4', 'J5', 'J6'), ('deg', 'deg')))
 
 
-def _fill_criteria(labels, limit, force, repeat, grip):
-    """'판정 기준' 패널을 채운다. 0 은 '값이 없음' 이다."""
-    labels['허용 변위'].setText(f'{limit:g} mm' if limit > 0 else '—')
-    labels['Pull 힘'].setText(f'{force:g} N' if force > 0 else '—')
+def _fill_criteria(labels, limit, force, repeat, grip, required=0.0, grip_change=None,
+                   max_distance=0.0):
+    """'검사 조건' 패널을 채운다. 0 은 '값이 없음' 이다. grip_change 는 결과에만 있다(None = 해당 없음)."""
+    labels['허용 변위'].setText(f'≤ {limit:g} mm' if limit > 0 else '—')
+    labels['기준 Pull 힘'].setText(
+        f'≥ {required:g} N (도달 시 정지)' if required > 0 else '— (기준 미정)')
+    # 정지 상한은 기준 힘과 뜻이 겹친다. 값이 다른 옛 기록에서만 뜻이 있다.
+    labels['Pull 정지 상한'].setText(f'{force:g} N' if force > 0 and force != required else '—')
+    labels['Pull 최대 거리'].setText(f'{max_distance:g} mm' if max_distance > 0 else '—')
     labels['반복 횟수'].setText(f'{repeat} 회' if repeat > 0 else '—')
-    labels['파지 폭'].setText(f'{grip:g} mm' if grip > 0 else '—')
+    labels['파지 폭'].setText(f'{grip:g} mm (지시)' if grip > 0 else '—')
+    labels['파지 폭 변화'].setText('—' if grip_change is None else f'{grip_change:.2f} mm')
 
 
 class ResultDetailDialog(_UiDialog):
@@ -150,8 +173,10 @@ class ResultDetailDialog(_UiDialog):
 
         _fill_result(self._info, result)
         # 결과에 실려 온 값이다. 0 은 '기준이 실려 오지 않음' (DB 에 이 포인트가 없을 때 등).
-        _fill_criteria(self._criteria, result.displacement_limit_mm, result.pull_force_n,
-                       result.repeat_count, result.grip_width_mm)
+        _fill_criteria(self._criteria, result.displacement_limit_mm, result.pull_force_limit_n,
+                       result.repeat_count, result.grip_width_mm,
+                       result.required_pull_force_n, result.grip_width_change_mm,
+                       result.pull_max_distance_mm)
         _fill_pose(self._pose, result.task, result.joint, '— (결과에 위치가 실려 오지 않음)')
 
         self._product.setText(result.product_id or '-')
@@ -198,8 +223,9 @@ class LookupDetailDialog(_UiDialog):
 
         _fill_result(self._info, row.result)
         if row.in_db:
-            _fill_criteria(self._criteria, row.max_displacement_mm, row.pull_force_n,
-                           row.repeat_count, row.grip_width_mm)
+            _fill_criteria(self._criteria, row.max_displacement_mm, row.pull_force_limit_n,
+                           row.repeat_count, row.grip_width_mm, row.required_pull_force_n,
+                           row.result.grip_width_change_mm if row.result else None)
         else:
             for label in self._criteria.values():
                 label.setText('— (DB 에 없는 포인트)')

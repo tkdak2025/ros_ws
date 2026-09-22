@@ -9,6 +9,7 @@
 from datetime import datetime
 import html
 import os
+from pathlib import Path
 import sys
 import time
 
@@ -21,6 +22,7 @@ from PyQt5.QtWidgets import (
 )
 
 from . import interface as itf
+from . import result_db
 from .detail_dialog import ResultDetailDialog
 from .lookup_tab import LookupTab
 from .style import (
@@ -45,6 +47,7 @@ SPEED_DEBOUNCE_MS = 300
 
 STATE_BADGE_COLORS = {
     State.RUNNING: '#1E8E5A', State.MOVING: '#1E8E5A', State.PAUSED: '#B7791F',
+    State.PAUSE_REQUEST: '#B7791F',
     State.MONITOR_MOVING: '#1E8E5A',
     State.ESTOP: '#D12F3A', State.ERROR: '#D12F3A',
 }
@@ -70,6 +73,7 @@ class MainWindow(QMainWindow):
         self._speed_hold_until = 0.0
         self._detail = ResultDetailDialog(self)
         self._popup = None            # 떠 있는 에러 팝업 (없으면 None)
+        self._export_popup = None     # 떠 있는 '결과 파일 저장 완료' 알림
 
         self._missing_widgets = []
         self._load_ui()
@@ -130,7 +134,7 @@ class MainWindow(QMainWindow):
         self.tool_state = w('toolState')
         self.tool_rows = {
             'Tool': w('toolName'), 'Tool Weight': w('toolWeight'), 'TCP': w('toolTcp'),
-            'Force Zero': w('toolForceZero'), '현재 알람': w('toolAlarm')}
+            'Force Zero': w('toolForceZero')}
         self.conn_rows = {
             'Robot 연결': w('connRobot'), 'ROS2 통신': w('connRos'),
             'RG2 연결': w('connGripper')}
@@ -140,8 +144,18 @@ class MainWindow(QMainWindow):
             '현재 힘 값': w('pointForce'), '현재 변위': w('pointDisplacement'),
             '현재 판정': w('pointJudgement')}
         self.criteria_rows = {
-            '허용 변위': w('critDisplacement'), 'Pull Force': w('critForce'),
+            '허용 변위': w('critDisplacement'), '기준 Pull 힘': w('critRequired'),
+            'Pull 정지 상한': w('critForce'), 'Pull 최대 거리': w('critMaxDistance'),
             'Push / Pull 반복': w('critRepeat'), 'Grip 폭': w('critGrip')}
+        # 값이 없거나 뜻이 겹치는 행은 숨긴다. 키 라벨도 같이 숨겨야 빈 줄이 남지 않는다.
+        self.criteria_keys = {
+            'Pull 정지 상한': w('critForceKey'), 'Pull 최대 거리': w('critMaxDistanceKey'),
+            'Push / Pull 반복': w('critRepeatKey')}
+        # '로봇 상태' 박스 (main_window.ui 의 extraPanel)
+        self.extra_rows = {
+            'Task좌표': w('extraRow1'), 'Joint 좌표': w('extraRow2'),
+            '로봇 동작': w('extraRow3'), '서보 상태': w('extraRow5'),
+            '현재 알람': w('extraRow4')}
         self.chips = {'전체': w('chipTotal'), 'PASS': w('chipPass'),
                       'MISSING': w('chipMissing'), 'FAIL': w('chipFail')}
         self.state_badge = w('stateBadge')
@@ -152,9 +166,12 @@ class MainWindow(QMainWindow):
         self.home_btn, self.fail_btn, self.missing_btn = (
             w('homeBtn', QPushButton), w('failBtn', QPushButton), w('missingBtn', QPushButton))
         self.move_hint = w('moveHint')
-        self.recipe_combo, self.recipe_version = w('recipeCombo', QComboBox), w('recipeVersion')
+        self.recipe_combo = w('recipeCombo', QComboBox)
+        # 콤보는 비어 있을 때 잡은 폭을 계속 쓴다. 목록이 채워지면 내용에 맞춰 다시 잡게 한다.
+        self.recipe_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         self.product_id, self.product_result = w('productId'), w('productResult')
         self.table, self.log_view = w('resultTable', QTableWidget), w('logView', QPlainTextEdit)
+        self.export_btn = w('exportBtn', QPushButton)
         self.speed_slider, self.speed_label = w('speedSlider', QSlider), w('speedLabel')
         self.progress_bar, self.progress_text = w('progressBar', QProgressBar), w('progressText')
 
@@ -179,6 +196,7 @@ class MainWindow(QMainWindow):
         self.home_btn.clicked.connect(self._on_home)
         self.fail_btn.clicked.connect(lambda: self._on_move_to('FAIL'))
         self.missing_btn.clicked.connect(lambda: self._on_move_to('MISSING'))
+        self.export_btn.clicked.connect(self._on_export)
         self.speed_slider.valueChanged.connect(self._on_speed_changed)
         self.recipe_combo.activated.connect(self._on_recipe_chosen)   # 사용자가 고를 때만 발생
         self.table.cellClicked.connect(self._on_cell_clicked)
@@ -253,6 +271,54 @@ class MainWindow(QMainWindow):
         box.show()
         self._popup = box
 
+    # ------------------------------------------------------- 결과 파일 저장
+    def _export_dir(self) -> Path:
+        """결과 파일을 둘 곳: 레시피 DB 옆의 runs 폴더. 경로 인자가 없으면 ~/ros_ws/results/runs."""
+        read = getattr(self._bridge, 'parameter', lambda _name: '')
+        configured = str(read('recipe_db') or '')
+        if configured:
+            return Path(configured).expanduser().parent / 'runs'
+        return Path('~/ros_ws/results/runs').expanduser()
+
+    def _on_export(self):
+        """
+        지금 표에 있는 검사 결과만 새 파일 둘(.db + .csv)로 내보낸다. 누르면 먼저 확인 창이 뜬다.
+
+        공용 DB 는 건드리지 않는다 - 늘 새 파일을 만들므로 저장 노드와 부딪히지 않고,
+        자동 저장(result_recorder_node)은 그대로 돌아간다.
+        """
+        if not self._results:
+            self._append_log('WARN', '[HMI] 저장할 검사 결과가 없습니다.')
+            return
+        count = len(self._results)
+        run_id = self._status.run_id or self._results[0].run_id
+        if not self._confirm_ok_cancel(
+                '결과 파일 저장',
+                f'이번 검사 결과 {count}건을 파일로 저장합니다.\n\n'
+                f'저장 위치: {self._export_dir()}\n'
+                f'파일 이름: run_{run_id}_<날짜_시각>.db / .csv\n\n'
+                '공용 DB 는 바뀌지 않습니다.'):
+            self._append_log('INFO', '[HMI] 결과 파일 저장 취소')
+            return
+        try:
+            db_path, csv_path = result_db.export_run(
+                self._export_dir(), self._results, self._status)
+        except result_db.ResultDbError as e:
+            self._append_log('ERROR', f'[HMI] 결과 파일 저장 실패 - {e}')
+            self._show_popup('ERROR', f'결과 파일 저장 실패\n{e}')
+            return
+        self._append_log('INFO', f'[HMI] 결과 {count}건 저장: {db_path}')
+        self._append_log('INFO', f'[HMI] 결과 {count}건 저장: {csv_path}')
+        self.export_btn.setToolTip(f'마지막 저장: {db_path}')
+        # 저장을 마쳤다는 알림은 비모달이다 - 창이 떠 있어도 STOP 을 누를 수 있다.
+        box = self._message_box(
+            QMessageBox.Information, '결과 파일 저장 완료',
+            f'결과 {count}건을 저장했습니다.\n\n{db_path}\n{csv_path}', QMessageBox.Ok)
+        box.button(QMessageBox.Ok).setText('확인')
+        box.setModal(False)
+        box.show()
+        self._export_popup = box        # 참조를 남겨 둬야 창이 바로 닫히지 않는다
+
     def _ensure_run(self, run_id: int):
         """새 검사(run)가 시작되면 이전 결과를 비운다."""
         if run_id == self._run_id:
@@ -287,6 +353,9 @@ class MainWindow(QMainWindow):
 
         if linked:
             label = State.LABELS.get(s.state, s.state)
+            if (s.state in (State.PAUSE_REQUEST, State.PAUSED)
+                    and s.pause_reason == itf.PauseReason.COMM_LOST):
+                label += ' · 통신 단절'        # 통신이 돌아와도 이어하기를 눌러야 재개된다
             color = STATE_BADGE_COLORS.get(s.state, '')
         else:
             label, color = '통신 끊김', BAD_COLOR
@@ -302,7 +371,6 @@ class MainWindow(QMainWindow):
         _set(self.tool_rows['TCP'], tool.tcp or '—')
         _set(self.tool_rows['Force Zero'], '완료' if tool.force_zero_done else '미완료',
              OK_COLOR if tool.force_zero_done else WARN_COLOR)
-        _set(self.tool_rows['현재 알람'], s.alarm or '없음', BAD_COLOR if s.alarm else '')
 
         c = s.criteria
         _set(self.point_rows['현재 위치'], s.current_point or '—')
@@ -310,7 +378,10 @@ class MainWindow(QMainWindow):
         speed_known = s.speed_percent > 0      # 0 = 노드가 아직 속도를 모름
         _set(self.point_rows['속도 설정'], f'{s.speed_percent} %' if speed_known else '—')
         _set(self.point_rows['그리퍼 폭'], f'{s.gripper_width_mm:.1f} mm')
-        _set(self.point_rows['현재 힘 값'], f'{s.force_n:.1f} N')
+        # 합격 기준 힘(#06)이 실려 오면 '현재 / 기준' 으로. 0 은 기준이 없다는 뜻이다.
+        _set(self.point_rows['현재 힘 값'],
+             f'{s.force_n:.1f} / {c.required_pull_force_n:.1f} N' if c.required_pull_force_n > 0
+             else f'{s.force_n:.1f} N')
         over = c.max_displacement_mm > 0 and s.displacement_mm > c.max_displacement_mm
         _set(self.point_rows['현재 변위'],
              f'{s.displacement_mm:.1f} / {c.max_displacement_mm:.1f} mm',
@@ -320,10 +391,59 @@ class MainWindow(QMainWindow):
             judge_color = RESULT_COLORS[itf.ResultCode.category(s.judgement)][0]
         _set(self.point_rows['현재 판정'], s.judgement or '—', judge_color)
 
+        # 현재 TCP 좌표와 로봇 동작 상태. 보내는 쪽이 채우지 않으면 '—' 로 남는다.
+        task, joint = s.task, s.joint
+        # 칸이 좁아 X·Y·Z 를 한 줄에 넣으려고 mm 단위 정수로 줄였다. 소수점과 자세(A·B·C)는
+        # 마우스를 올리면 툴팁으로 보인다.
+        if len(task) >= 3:
+            _set(self.extra_rows['Task좌표'],
+                 f'X {task[0]:.0f}  Y {task[1]:.0f}  Z {task[2]:.0f}')
+            tip = f'X {task[0]:.1f}   Y {task[1]:.1f}   Z {task[2]:.1f}  [mm]'
+            if len(task) >= 6:
+                tip += f'\nA {task[3]:.1f}   B {task[4]:.1f}   C {task[5]:.1f}  [deg]'
+        else:
+            _set(self.extra_rows['Task좌표'], '—')
+            tip = ''
+        self.extra_rows['Task좌표'].setToolTip(tip)
+        if len(joint) >= 6:
+            pairs = [f'J{i + 1} {joint[i]:.1f}' for i in range(6)]
+            joint_text = '\n'.join('   '.join(pairs[i:i + 2]) for i in (0, 2, 4))
+        else:
+            joint_text = '—'
+        _set(self.extra_rows['Joint 좌표'], joint_text)
+        motion = s.robot_motion
+        if motion == itf.RobotMotion.MOVING:
+            motion_color = OK_COLOR
+        elif motion in ('', itf.RobotMotion.STANDBY):
+            motion_color = ''
+        else:
+            motion_color = WARN_COLOR       # 서보 OFF, 보호정지, 비상정지 ...
+        _set(self.extra_rows['로봇 동작'],
+             itf.RobotMotion.label(motion) or motion or '—', motion_color)
+        # 서보는 조회 서비스가 없어 제어기 상태에서 끌어낸 값이다 (interface.Servo 참고).
+        servo = s.servo
+        _set(self.extra_rows['서보 상태'], itf.Servo.LABELS.get(servo, '—'),
+             OK_COLOR if servo == itf.Servo.ON else (BAD_COLOR if servo == itf.Servo.OFF else ''))
+        _set(self.extra_rows['현재 알람'], s.alarm or '없음', BAD_COLOR if s.alarm else '')
+        # 알람 문구는 길 수 있다. 칸에서 잘려도 마우스를 올리면 전체를 볼 수 있게 한다.
+        self.extra_rows['현재 알람'].setToolTip(s.alarm)
+
         _set(self.criteria_rows['허용 변위'], f'≤ {c.max_displacement_mm:.1f} mm')
-        _set(self.criteria_rows['Pull Force'], f'≥ {c.pull_force_n:.1f} N')
+        # 기준 Pull 힘은 합격선이면서 Pull 을 멈추는 조건이다 (#05/#06).
+        _set(self.criteria_rows['기준 Pull 힘'],
+             f'≥ {c.required_pull_force_n:.1f} N' if c.required_pull_force_n > 0 else '— (미정)')
+        self.criteria_rows['기준 Pull 힘'].setToolTip(
+            '합격 기준이면서 Pull 을 멈추는 힘이다. 이 힘에 도달하면 당기기를 멈춘다.')
+        _set(self.criteria_rows['Pull 정지 상한'], f'{c.pull_force_limit_n:.1f} N')
+        _set(self.criteria_rows['Pull 최대 거리'], f'{c.pull_max_distance_mm:.1f} mm')
         _set(self.criteria_rows['Push / Pull 반복'], f'{c.repeat_count}회')
         _set(self.criteria_rows['Grip 폭'], f'{c.grip_width_mm:.1f} mm')
+        # 정지 상한은 기준 힘과 뜻이 겹치므로 값이 다를 때만(옛 노드) 보여 준다.
+        self._show_criteria_row(
+            'Pull 정지 상한',
+            c.pull_force_limit_n > 0 and c.pull_force_limit_n != c.required_pull_force_n)
+        self._show_criteria_row('Pull 최대 거리', c.pull_max_distance_mm > 0)
+        self._show_criteria_row('Push / Pull 반복', c.repeat_count > 0)
 
         _set(self.estop_state, '작동 중' if s.estop else '현재 해제',
              BAD_COLOR if s.estop else OK_COLOR)
@@ -334,10 +454,12 @@ class MainWindow(QMainWindow):
         self.progress_bar.setValue(max(0, min(100, s.progress_percent)))
         # 진행률 옆에는 '어디를 검사 중인가'(현재 단계)를 쓴다. current_point 는 모니터 노드에서는
         # TCP 좌표라서 여기에 맞지 않는다. 검사 중이 아닐 때는 상태만 쓴다.
-        busy = s.state in (State.RUNNING, State.PAUSED, State.MOVING)
+        busy = s.state in (State.RUNNING, State.PAUSE_REQUEST, State.PAUSED, State.MOVING)
         where = f'{s.current_step} · ' if busy and s.current_step else ''
+        # 판정은 로봇 이동과 비동기다(#06). 남은 판정이 있으면 Job 이 아직 끝나지 않은 이유가 된다.
+        pending = f'   판정 대기 {s.pending_judgments}건' if s.pending_judgments else ''
         self.progress_text.setText(
-            f'{s.progress_percent}%   {where}{State.LABELS.get(s.state, s.state)}')
+            f'{s.progress_percent}%   {where}{State.LABELS.get(s.state, s.state)}{pending}')
 
         if time.monotonic() >= self._speed_hold_until and not self.speed_slider.isSliderDown():
             if speed_known:
@@ -359,6 +481,8 @@ class MainWindow(QMainWindow):
             if keep in s.available_recipes:
                 self.recipe_combo.setCurrentText(keep)
             self.recipe_combo.blockSignals(False)
+        # 이름이 길면 칸에서 잘린다. 전체 이름은 마우스를 올리면 보인다.
+        self.recipe_combo.setToolTip(self.recipe_combo.currentText())
         # 검사 중에는 실제로 돌고 있는 Recipe 를 보여 준다.
         if s.state in MONITOR_STATES:
             # 모니터 모드: 콤보는 노드가 알려 준 선택을 그대로 따른다(아직 안 골랐으면 빈 칸).
@@ -366,7 +490,6 @@ class MainWindow(QMainWindow):
             self.recipe_combo.setCurrentIndex(index)
         elif s.state not in (State.IDLE, State.DONE) and s.recipe_id in s.available_recipes:
             self.recipe_combo.setCurrentText(s.recipe_id)
-        self.recipe_version.setText(s.recipe_version)
         self.product_id.setText(s.product_id or '—')
 
         text, category = {
@@ -374,15 +497,25 @@ class MainWindow(QMainWindow):
             itf.ProductResult.FAIL: ('제품 판정  FAIL', 'FAIL'),
             itf.ProductResult.INCOMPLETE: ('제품 판정  미검사 Point 있음', 'MISSING'),
         }.get(s.product_result, ('', ''))
+        if s.end_reason == itf.EndReason.NOT_COMPLETE:
+            # #07 Work Finish 가 Job 종료를 승인하지 않았다. 검사 결과와는 다른 이야기다.
+            text, category = '작업 종료 보류', 'INCOMPLETE'
         self.product_result.setText(text)
         self.product_result.setStyleSheet(chip_style(category) if text else '')
 
+    def _show_criteria_row(self, name: str, visible: bool):
+        self.criteria_rows[name].setVisible(visible)
+        self.criteria_keys[name].setVisible(visible)
+
     def _render_counts(self):
-        counts = {'PASS': 0, 'MISSING': 0, 'FAIL': 0}
+        # INCOMPLETE(판정 미완)는 제품 결과가 아니므로 칩에 세지 않는다. 전체 수에는 들어간다.
+        counts = {'PASS': 0, 'MISSING': 0, 'FAIL': 0, 'INCOMPLETE': 0}
         for r in self._results:
             counts[itf.ResultCode.category(r.result)] += 1
+        incomplete = counts.pop('INCOMPLETE')
         total = self._status.total_points or len(self._results)
-        self.chips['전체'].setText(f'전체 {total}')
+        self.chips['전체'].setText(
+            f'전체 {total} · 판정 미완 {incomplete}' if incomplete else f'전체 {total}')
         for category, n in counts.items():
             self.chips[category].setText(f'{category} {n}건')
         self.fail_btn.setText(f"FAIL 포인트 이동 ({counts['FAIL']})")
@@ -391,14 +524,20 @@ class MainWindow(QMainWindow):
     def _refresh_controls(self):
         s = self._status
         state = s.state if self._linked else None
+        # 문서의 SYSTEM_READY = IDLE / DONE 이다. STOPPED 와 ERROR 는 START 를 받지 못하고
+        # Home 이동으로만 복구된다 (STOP/ERROR 뒤 자동 Home Return 없음).
         ready = state in (State.IDLE, State.DONE) and not s.estop
+        recoverable = state in (State.STOPPED, State.ERROR, State.MONITOR) and not s.estop
         categories = [itf.ResultCode.category(r.result) for r in self._results]
 
         self.start_btn.setEnabled(ready and bool(self.recipe_combo.currentText()))
         self.pause_btn.setEnabled(state in (State.RUNNING, State.MOVING))
         self.resume_btn.setEnabled(state == State.PAUSED)
         # 모니터 노드는 검사는 못 하지만 Home 이동은 받는다(로봇이 멈춰 있을 때만).
-        self.home_btn.setEnabled(ready or (state == State.MONITOR and not s.estop))
+        # 오류(ERROR) 뒤에는 자동 Home Return 이 없으므로 사용자가 Home 이동으로 복구한다.
+        self.home_btn.setEnabled(ready or recoverable)
+        # 결과 파일 저장은 상태와 무관하다: 검사 중에도, 중단된 뒤에도 표에 있는 것을 저장할 수 있다.
+        self.export_btn.setEnabled(bool(self._results))
         self.fail_btn.setEnabled(ready and 'FAIL' in categories)
         self.missing_btn.setEnabled(ready and 'MISSING' in categories)
         # 모니터 모드에서는 검사는 못 하지만 Recipe 내용을 보려고 고를 수는 있다(로봇이 멈춰 있을 때).
@@ -413,6 +552,9 @@ class MainWindow(QMainWindow):
             hint = '비상정지 작동 중 - 해제 후 이동할 수 있습니다.'
         elif state in (State.MONITOR, State.MONITOR_MOVING):
             hint = '모니터 모드 - 로봇 값 표시, Home 이동, 속도 설정, STOP 만 동작합니다.'
+        elif state in (State.STOPPED, State.ERROR):
+            label = State.LABELS.get(state, state)
+            hint = f'{label} - Home 이동으로 복귀한 뒤 다시 시작할 수 있습니다.'
         elif not ready:
             hint = '이동 명령은 대기 또는 검사 완료 상태에서만 가능합니다.'
         else:
@@ -433,7 +575,10 @@ class MainWindow(QMainWindow):
                 font = item.font()
                 font.setBold(True)
                 item.setFont(font)
-                item.setToolTip(r.reason)
+                # 결과 칸은 PASS / FAIL / MISSING 만. 상세 원인(#06 reason_code)은 툴팁과 상세 팝업에
+                status = itf.JudgmentStatus.LABELS.get(r.judgment_status, '')
+                term = itf.TerminationReason.label(r.termination_reason)
+                item.setToolTip('\n'.join(t for t in (r.reason_code, status, term, r.reason) if t))
             self.table.setItem(row, col, item)
 
     def _append_log(self, level: str, text: str, stamp: str = ''):
@@ -459,6 +604,20 @@ class MainWindow(QMainWindow):
         부모를 이 창으로 두어야 _load_ui 에서 덧붙인 대화상자 버튼 스타일(DIALOG_QSS)을 물려받는다.
         """
         return QMessageBox(icon, title, text, buttons, self)
+
+    def _confirm_ok_cancel(self, title: str, text: str) -> bool:
+        """
+        확인/취소 창. 기본 선택은 '확인'.
+
+        로봇을 움직이지 않는 동작(파일 저장 등)에 쓴다. 로봇이 움직이는 동작은 _confirm 을 쓴다
+        (기본 선택이 '아니오' 라서 엔터를 잘못 눌러도 움직이지 않는다).
+        """
+        box = self._message_box(QMessageBox.Question, title, text,
+                                QMessageBox.Ok | QMessageBox.Cancel)
+        box.button(QMessageBox.Ok).setText('확인')
+        box.button(QMessageBox.Cancel).setText('취소')
+        box.setDefaultButton(QMessageBox.Ok)
+        return box.exec_() == QMessageBox.Ok
 
     def _confirm(self, title: str, text: str) -> bool:
         """예/아니오 확인 창. 기본 선택은 '아니오'."""

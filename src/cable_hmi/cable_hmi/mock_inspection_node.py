@@ -16,7 +16,6 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-import math
 import random
 import time
 
@@ -30,6 +29,12 @@ from . import recipe_db
 Cmd = itf.CommandName
 State = itf.State
 RC = itf.ResultCode
+RS = itf.ReasonCode
+TR = itf.TerminationReason
+JS = itf.JudgmentStatus
+
+# 제품 결과를 만들지 못한 Point (#06 6.4 TIMEOUT). reason_code 가 없으므로 따로 키를 둔다.
+INCOMPLETE_TIMEOUT = 'INCOMPLETE_TIMEOUT'
 
 TICK_SEC = 0.1
 HEARTBEAT_TIMEOUT_SEC = 2.0
@@ -46,10 +51,23 @@ class MockPoint:
     cable_id: str
     cable_type: str
     grip_width_mm: float
-    pull_force_n: float
+    pull_force_limit_n: float
     max_displacement_mm: float
-    outcome: str
-    repeat_count: int = 3
+    outcome: str                   # ReasonCode 또는 INCOMPLETE_TIMEOUT
+    repeat_count: int = 0
+    required_pull_force_n: float = 0.0   # 기준 Pull 힘 (#06: LAN 20 / USB 12). 도달하면 정지
+    pull_max_distance_mm: float = 25.0   # Pull 최대 거리 (#05)
+
+    @property
+    def result(self) -> str:
+        if self.outcome == INCOMPLETE_TIMEOUT:
+            return RC.INCOMPLETE
+        return RS.result_of(self.outcome)
+
+    @property
+    def reason_code(self) -> str:
+        """제품 결과가 아닌 Point 에는 원인 코드를 붙이지 않는다."""
+        return '' if self.outcome == INCOMPLETE_TIMEOUT else self.outcome
 
 
 RECIPES = {
@@ -57,34 +75,53 @@ RECIPES = {
         'version': 'v1.2',
         'product_id': 'PANEL-A01',
         'points': [
-            MockPoint('Place 1', 'USB-1', 'USB', 12.0, 5.0, 1.5, RC.PASS),
-            MockPoint('Place 2', 'LAN-3', 'RJ45', 14.0, 5.0, 1.5, RC.FAIL_DISPLACEMENT),
-            MockPoint('Place 3', 'HDMI-4', 'HDMI', 25.0, 5.0, 1.5, RC.MISSING),
+            MockPoint('Place 1', 'USB-1', 'USB', 12.0, 0.0, 5.0,
+                      RS.PASS_FORCE_DISPLACEMENT_OK, required_pull_force_n=12.0),
+            MockPoint('Place 2', 'LAN-3', 'RJ45', 14.0, 0.0, 5.0,
+                      RS.FAIL_DISPLACEMENT_LIMIT, required_pull_force_n=15.0),
+            MockPoint('Place 3', 'HDMI-4', 'HDMI', 25.0, 0.0, 5.0,
+                      RS.MISSING_GRIP_SLIP, required_pull_force_n=15.0),
+            MockPoint('Place 4', 'USB-7', 'USB', 12.0, 0.0, 5.0,
+                      INCOMPLETE_TIMEOUT, required_pull_force_n=12.0),
         ],
     },
     'RECIPE_B': {
         'version': 'v0.3',
         'product_id': 'PANEL-B07',
         'points': [
-            MockPoint('Place 1', 'LAN-1', 'RJ45', 14.0, 6.0, 1.2, RC.PASS),
-            MockPoint('Place 2', 'HDMI-2', 'HDMI', 25.0, 6.0, 1.2, RC.FAIL_DETACHED),
-            MockPoint('Place 3', 'USB-5', 'USB', 12.0, 4.0, 1.5, RC.PASS),
-            MockPoint('Place 4', 'USB-6', 'USB', 12.0, 4.0, 1.5, RC.PASS),
+            MockPoint('Place 1', 'LAN-1', 'RJ45', 14.0, 0.0, 5.0,
+                      RS.PASS_FORCE_DISPLACEMENT_OK, required_pull_force_n=15.0),
+            MockPoint('Place 2', 'HDMI-2', 'HDMI', 25.0, 0.0, 5.0,
+                      RS.FAIL_MAX_DISTANCE, required_pull_force_n=15.0),
+            MockPoint('Place 3', 'USB-5', 'USB', 12.0, 0.0, 5.0,
+                      RS.PASS_FORCE_DISPLACEMENT_OK, required_pull_force_n=12.0),
+            MockPoint('Place 4', 'USB-6', 'USB', 12.0, 0.0, 5.0,
+                      RS.PASS_FORCE_DISPLACEMENT_OK, required_pull_force_n=12.0),
         ],
     },
 }
 
 # DB 에서 읽은 Recipe 에는 mock 결과가 없으므로 이 순서를 돌려 쓴다.
-MOCK_OUTCOME_CYCLE = (RC.PASS, RC.FAIL_DISPLACEMENT, RC.MISSING, RC.PASS)
+MOCK_OUTCOME_CYCLE = (RS.PASS_FORCE_DISPLACEMENT_OK, RS.FAIL_DISPLACEMENT_LIMIT,
+                      RS.MISSING_GRIP_SLIP, RS.PASS_FORCE_DISPLACEMENT_OK)
 
-OUTCOME_TEXT = {
-    RC.PASS: ('유효 검사에서 체결 유지 조건 충족', '결과 기록'),
-    RC.FAIL_DISPLACEMENT: ('유효 검사에서 케이블 변위 허용 범위 초과',
-                           '불량 결과 기록 · 원본 Force 데이터 보존'),
-    RC.FAIL_DETACHED: ('Pull 중 힘 급감과 변위 급증 - 케이블 완전 이탈',
-                       '이탈 케이블 안전 회수 · 불량 결과 기록'),
-    RC.MISSING: ('그리퍼 폭이 파지 기준 미만 - 대상을 잡지 못함',
-                 '사유 기록 · 안전 후퇴 후 다음 Point 진행'),
+# mock 이 흉내 내는 상황: outcome -> (Pull 종료 이유, 판정 상태, 사유 문장, 처리)
+# 결과 3개(PASS/FAIL/MISSING)와 상세 원인(ReasonCode)은 Sequence #06 기준이다.
+CASES = {
+    RS.PASS_FORCE_DISPLACEMENT_OK: (
+        TR.FORCE_LIMIT, JS.COMPLETED, '기준 힘 도달, 변위 허용 범위 이내', '결과 기록'),
+    RS.FAIL_DISPLACEMENT_LIMIT: (
+        TR.FORCE_LIMIT, JS.COMPLETED, '기준 힘 도달 시점에 변위 5 mm 초과',
+        '불량 결과 기록 · 원본 Force 데이터 보존'),
+    RS.FAIL_MAX_DISTANCE: (
+        TR.MAX_DISTANCE, JS.COMPLETED, '미끄러짐 없이 Pull 최대 거리까지 이동',
+        '불량 결과 기록 · 케이블 상태 확인'),
+    RS.MISSING_GRIP_SLIP: (
+        TR.MAX_DISTANCE, JS.COMPLETED, 'Pull 중 그리퍼 폭 변화 - 미끄러짐으로 검사 무효',
+        '사유 기록 · 안전 후퇴 후 다음 Point 진행'),
+    INCOMPLETE_TIMEOUT: (
+        TR.TIMEOUT, JS.ERROR, 'Pull 제한 시간 초과 - 제품 결과를 만들 수 없음',
+        '작업 종료 보류 · 원인 확인 필요'),
 }
 
 
@@ -106,9 +143,9 @@ def build_steps(point: MockPoint):
         Step('Contact Search', 1.2),
         Step('Cable Grip', 0.8, 'grip'),
     ]
-    if point.outcome != RC.MISSING:
-        steps += [Step('Pull Test', 3.0, 'pull'), Step('Force Check', 0.5, 'check')]
-    if point.outcome == RC.FAIL_DETACHED:
+    # 결과와 무관하게 Pull 을 수행한다: 미끄러짐도 Pull 중에 드러나고 시간 초과도 Pull 에서 난다.
+    steps += [Step('Pull Test', 3.0, 'pull'), Step('Force Check', 0.5, 'check')]
+    if point.outcome == RS.FAIL_MAX_DISTANCE:
         steps.append(Step('이탈 케이블 회수', 1.5, 'recover'))
     steps.append(Step('Retreat', 0.8, 'retreat'))
     return steps
@@ -211,9 +248,10 @@ class MockInspectionNode(Node):
                 'product_id': info.product_id,
                 'points': [
                     MockPoint(p.point_id, p.cable_id, p.cable_type, p.grip_width_mm,
-                              p.pull_force_n, p.max_displacement_mm,
+                              p.pull_force_limit_n, p.max_displacement_mm,
                               MOCK_OUTCOME_CYCLE[i % len(MOCK_OUTCOME_CYCLE)],
-                              p.repeat_count or 3)
+                              p.repeat_count,
+                              required_pull_force_n=p.required_pull_force_n)
                     for i, p in enumerate(info.points.values())],
             } for rid, info in loaded.items()}
         self.get_logger().info(f'레시피 DB 에서 {len(self._recipes)}개 읽음: {path}')
@@ -233,6 +271,7 @@ class MockInspectionNode(Node):
         st.recipe_version = recipe['version']
         st.product_id = recipe['product_id']
         st.product_result = itf.ProductResult.NONE
+        st.end_reason = itf.EndReason.NONE
         st.progress_percent = 0
         self._points = list(recipe['points'])
         st.total_points = len(self._points)
@@ -268,6 +307,7 @@ class MockInspectionNode(Node):
         st.alarm = '비상정지 작동'
         st.force_n = 0.0
         st.judgement = '중단'
+        st.end_reason = itf.EndReason.STOP
         self._log('ERROR', f'비상정지! 모든 동작 중단 ({st.current_point} · {st.current_step})')
 
     def _cmd_estop_reset(self, _args):
@@ -320,6 +360,14 @@ class MockInspectionNode(Node):
             st.state = State.PAUSED
             self._log('WARN', 'HMI heartbeat 끊김 - 안전을 위해 자동 일시정지')
 
+        # 가짜 TCP 좌표와 로봇 동작 상태 (로봇이 없으므로 힘·폭과 마찬가지로 지어낸 값이다).
+        st.robot_motion = (itf.RobotMotion.MOVING if st.state in (State.RUNNING, State.MOVING)
+                           else itf.RobotMotion.STANDBY)
+        base = 600.0 + 10.0 * self._point_idx
+        st.task = [round(base, 1), round(-300.0 + st.displacement_mm, 1), 360.0, 90.0, -90.0, 0.0]
+        st.joint = [round(17.84 + self._point_idx, 2), 26.59, 50.25, -223.65, -95.91, -70.74]
+        st.servo = itf.Servo.OFF if st.estop else itf.Servo.ON
+
         if st.state in (State.RUNNING, State.MOVING):
             self._elapsed += TICK_SEC * st.speed_percent / REFERENCE_SPEED
             if st.state == State.MOVING:
@@ -349,8 +397,9 @@ class MockInspectionNode(Node):
         point = self._points[self._point_idx]
         if self.get_parameter('random_outcomes').value:
             point.outcome = random.choices(
-                [RC.PASS, RC.FAIL_DISPLACEMENT, RC.FAIL_DETACHED, RC.MISSING],
-                weights=[6, 2, 1, 1])[0]
+                [RS.PASS_FORCE_DISPLACEMENT_OK, RS.FAIL_DISPLACEMENT_LIMIT,
+                 RS.FAIL_MAX_DISTANCE, RS.MISSING_GRIP_SLIP, INCOMPLETE_TIMEOUT],
+                weights=[6, 2, 1, 1, 1])[0]
         self._steps = build_steps(point)
         self._step_idx = 0
         self._elapsed = 0.0
@@ -363,8 +412,11 @@ class MockInspectionNode(Node):
         st.force_n = 0.0
         st.gripper_width_mm = GRIPPER_OPEN_MM
         st.criteria = itf.Criteria(
-            point.max_displacement_mm, point.pull_force_n, point.repeat_count,
-            point.grip_width_mm)
+            max_displacement_mm=point.max_displacement_mm,
+            required_pull_force_n=point.required_pull_force_n,
+            pull_max_distance_mm=point.pull_max_distance_mm,
+            pull_force_limit_n=point.pull_force_limit_n,
+            repeat_count=point.repeat_count, grip_width_mm=point.grip_width_mm)
         self._log('INFO', f'{point.point_id} ({point.cable_id}) 검사 시작')
 
     def _tick_step(self):
@@ -382,9 +434,7 @@ class MockInspectionNode(Node):
 
         if ratio < 1.0:
             return
-        if step.kind == 'grip' and self._points[self._point_idx].outcome == RC.MISSING:
-            self._finish_point()
-        elif step.kind == 'check':
+        if step.kind == 'check':
             self._finish_point()
 
         self._step_idx += 1
@@ -408,21 +458,30 @@ class MockInspectionNode(Node):
         st.current_step = step.name
         noise = random.gauss(0.0, 0.12)
         if step.kind == 'grip':
-            closed = 0.0 if point.outcome == RC.MISSING else point.grip_width_mm
+            closed = point.grip_width_mm
             st.gripper_width_mm = GRIPPER_OPEN_MM + (closed - GRIPPER_OPEN_MM) * ratio
             st.force_n = abs(noise)
         elif step.kind == 'pull':
-            cycle = min(point.repeat_count, int(ratio * point.repeat_count) + 1)
-            st.current_step = f'{step.name} ({cycle}/{point.repeat_count})'
-            wave = math.sin(math.pi * ((ratio * point.repeat_count) % 1.0))
-            final_disp = {RC.PASS: 0.4, RC.FAIL_DISPLACEMENT: 1.8}.get(point.outcome, 0.6)
-            detached = point.outcome == RC.FAIL_DETACHED and ratio > 0.45
-            if detached:
-                st.force_n = abs(0.4 + noise)
-                st.displacement_mm = 8.5
+            # Pull 은 1회다. 힘은 당기는 동안 올라가 기준 힘 근처에서 멈춘다.
+            wave = min(1.0, ratio / 0.7)
+            # 흉내 내는 상황 (#05/#06): 기준 힘에 도달하면 Pull 이 멈춘다. 5 mm 는 판정 기준일 뿐
+            # 정지 조건이 아니라서, 변위 초과 Case 도 기준 힘까지는 계속 당긴다.
+            #   PASS         기준 힘 도달, 변위 1.2 mm
+            #   변위 초과     기준 힘 도달, 변위 7.5 mm
+            #   최대 거리     힘이 오르지 않고 25 mm 까지 이동
+            #   미끄러짐      Pull 중 그리퍼 폭이 벌어짐
+            #   시간 초과     힘도 거리도 기준에 못 미친 채 끝남 -> 제품 결과 없음
+            peak = point.required_pull_force_n
+            final_disp = {RS.PASS_FORCE_DISPLACEMENT_OK: 1.2,
+                          RS.FAIL_DISPLACEMENT_LIMIT: 7.5,
+                          INCOMPLETE_TIMEOUT: 3.0}.get(point.outcome, point.pull_max_distance_mm)
+            if point.outcome in (RS.FAIL_MAX_DISTANCE, INCOMPLETE_TIMEOUT):
+                st.force_n = max(0.0, (peak * 0.35) * wave + noise)   # 기준 힘에 못 미친다
             else:
-                st.force_n = max(0.0, (point.pull_force_n + 0.8) * wave + noise)
-                st.displacement_mm = round(final_disp * max(wave, ratio), 2)
+                st.force_n = max(0.0, (peak + 1.5) * wave + noise)
+            st.displacement_mm = round(final_disp * max(wave, ratio), 2)
+            if point.outcome == RS.MISSING_GRIP_SLIP and ratio > 0.5:
+                st.gripper_width_mm = point.grip_width_mm + 3.0 * (ratio - 0.5)
             self._max_force = max(self._max_force, st.force_n)
         elif step.kind in ('retreat', 'recover'):
             st.force_n = abs(noise)
@@ -434,8 +493,8 @@ class MockInspectionNode(Node):
     def _finish_point(self):
         point = self._points[self._point_idx]
         st = self._st
-        reason, action = OUTCOME_TEXT[point.outcome]
-        missing = point.outcome == RC.MISSING
+        termination, judgment_status, reason, action = CASES[point.outcome]
+        missing = point.result == RC.MISSING
         result = itf.PointResult(
             run_id=st.run_id,
             stamp=datetime.now().isoformat(timespec='seconds'),
@@ -445,11 +504,18 @@ class MockInspectionNode(Node):
             point_id=point.point_id,
             cable_id=point.cable_id,
             cable_type=point.cable_type,
-            result=point.outcome,
-            max_force_n=0.0 if missing else round(self._max_force, 2),
-            pull_force_n=point.pull_force_n,
-            displacement_mm=0.0 if missing else round(st.displacement_mm, 2),
+            result=point.result,
+            reason_code=point.reason_code,
+            judgment_status=judgment_status,
+            max_force_n=round(self._max_force, 2),
+            required_pull_force_n=point.required_pull_force_n,
+            pull_force_limit_n=point.pull_force_limit_n,
+            displacement_mm=round(st.displacement_mm, 2),
             displacement_limit_mm=point.max_displacement_mm,
+            pull_max_distance_mm=point.pull_max_distance_mm,
+            termination_reason=termination,
+            grip_width_hard_mm=point.grip_width_mm,
+            grip_width_change_mm=round(max(0.0, st.gripper_width_mm - point.grip_width_mm), 2),
             reason=reason,
             action=action,
             force_data_id='' if missing else f'FORCE-{st.run_id:05d}-P{self._point_idx + 1}',
@@ -459,20 +525,22 @@ class MockInspectionNode(Node):
         )
         self._results.append(result)
         self._result_pub.publish(itf.encode_result(result))
-        st.judgement = point.outcome
-        level = 'INFO' if point.outcome == RC.PASS else 'WARN'
-        self._log(level, f'{point.point_id} ({point.cable_id}) 결과 {point.outcome} - {reason}')
+        st.judgement = point.result
+        level = 'INFO' if point.result == RC.PASS else 'WARN'
+        self._log(level, f'{point.point_id} ({point.cable_id}) 결과 {point.result} '
+                         f'[{point.reason_code or termination}] - {reason}')
 
     def _finish_run(self):
         st = self._st
         codes = [r.result for r in self._results]
         if any(c in RC.FAIL_CODES for c in codes):
             st.product_result = itf.ProductResult.FAIL
-        elif RC.MISSING in codes:
+        elif RC.MISSING in codes or RC.INCOMPLETE in codes:
             st.product_result = itf.ProductResult.INCOMPLETE
         else:
             st.product_result = itf.ProductResult.PASS
         st.state = State.DONE
+        st.end_reason = itf.EndReason.COMPLETED
         st.current_point = 'HOME'
         st.current_step = ''
         st.judgement = st.product_result

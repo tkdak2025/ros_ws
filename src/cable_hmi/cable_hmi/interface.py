@@ -49,11 +49,17 @@ HEARTBEAT_PERIOD_SEC = 0.5
 class State:
     """검사 노드의 상위 상태. HMI 버튼 활성화는 전적으로 이 값에 따른다."""
 
+    # 설계 문서(Sequence #00)의 SYSTEM_READY = 여기의 IDLE 과 DONE 이다. 둘 다 START 를 받을 수
+    # 있는 정지 대기 상태이고, DONE 은 '직전 검사의 결과가 화면에 남아 있다' 는 것만 다르다.
+    # STOPPED 는 START 를 받을 수 없다 - 문서의 SystemState.STOPPED 와 같다.
     IDLE = 'IDLE'          # 대기 - 검사 시작/이동 명령 가능
     RUNNING = 'RUNNING'    # 검사 시퀀스 수행 중
+    PAUSE_REQUEST = 'PAUSE_REQUEST'   # 일시정지를 받았고 안전한 정지 지점까지 가는 중 (Common Sequence #1)
     PAUSED = 'PAUSED'      # 일시정지 - 이어하기 가능
     MOVING = 'MOVING'      # Home / Point 이동 중
     DONE = 'DONE'          # 검사 완료 - 검사 시작/이동 명령 가능
+    # STOP 으로 Job 이 끝난 상태. 자동 Home Return 이 없으므로 Home 이동을 해야 다시 시작할 수 있다.
+    STOPPED = 'STOPPED'    # 정지됨 - Home 이동만 가능
     ESTOP = 'ESTOP'        # 비상정지 작동 중
     ERROR = 'ERROR'        # 장비·제어 오류
     # 읽기 전용 모니터(robot_monitor_node)용. 시작/이동 버튼이 잠긴다.
@@ -63,9 +69,11 @@ class State:
     LABELS = {
         IDLE: '대기',
         RUNNING: '검사 중',
+        PAUSE_REQUEST: '일시정지 요청',
         PAUSED: '일시정지',
         MOVING: '이동 중',
         DONE: '검사 완료',
+        STOPPED: '정지됨',
         ESTOP: '비상정지',
         ERROR: '오류',
         MONITOR: '모니터링',
@@ -74,32 +82,243 @@ class State:
 
 
 class ResultCode:
-    """Point 별 검사 결과 코드 (BRD 합의사항 5장)."""
+    """
+    Point 별 검사 결과 코드 (Concept/Sequence #06 Inspection Judgment, 2026-09-22).
+
+    결과는 PASS / FAIL / MISSING 세 개다. 상세 원인은 결과와 분리해 PointResult.reason_code 에
+    싣는다(ReasonCode). Detach 와 Displacement 를 다른 결과로 나누지 않는다.
+    FAIL_DISPLACEMENT / FAIL_DETACHED 는 #06 이전의 코드다 - 지난 DB 기록을 읽기 위해 남겨 두며,
+    새 결과에는 쓰지 않는다.
+    """
 
     PASS = 'PASS'
-    FAIL_DISPLACEMENT = 'FAIL_DISPLACEMENT'
-    FAIL_DETACHED = 'FAIL_DETACHED'
-    MISSING = 'MISSING'
+    FAIL = 'FAIL'
+    MISSING = 'MISSING'        # Grip Slip 으로 유효한 체결검사가 성립하지 않음
+    # 제품 결과가 아니다. 유효한 판정을 만들지 못한 Point (#06 6.4: TIMEOUT 등).
+    # 이 Point 가 있으면 #07 Work Finish 가 Job 종료를 승인하지 않는다.
+    INCOMPLETE = 'INCOMPLETE'
+    FAIL_DISPLACEMENT = 'FAIL_DISPLACEMENT'   # 옛 코드 (FAIL 로 읽힌다)
+    FAIL_DETACHED = 'FAIL_DETACHED'           # 옛 코드 (FAIL 로 읽힌다)
 
-    FAIL_CODES = (FAIL_DISPLACEMENT, FAIL_DETACHED)
+    PRODUCT_CODES = (PASS, FAIL, MISSING)
+    FAIL_CODES = (FAIL, FAIL_DISPLACEMENT, FAIL_DETACHED)
 
     @staticmethod
     def category(code: str) -> str:
-        """결과 코드를 PASS / FAIL / MISSING 세 부류로 묶는다."""
+        """결과 코드를 PASS / FAIL / MISSING / INCOMPLETE 네 부류로 묶는다."""
         if code == ResultCode.PASS:
             return 'PASS'
         if code == ResultCode.MISSING:
             return 'MISSING'
+        if code in ('', ResultCode.INCOMPLETE):
+            return 'INCOMPLETE'
         return 'FAIL'
 
 
+class ReasonCode:
+    """
+    판정의 상세 원인 (Sequence #06). PointResult.reason_code 에 싣는다.
+
+    문서는 "Reason 코드는 HMI Interface 정의에서 최종 확정한다" 고 했다 - 여기가 그 정의다.
+    앞부분(PASS_ / FAIL_ / MISSING_)이 결과 부류와 같아서 result_of() 로 결과를 얻을 수 있다.
+    유효한 판정을 만들지 못한 Point(INCOMPLETE)에는 원인 코드를 붙이지 않는다 - 제품 결과가
+    아니기 때문이다. 사유는 reason 문장과 termination_reason 으로 남긴다.
+    """
+
+    PASS_FORCE_DISPLACEMENT_OK = 'PASS_FORCE_DISPLACEMENT_OK'   # 기준 힘 도달 + 변위 한계 이내
+    FAIL_DISPLACEMENT_LIMIT = 'FAIL_DISPLACEMENT_LIMIT'         # 변위 한계(5 mm) 초과
+    FAIL_MAX_DISTANCE = 'FAIL_MAX_DISTANCE'                     # 미끄러짐 없이 최대 거리(25 mm)까지 이동
+    MISSING_GRIP_SLIP = 'MISSING_GRIP_SLIP'                     # 파지 미끄러짐 - 검사 무효
+    MISSING_NOT_IMPLEMENTED = 'MISSING_NOT_IMPLEMENTED'         # 검사 동작 미구현 (개발 중 전용)
+
+    # 통합문서(2026-09-22) 이전 코드. 새 결과에는 쓰지 않고, 지난 기록을 읽을 때만 쓴다.
+    FAIL_FORCE_REQUIREMENT = 'FAIL_FORCE_REQUIREMENT'
+    MISSING_INVALID_DATA = 'MISSING_INVALID_DATA'
+    MISSING_ABNORMAL_TERMINATION = 'MISSING_ABNORMAL_TERMINATION'
+
+    ALL = (PASS_FORCE_DISPLACEMENT_OK, FAIL_DISPLACEMENT_LIMIT, FAIL_MAX_DISTANCE,
+           MISSING_GRIP_SLIP, MISSING_NOT_IMPLEMENTED)
+
+    LABELS = {
+        PASS_FORCE_DISPLACEMENT_OK: '기준 힘 도달, 변위 허용 범위 이내',
+        FAIL_DISPLACEMENT_LIMIT: '변위 허용 한계 초과',
+        FAIL_MAX_DISTANCE: '미끄러짐 없이 Pull 최대 거리까지 이동',
+        MISSING_GRIP_SLIP: '파지 미끄러짐으로 검사 무효',
+        MISSING_NOT_IMPLEMENTED: '검사 동작 미구현',
+        FAIL_FORCE_REQUIREMENT: '기준 힘에 도달하지 못함 (옛 코드)',
+        MISSING_INVALID_DATA: '검사 데이터 누락 또는 비정상 (옛 코드)',
+        MISSING_ABNORMAL_TERMINATION: '검사 비정상 종료 (옛 코드)',
+    }
+
+    @staticmethod
+    def result_of(reason_code: str) -> str:
+        """원인 코드에서 결과(PASS / FAIL / MISSING)를 얻는다. 코드가 없으면 INCOMPLETE."""
+        for prefix, result in (('PASS_', ResultCode.PASS), ('FAIL_', ResultCode.FAIL),
+                               ('MISSING_', ResultCode.MISSING)):
+            if reason_code.startswith(prefix):
+                return result
+        return ResultCode.INCOMPLETE
+
+
+class TerminationReason:
+    """
+    Pull Motion 이 끝난 이유 (Sequence #05 10장). 판정(#06)의 입력이다.
+
+    실물 시험 코드는 같은 뜻을 `PULL_FORCE_LIMIT` / `PULL_MAX_DISTANCE` 처럼 단계 이름을 붙여
+    기록한다(진입 단계는 `ENTRY_FORCE_LIMIT`). 이름을 한쪽으로 강제하지 않고 normalize() 로
+    접두어를 벗겨 읽는다 - 보내는 쪽이 어느 형식을 쓰든 화면에는 같은 뜻으로 나온다.
+    """
+
+    NONE = ''
+    FORCE_LIMIT = 'FORCE_LIMIT'      # 기준 Pull 힘에 도달해 정지 (정상 종료)
+    MAX_DISTANCE = 'MAX_DISTANCE'    # Pull 최대 거리(25 mm)까지 이동
+    TIMEOUT = 'TIMEOUT'              # 제한 시간 초과. 제품 결과로 바꾸지 않는다 (#06 6.4)
+    MOTION_ERROR = 'MOTION_ERROR'    # 모션 오류
+
+    _PREFIXES = ('PULL_', 'ENTRY_')
+
+    LABELS = {
+        FORCE_LIMIT: '기준 힘 도달', MAX_DISTANCE: '최대 거리 도달',
+        TIMEOUT: '시간 초과', MOTION_ERROR: '모션 오류',
+    }
+
+    @staticmethod
+    def normalize(code: str) -> str:
+        """단계 접두어를 벗긴 코드. 모르는 값은 그대로 돌려준다."""
+        for prefix in TerminationReason._PREFIXES:
+            if code.startswith(prefix):
+                return code[len(prefix):]
+        return code
+
+    @staticmethod
+    def label(code: str) -> str:
+        """한글 설명. 모르는 코드면 빈 문자열."""
+        return TerminationReason.LABELS.get(TerminationReason.normalize(code), '')
+
+
+class RobotMotion:
+    """
+    로봇이 지금 무엇을 하고 있는가. 두산 제어기에서 읽은 값이다.
+
+    **이동 여부는 check_motion 으로만 판단한다.** get_robot_state 는 API 로 건 모션 중에도
+    STANDBY 를 유지하고, 멈춰 있을 때 move_stop 을 보내면 잠깐 MOVING 이 된다(2026-09-19 실기 확인).
+    그래서 보내는 쪽 규칙은: check_motion 이 정지가 아니면 MOVING, 아니면 get_robot_state 의 이름.
+    """
+
+    NONE = ''
+    MOVING = 'MOVING'                  # 실제로 움직이는 중 (check_motion)
+    STANDBY = 'STANDBY'                # 정지, 운전 가능
+    INITIALIZING = 'INITIALIZING'
+    SAFE_OFF = 'SAFE_OFF'              # 서보 OFF
+    TEACHING = 'TEACHING'
+    SAFE_STOP = 'SAFE_STOP'            # 보호 정지
+    EMERGENCY_STOP = 'EMERGENCY_STOP'
+    HOMMING = 'HOMMING'
+    RECOVERY = 'RECOVERY'
+    SAFE_STOP2 = 'SAFE_STOP2'
+    SAFE_OFF2 = 'SAFE_OFF2'
+    NOT_READY = 'NOT_READY'
+
+    # get_robot_state 응답 숫자 -> 이름
+    CODES = {
+        0: INITIALIZING, 1: STANDBY, 2: MOVING, 3: SAFE_OFF, 4: TEACHING, 5: SAFE_STOP,
+        6: EMERGENCY_STOP, 7: HOMMING, 8: RECOVERY, 9: SAFE_STOP2, 10: SAFE_OFF2, 15: NOT_READY,
+    }
+
+    LABELS = {
+        MOVING: '이동 중', STANDBY: '대기', INITIALIZING: '초기화 중', SAFE_OFF: '서보 OFF',
+        TEACHING: '교시 중', SAFE_STOP: '보호 정지', EMERGENCY_STOP: '비상정지',
+        HOMMING: '원점 복귀 중', RECOVERY: '복구 중', SAFE_STOP2: '보호 정지 2',
+        SAFE_OFF2: '서보 OFF 2', NOT_READY: '준비 안 됨',
+    }
+
+    @staticmethod
+    def of(robot_state: int, moving: bool) -> str:
+        """check_motion 결과(moving)를 먼저 보고, 아니면 get_robot_state 이름을 쓴다."""
+        if moving:
+            return RobotMotion.MOVING
+        return RobotMotion.CODES.get(robot_state, '')
+
+    @staticmethod
+    def label(code: str) -> str:
+        return RobotMotion.LABELS.get(code, '')
+
+
+class Servo:
+    """
+    서보(모터) 전원 상태.
+
+    두산 드라이버에는 서보 상태를 묻는 서비스가 없다(servo_off 는 끄는 명령뿐이다). 그래서
+    get_robot_state 값에서 끌어낸다 - 모터가 꺼져 있다고 보는 상태는 아래 OFF_STATES 다.
+    값을 읽지 못했으면 NONE(빈 문자열)으로 두고 화면에는 '—' 로 나온다.
+    """
+
+    NONE = ''
+    ON = 'ON'
+    OFF = 'OFF'
+
+    # 모터가 꺼져 있다고 보는 제어기 상태
+    OFF_STATES = (RobotMotion.INITIALIZING, RobotMotion.SAFE_OFF, RobotMotion.SAFE_OFF2,
+                  RobotMotion.NOT_READY, RobotMotion.EMERGENCY_STOP)
+
+    LABELS = {ON: 'ON', OFF: 'OFF'}
+
+    @staticmethod
+    def of(robot_state: int) -> str:
+        """get_robot_state 응답 숫자에서 서보 상태를 얻는다. 모르는 값이면 NONE."""
+        name = RobotMotion.CODES.get(robot_state)
+        if name is None:
+            return Servo.NONE
+        return Servo.OFF if name in Servo.OFF_STATES else Servo.ON
+
+
+class JudgmentStatus:
+    """Point 별 판정 진행 상태 (Sequence #06 10장). 판정은 로봇 이동과 비동기로 돈다."""
+
+    NONE = ''
+    PENDING = 'PENDING'        # 측정은 끝났고 판정 대기 중
+    COMPLETED = 'COMPLETED'    # 판정 완료
+    ERROR = 'ERROR'            # 판정을 만들 수 없음 -> Job 종료 보류 (#07)
+
+    LABELS = {PENDING: '판정 대기', COMPLETED: '판정 완료', ERROR: '판정 오류'}
+
+
 class ProductResult:
-    """제품 단위 최종 판정. MISSING 이 남으면 PASS 가 될 수 없다."""
+    """
+    제품 단위 최종 판정. MISSING 이 남으면 PASS 가 될 수 없다.
+
+    Job 을 종료해도 되는가(#07 Work Finish)와는 다른 이야기다: FAIL 이나 MISSING 이 있어도
+    모든 Point 판정이 정상 완료됐다면 Job 은 정상 종료된다.
+    """
 
     NONE = ''
     PASS = 'PASS'
     FAIL = 'FAIL'
     INCOMPLETE = 'INCOMPLETE'   # FAIL 은 없지만 미검사(MISSING) Point 존재
+
+
+class PauseReason:
+    """왜 일시정지했는가 (Common Sequence #1)."""
+
+    NONE = ''
+    USER = 'USER'                # 사용자가 일시정지를 눌렀다
+    COMM_LOST = 'COMM_LOST'      # HMI heartbeat 가 끊겼다. 복구돼도 사용자가 이어하기를 눌러야 재개한다
+
+
+class EndReason:
+    """검사(run) 1회가 어떻게 끝났는가. 작업 단위 기록(result_db 의 inspection_run)에 남는다."""
+
+    NONE = ''
+    COMPLETED = 'COMPLETED'      # 마지막 Point 까지 검사하고 정상 완료
+    STOP = 'STOP'                # HMI STOP
+    ERROR = 'ERROR'              # 로봇·시퀀스 오류
+    COMM_ERROR = 'COMM_ERROR'    # HMI 통신이 제한 시간 안에 복구되지 않음
+    INIT_FAIL = 'INIT_FAIL'      # Work Initialize 에서 시작 조건 불만족
+    # Work Finish(#07) 가 종료 조건 불충족으로 Job 종료를 승인하지 않았다. 검사 결과가 나쁘다는
+    # 뜻이 아니라 판정 대기·결과 누락·Point 오류가 남아 있다는 뜻이다. 로봇은 안전 위치에 머문다.
+    NOT_COMPLETE = 'NOT_COMPLETE'
+    ABORTED = 'ABORTED'          # 동작 코드가 스스로 중단 (Ctrl+C, 예외 ...)
+    LOST = 'LOST'                # 동작 코드가 검사 도중에 소식이 끊김 (프로그램이 죽음)
 
 
 class CommandName:
@@ -130,11 +349,24 @@ class ToolInfo:
 
 @dataclass
 class Criteria:
-    """현재 Point 에 적용 중인 판정 기준 (우측 패널 상단)."""
+    """
+    현재 Point 에 적용 중인 검사 조건 (우측 패널 상단). 판정 규칙은 Sequence #06 이다.
 
-    max_displacement_mm: float = 0.0
-    pull_force_n: float = 0.0
-    repeat_count: int = 0
+        PASS    = 기준 힘(required_pull_force_n)에 도달 AND 변위 <= max_displacement_mm
+        FAIL    = 유효한 검사인데 위 조건을 못 채움 (변위 초과, 최대 거리까지 이동)
+        MISSING = Grip Slip 으로 유효한 검사가 성립하지 않음
+
+    기준 Pull 힘(required_pull_force_n)은 합격선이면서 **Pull 정지 조건**이다 - 이 힘에 도달하면
+    Pull 을 멈춘다(#05). 허용 변위 5 mm 는 판정 기준일 뿐 정지 조건이 아니며, 5 mm 를 넘어도
+    기준 힘 / 최대 거리 25 mm / 시간 초과까지 계속 당긴다.
+    표준값: 기준 힘 LAN 20 N / USB 12 N, 허용 변위 5 mm, 최대 거리 25 mm.
+    """
+
+    max_displacement_mm: float = 0.0   # 허용 변위 5 mm. 넘으면 FAIL. Pull 정지 조건이 아니다
+    required_pull_force_n: float = 0.0  # 기준 Pull 힘. 도달하면 Pull 을 멈춘다 (LAN 20 / USB 12)
+    pull_max_distance_mm: float = 0.0  # Pull 최대 거리 25 mm. 모션 보호 상한
+    pull_force_limit_n: float = 0.0    # 옛 필드. 기준 힘과 정지 힘을 따로 두던 때의 값
+    repeat_count: int = 0              # 옛 필드. 현재 Pull 은 1회다
     grip_width_mm: float = 0.0
 
 
@@ -157,13 +389,21 @@ class SystemStatus:
     product_id: str = ''
     total_points: int = 0
     product_result: str = ProductResult.NONE
+    pending_judgments: int = 0   # 아직 판정이 끝나지 않은 Point 수 (#06 비동기 판정)
+    end_reason: str = EndReason.NONE       # 이번 run 이 끝난 이유. 다음 run 이 시작될 때까지 남는다
 
+    pause_reason: str = PauseReason.NONE   # state 가 PAUSE_REQUEST / PAUSED 일 때
     current_point: str = ''      # 예: 'Place 2', 'HOME'
     current_step: str = ''       # 예: 'Pull Test (2/3)'
     judgement: str = ''          # 예: '검사 중', 'PASS'
     speed_percent: int = 0
     gripper_width_mm: float = 0.0
     force_n: float = 0.0
+    # 현재 TCP 위치 [x, y, z, rx, ry, rz] (BASE, mm/deg). 비어 있으면 값을 못 읽은 것이다.
+    task: List[float] = field(default_factory=list)
+    joint: List[float] = field(default_factory=list)   # 현재 관절각 [J1..J6] (deg)
+    robot_motion: str = RobotMotion.NONE   # 지금 로봇이 무엇을 하고 있는가
+    servo: str = Servo.NONE                # 서보 전원 ON / OFF
     displacement_mm: float = 0.0
     progress_percent: int = 0
 
@@ -180,12 +420,30 @@ class PointResult:
     point_id: str = ''           # 예: 'Place 2'
     cable_id: str = ''           # 예: 'LAN-3'
     cable_type: str = ''         # 예: 'RJ45'
-    result: str = ''             # ResultCode
+    result: str = ''             # ResultCode: PASS / FAIL / MISSING / INCOMPLETE(제품 결과 아님)
+    reason_code: str = ''        # ReasonCode: 상세 원인 (결과와 분리, #06)
+    judgment_status: str = ''    # JudgmentStatus: PENDING / COMPLETED / ERROR
+    # 판정 입력(#06 9장)과 그때 쓴 조건을 짝지어 싣는다:
+    #   max_force_n ↔ required_pull_force_n (합격 기준) / pull_force_limit_n (정지 상한)
+    #   displacement_mm ↔ displacement_limit_mm
+    # 측정: 이번 Pull 의 최대 힘 (peak_pull_force).
+    # **Pull 을 멈출지 판단할 때 비교한 그 값을 그대로 싣는다.** 실물 기록에는 축방향 원값
+    # (peak_pull_force_n)과 시작 기준값을 뺀 변화량(peak_force_delta_n)이 함께 남는데, 둘은
+    # 샘플에 따라 대소가 뒤집힌다(실측: 정상 20.31 vs 18.50, 파지불량 9.43 vs 10.12).
+    # 다른 값을 실으면 "기준 15 N 인데 왜 이 판정인가" 를 화면에서 설명할 수 없다.
     max_force_n: float = 0.0
-    pull_force_n: float = 0.0
-    displacement_mm: float = 0.0
-    displacement_limit_mm: float = 0.0
-    reason: str = ''             # 판정 사유 / 미수행 사유
+    required_pull_force_n: float = 0.0  # 조건: 기준 Pull 힘 (= Pull 정지 조건)
+    pull_force_limit_n: float = 0.0    # 조건: Pull 정지 상한 (합격 기준이 아니다)
+    displacement_mm: float = 0.0       # 측정: Pull 방향 변위 (pull_displacement)
+    displacement_limit_mm: float = 0.0  # 조건: 허용 변위 (5 mm)
+    pull_max_distance_mm: float = 0.0  # 조건: Pull 최대 거리 (25 mm)
+    # TerminationReason: FORCE_LIMIT / MAX_DISTANCE / TIMEOUT / MOTION_ERROR
+    termination_reason: str = ''
+    # 측정: Hard Grip 직후 RG2 실제 폭 (#04 grip_width_hard). 지시한 파지 폭(grip_width_mm)과
+    # 다르다 - 실측 예: 지시 16.0 mm 에 실제 18.4 mm. Pull 중 폭 변화의 기준값이다.
+    grip_width_hard_mm: float = 0.0
+    grip_width_change_mm: float = 0.0  # Hard Grip 뒤 Pull 중 RG2 폭 변화 (미끄러짐 보조 판별)
+    reason: str = ''             # 판정 사유 / 미수행 사유 (사람이 읽는 문장)
     action: str = ''             # 처리 내용
     force_data_id: str = ''      # 원본 Force 데이터(CSV 등) 식별자
     db_saved: bool = False       # result_recorder_node 가 DB 에 저장한 뒤 True 로 다시 보낸다
@@ -220,6 +478,12 @@ class Progress:
     # HMI 의 검사 시작 / 일시정지 / 이어하기를 받는 동작 코드만 채운다: State.IDLE(시작 대기) /
     # RUNNING / PAUSED / DONE. 비어 있으면 진행률만 알리는 코드다(HMI 버튼은 잠긴 채로 둔다).
     run_state: str = ''
+    sequence: str = ''           # 현재 시퀀스. 예: 'Work Initialize', 'Home Return', 'Pull Inspection'
+    pause_reason: str = PauseReason.NONE
+    end_reason: str = EndReason.NONE
+    # True 면 HMI 의 Home 이동(MOVE_HOME)을 이 동작 코드가 받아 처리한다(Home Return 시퀀스).
+    # False 면 지금까지처럼 모니터 노드가 홈 관절각으로 바로 이동시킨다.
+    handles_home: bool = False
     # 검사 결과를 보고하는 동작 코드만 채운다 (ProgressReporter.report_result 참고).
     run_id: int = 0              # 검사 1회의 번호. 바뀌면 HMI 가 결과 표를 비운다. 0 = 알리지 않음
     criteria: Criteria = field(default_factory=Criteria)   # 현재 Point 의 판정 기준

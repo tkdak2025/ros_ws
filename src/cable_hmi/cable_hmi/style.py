@@ -9,6 +9,8 @@ RESULT_COLORS = {
     'PASS': ('#1E8E5A', '#E6F7EE', '#F1FBF6'),
     'FAIL': ('#D12F3A', '#FFE8EA', '#FFF4F4'),
     'MISSING': ('#B7791F', '#FFF0D8', '#FFF8E8'),
+    # 제품 결과가 아니다 (판정 미완). 회색으로 두어 PASS/FAIL/MISSING 과 구분한다.
+    'INCOMPLETE': ('#5A6472', '#EEF1F5', '#F7F9FB'),
 }
 
 OK_COLOR = '#1E8E5A'

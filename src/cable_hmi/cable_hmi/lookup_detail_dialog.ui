@@ -350,6 +350,58 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
          </widget>
         </item>
         <item row="1" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="reasonCodeKey">
+          <property name="text">
+           <string>판정 코드</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="reasonCodeValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+         </widget>
+        </item>
+        <item row="2" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="judgmentStatusKey">
+          <property name="text">
+           <string>판정 상태</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLabel" name="judgmentStatusValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+         </widget>
+        </item>
+        <item row="3" column="0" alignment="Qt::AlignTop">
          <widget class="QLabel" name="timeKey">
           <property name="text">
            <string>검사 시간</string>
@@ -359,7 +411,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-        <item row="1" column="1">
+        <item row="3" column="1">
          <widget class="QLabel" name="timeValue">
           <property name="text">
            <string>-</string>
@@ -375,7 +427,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-        <item row="2" column="0" alignment="Qt::AlignTop">
+        <item row="4" column="0" alignment="Qt::AlignTop">
          <widget class="QLabel" name="measuredKey">
           <property name="text">
            <string>대표 측정값</string>
@@ -385,7 +437,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-        <item row="2" column="1">
+        <item row="4" column="1">
          <widget class="QLabel" name="measuredValue">
           <property name="text">
            <string>-</string>
@@ -401,7 +453,33 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-        <item row="3" column="0" alignment="Qt::AlignTop">
+        <item row="5" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="terminationKey">
+          <property name="text">
+           <string>종료 사유</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="1">
+         <widget class="QLabel" name="terminationValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+         </widget>
+        </item>
+        <item row="6" column="0" alignment="Qt::AlignTop">
          <widget class="QLabel" name="reasonKey">
           <property name="text">
            <string>판정 사유</string>
@@ -411,7 +489,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-        <item row="3" column="1">
+        <item row="6" column="1">
          <widget class="QLabel" name="reasonValue">
           <property name="text">
            <string>-</string>
@@ -427,7 +505,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-        <item row="4" column="0" alignment="Qt::AlignTop">
+        <item row="7" column="0" alignment="Qt::AlignTop">
          <widget class="QLabel" name="actionKey">
           <property name="text">
            <string>처리</string>
@@ -437,7 +515,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-        <item row="4" column="1">
+        <item row="7" column="1">
          <widget class="QLabel" name="actionValue">
           <property name="text">
            <string>-</string>
@@ -459,7 +537,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
      <item>
       <widget class="QLabel" name="criteriaTitle">
        <property name="text">
-        <string>판정 기준 (DB)</string>
+        <string>검사 조건 (DB)</string>
        </property>
        <property name="role" stdset="0">
         <string notr="true">groupTitle</string>
@@ -517,9 +595,9 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
          </widget>
         </item>
         <item row="1" column="0" alignment="Qt::AlignTop">
-         <widget class="QLabel" name="pullForceKey">
+         <widget class="QLabel" name="requiredForceKey">
           <property name="text">
-           <string>Pull 힘</string>
+           <string>기준 Pull 힘</string>
           </property>
           <property name="role" stdset="0">
            <string notr="true">key</string>
@@ -527,6 +605,32 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
          </widget>
         </item>
         <item row="1" column="1">
+         <widget class="QLabel" name="requiredForceValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+         </widget>
+        </item>
+        <item row="2" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="pullForceKey">
+          <property name="text">
+           <string>Pull 정지 상한</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
          <widget class="QLabel" name="pullForceValue">
           <property name="text">
            <string>-</string>
@@ -542,7 +646,33 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-        <item row="2" column="0" alignment="Qt::AlignTop">
+        <item row="3" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="maxDistanceKey">
+          <property name="text">
+           <string>Pull 최대 거리</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QLabel" name="maxDistanceValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+         </widget>
+        </item>
+        <item row="4" column="0" alignment="Qt::AlignTop">
          <widget class="QLabel" name="repeatKey">
           <property name="text">
            <string>반복 횟수</string>
@@ -552,7 +682,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-        <item row="2" column="1">
+        <item row="4" column="1">
          <widget class="QLabel" name="repeatValue">
           <property name="text">
            <string>-</string>
@@ -568,7 +698,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-        <item row="3" column="0" alignment="Qt::AlignTop">
+        <item row="5" column="0" alignment="Qt::AlignTop">
          <widget class="QLabel" name="gripWidthKey">
           <property name="text">
            <string>파지 폭</string>
@@ -578,7 +708,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-        <item row="3" column="1">
+        <item row="5" column="1">
          <widget class="QLabel" name="gripWidthValue">
           <property name="text">
            <string>-</string>
@@ -594,7 +724,33 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
           </property>
          </widget>
         </item>
-       </layout>
+               <item row="6" column="0" alignment="Qt::AlignTop">
+         <widget class="QLabel" name="gripChangeKey">
+          <property name="text">
+           <string>파지 폭 변화</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">key</string>
+          </property>
+         </widget>
+        </item>
+        <item row="6" column="1">
+         <widget class="QLabel" name="gripChangeValue">
+          <property name="text">
+           <string>-</string>
+          </property>
+          <property name="role" stdset="0">
+           <string notr="true">value</string>
+          </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+         </widget>
+        </item>
+</layout>
       </widget>
      </item>
      <item>
