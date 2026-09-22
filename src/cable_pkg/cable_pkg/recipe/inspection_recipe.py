@@ -165,3 +165,107 @@ class InspectionRecipe:
             raise ValueError("레시피 JSON 최상위 값은 객체여야 합니다.")
 
         return cls.from_dict(data)
+
+
+@dataclass(frozen=True)
+class RobotPose:
+    """Point Transition에서 사용하는 TASK와 JOINT 한 쌍이다."""
+
+    task: list[float]
+    joint: list[float]
+
+    def validate(self, name: str) -> None:
+        InspectionPoint._validate_pose(self.task, f"{name}.task")
+        InspectionPoint._validate_pose(self.joint, f"{name}.joint")
+
+
+@dataclass(frozen=True)
+class OperatingInspectionPoint:
+    """#03~#05 실행에 필요한 검사포인트 조건 전체를 보관한다."""
+
+    point_id: str
+    point_name: str
+    enabled: bool
+    ready_pose: RobotPose
+    entry_pose: RobotPose
+    entry_direction: list[float]
+    entry_setting: dict[str, float]
+    grip_setting: dict[str, float]
+    pull_setting: dict[str, float]
+
+    def normalized_entry_direction(self) -> list[float]:
+        length = math.sqrt(sum(value * value for value in self.entry_direction))
+        return [value / length for value in self.entry_direction]
+
+    def validate(self) -> None:
+        self.ready_pose.validate("ready_pose")
+        self.entry_pose.validate("entry_pose")
+        if len(self.entry_direction) != 3:
+            raise ValueError(f"{self.point_id}: entry_direction은 3개 값이어야 합니다.")
+        if not all(math.isfinite(value) for value in self.entry_direction):
+            raise ValueError(f"{self.point_id}: entry_direction 값이 유효하지 않습니다.")
+        if math.sqrt(sum(value * value for value in self.entry_direction)) == 0:
+            raise ValueError(f"{self.point_id}: entry_direction은 0 벡터일 수 없습니다.")
+        required = {
+            "entry_setting": (self.entry_setting, (
+                "max_distance_mm", "force_guard_n", "timeout_s")),
+            "grip_setting": (self.grip_setting, (
+                "soft_close_width_mm", "soft_open_width_mm", "hard_width_mm",
+                "soft_force_n", "hard_force_n")),
+            "pull_setting": (self.pull_setting, (
+                "force_limit_n", "max_distance_mm", "timeout_s", "speed_mm_s",
+                "normal_displacement_limit_mm")),
+        }
+        for group_name, (group, keys) in required.items():
+            for key in keys:
+                value = group.get(key)
+                if not isinstance(value, (int, float)) or value <= 0 or not math.isfinite(value):
+                    raise ValueError(f"{self.point_id}: {group_name}.{key}가 유효하지 않습니다.")
+        if self.entry_setting["max_distance_mm"] > 25.0:
+            raise ValueError(f"{self.point_id}: Entry 최대거리는 25 mm 이하여야 합니다.")
+
+
+@dataclass
+class OperatingInspectionRecipe:
+    """Recipe 순서와 #03~#05 Point 조건을 함께 관리한다."""
+
+    recipe_id: str
+    recipe_version: str
+    coordinate_frame: str
+    connector_type: str
+    execution_order: list[str]
+    points: dict[str, OperatingInspectionPoint]
+
+    def validate(self) -> None:
+        if self.coordinate_frame != "BASE":
+            raise ValueError("현재 운영 Recipe는 BASE 좌표계만 지원합니다.")
+        if len(self.execution_order) != len(set(self.execution_order)):
+            raise ValueError("execution_order에 중복 Point가 있습니다.")
+        for point_id in self.execution_order:
+            if point_id not in self.points:
+                raise ValueError(f"execution_order의 {point_id}가 points에 없습니다.")
+        for key, point in self.points.items():
+            if key != point.point_id:
+                raise ValueError(f"points 키 {key}와 point_id가 다릅니다.")
+            point.validate()
+
+    @classmethod
+    def load_json(cls, path: str | Path) -> "OperatingInspectionRecipe":
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        points = {
+            point_id: OperatingInspectionPoint(
+                **{**raw, "ready_pose": RobotPose(**raw["ready_pose"]),
+                   "entry_pose": RobotPose(**raw["entry_pose"])},
+            )
+            for point_id, raw in data["points"].items()
+        }
+        recipe = cls(
+            recipe_id=data["recipe_id"],
+            recipe_version=data["recipe_version"],
+            coordinate_frame=data["coordinate_frame"],
+            connector_type=data["connector_type"],
+            execution_order=list(data["execution_order"]),
+            points=points,
+        )
+        recipe.validate()
+        return recipe

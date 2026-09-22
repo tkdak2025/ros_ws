@@ -21,7 +21,7 @@ setup(
     name=package_name,
     version='0.0.0',
     packages=find_packages(exclude=['test']),
-    package_data={'cable_pkg.test_module.adaptive_grip_hardware': ['*.json', 'README.md']},
+    package_data={},
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -40,13 +40,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'adaptive_grip_validate = cable_pkg.test_module.adaptive_grip.sequence:main',
-            'adaptive_grip_hardware = cable_pkg.test_module.adaptive_grip_hardware.run:main',
+            'inspection_sequence = cable_pkg.sequence.inspection.seq_00_inspection_run:main',
             'manual_check = cable_pkg.diagnostics.manual_check:main',
-            'pose_range_observer = cable_pkg.test_module.error_validation.pose_range_observer:main',
-            'pose_range_test = cable_pkg.test_module.error_validation.pose_range_test:main',
-            'grip_stability_test = cable_pkg.test_module.grip_stability.grip_stability_test:main',
-            'sequence_test_node = cable_pkg.test_module.sequence.mock_node:main',
         ],
     },
 )

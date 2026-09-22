@@ -45,6 +45,34 @@ class InspectionPointExecutor(Protocol):
     def execute(self, context: JobContext) -> SequenceResult: ...
 
 
+class InspectionHardware(Protocol):
+    """#03~#05가 실제 Robot·Gripper 어댑터에 요구하는 기능."""
+
+    phase: str
+
+    def configure_point(self, point: Any) -> None: ...
+
+    def move_joint(self, pose: Any, allow_incomplete: bool = False) -> dict: ...
+
+    def move_linear(self, target: list[float]) -> dict: ...
+
+    def relative(
+        self,
+        direction: list[float],
+        distance: float,
+        entry_guard: bool = False,
+        pull_guard: bool = False,
+    ) -> dict: ...
+
+    def grip(
+        self,
+        width: float,
+        force: float,
+        opening: bool = False,
+        wait_for_completion: bool = False,
+    ) -> dict: ...
+
+
 class UnimplementedPointExecutor:
     """미확정 Point 시퀀스가 실행되는 것을 명시적으로 차단한다."""
 
