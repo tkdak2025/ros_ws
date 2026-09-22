@@ -38,7 +38,7 @@ Cmd = itf.CommandName
 State = itf.State
 
 MONITOR_STATES = (State.MONITOR, State.MONITOR_MOVING)
-RESULT_CODES = (itf.ResultCode.PASS, itf.ResultCode.MISSING, *itf.ResultCode.FAIL_CODES)
+RESULT_CODES = (itf.ResultCode.PASS, *itf.ResultCode.FAIL_CODES)
 # '현재 검사 결과' 표의 열. 이름과 순서는 통합 조회 탭(lookup_tab.COLUMNS)의 용어에 맞춘다.
 RESULT_HEADERS = ('검사 시간', 'Point', '케이블', '종류', '결과', '상세')
 COL_TIME, COL_POINT, COL_CABLE, COL_TYPE, COL_RESULT, COL_DETAIL = range(len(RESULT_HEADERS))
@@ -69,7 +69,7 @@ class MainWindow(QMainWindow):
         self._last_status_time = 0.0
         self._results = []            # 테이블 행과 같은 순서의 itf.PointResult
         self._run_id = None
-        self._move_cycle = {'FAIL': 0, 'MISSING': 0}
+        self._move_cycle = {'FAIL': 0}
         self._speed_hold_until = 0.0
         self._detail = ResultDetailDialog(self)
         self._popup = None            # 떠 있는 에러 팝업 (없으면 None)
@@ -157,7 +157,8 @@ class MainWindow(QMainWindow):
             '로봇 동작': w('extraRow3'), '서보 상태': w('extraRow5'),
             '현재 알람': w('extraRow4')}
         self.chips = {'전체': w('chipTotal'), 'PASS': w('chipPass'),
-                      'MISSING': w('chipMissing'), 'FAIL': w('chipFail')}
+                      'FAIL': w('chipFail')}
+        w('chipMissing').hide()
         self.state_badge = w('stateBadge')
         self.start_btn, self.pause_btn, self.resume_btn = (
             w('startBtn', QPushButton), w('pauseBtn', QPushButton), w('resumeBtn', QPushButton))
@@ -165,6 +166,7 @@ class MainWindow(QMainWindow):
             w('estopBtn', QPushButton), w('estopState'), w('estopResetBtn', QPushButton))
         self.home_btn, self.fail_btn, self.missing_btn = (
             w('homeBtn', QPushButton), w('failBtn', QPushButton), w('missingBtn', QPushButton))
+        self.missing_btn.hide()
         self.move_hint = w('moveHint')
         self.recipe_combo = w('recipeCombo', QComboBox)
         # 콤보는 비어 있을 때 잡은 폭을 계속 쓴다. 목록이 채워지면 내용에 맞춰 다시 잡게 한다.
@@ -195,7 +197,6 @@ class MainWindow(QMainWindow):
         self.estop_reset_btn.clicked.connect(self._on_estop_reset)
         self.home_btn.clicked.connect(self._on_home)
         self.fail_btn.clicked.connect(lambda: self._on_move_to('FAIL'))
-        self.missing_btn.clicked.connect(lambda: self._on_move_to('MISSING'))
         self.export_btn.clicked.connect(self._on_export)
         self.speed_slider.valueChanged.connect(self._on_speed_changed)
         self.recipe_combo.activated.connect(self._on_recipe_chosen)   # 사용자가 고를 때만 발생
@@ -326,7 +327,7 @@ class MainWindow(QMainWindow):
         self._run_id = run_id
         self._results.clear()
         self.table.setRowCount(0)
-        self._move_cycle = {'FAIL': 0, 'MISSING': 0}
+        self._move_cycle = {'FAIL': 0}
         self._render_counts()
 
     def _check_link(self):
@@ -495,7 +496,7 @@ class MainWindow(QMainWindow):
         text, category = {
             itf.ProductResult.PASS: ('제품 판정  PASS', 'PASS'),
             itf.ProductResult.FAIL: ('제품 판정  FAIL', 'FAIL'),
-            itf.ProductResult.INCOMPLETE: ('제품 판정  미검사 Point 있음', 'MISSING'),
+            itf.ProductResult.INCOMPLETE: ('제품 판정  미검사 Point 있음', 'INCOMPLETE'),
         }.get(s.product_result, ('', ''))
         if s.end_reason == itf.EndReason.NOT_COMPLETE:
             # #07 Work Finish 가 Job 종료를 승인하지 않았다. 검사 결과와는 다른 이야기다.
@@ -509,7 +510,7 @@ class MainWindow(QMainWindow):
 
     def _render_counts(self):
         # INCOMPLETE(판정 미완)는 제품 결과가 아니므로 칩에 세지 않는다. 전체 수에는 들어간다.
-        counts = {'PASS': 0, 'MISSING': 0, 'FAIL': 0, 'INCOMPLETE': 0}
+        counts = {'PASS': 0, 'FAIL': 0, 'INCOMPLETE': 0}
         for r in self._results:
             counts[itf.ResultCode.category(r.result)] += 1
         incomplete = counts.pop('INCOMPLETE')
@@ -519,7 +520,6 @@ class MainWindow(QMainWindow):
         for category, n in counts.items():
             self.chips[category].setText(f'{category} {n}건')
         self.fail_btn.setText(f"FAIL 포인트 이동 ({counts['FAIL']})")
-        self.missing_btn.setText(f"MISSING 포인트 이동 ({counts['MISSING']})")
 
     def _refresh_controls(self):
         s = self._status
@@ -539,7 +539,6 @@ class MainWindow(QMainWindow):
         # 결과 파일 저장은 상태와 무관하다: 검사 중에도, 중단된 뒤에도 표에 있는 것을 저장할 수 있다.
         self.export_btn.setEnabled(bool(self._results))
         self.fail_btn.setEnabled(ready and 'FAIL' in categories)
-        self.missing_btn.setEnabled(ready and 'MISSING' in categories)
         # 모니터 모드에서는 검사는 못 하지만 Recipe 내용을 보려고 고를 수는 있다(로봇이 멈춰 있을 때).
         self.recipe_combo.setEnabled(ready or (state == State.MONITOR and not s.estop))
         self.speed_slider.setEnabled(self._linked)
@@ -575,7 +574,7 @@ class MainWindow(QMainWindow):
                 font = item.font()
                 font.setBold(True)
                 item.setFont(font)
-                # 결과 칸은 PASS / FAIL / MISSING 만. 상세 원인(#06 reason_code)은 툴팁과 상세 팝업에
+                # 결과 칸은 PASS / FAIL 만. 상세 원인(#06 reason_code)은 툴팁과 상세 팝업에
                 status = itf.JudgmentStatus.LABELS.get(r.judgment_status, '')
                 term = itf.TerminationReason.label(r.termination_reason)
                 item.setToolTip('\n'.join(t for t in (r.reason_code, status, term, r.reason) if t))

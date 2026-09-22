@@ -85,7 +85,7 @@ class ResultCode:
     """
     Point 별 검사 결과 코드 (Concept/Sequence #06 Inspection Judgment, 2026-09-22).
 
-    결과는 PASS / FAIL / MISSING 세 개다. 상세 원인은 결과와 분리해 PointResult.reason_code 에
+    결과는 PASS / FAIL 두 개다. 상세 원인은 결과와 분리해 PointResult.reason_code 에
     싣는다(ReasonCode). Detach 와 Displacement 를 다른 결과로 나누지 않는다.
     FAIL_DISPLACEMENT / FAIL_DETACHED 는 #06 이전의 코드다 - 지난 DB 기록을 읽기 위해 남겨 두며,
     새 결과에는 쓰지 않는다.
@@ -93,23 +93,20 @@ class ResultCode:
 
     PASS = 'PASS'
     FAIL = 'FAIL'
-    MISSING = 'MISSING'        # Grip Slip 으로 유효한 체결검사가 성립하지 않음
     # 제품 결과가 아니다. 유효한 판정을 만들지 못한 Point (#06 6.4: TIMEOUT 등).
     # 이 Point 가 있으면 #07 Work Finish 가 Job 종료를 승인하지 않는다.
     INCOMPLETE = 'INCOMPLETE'
     FAIL_DISPLACEMENT = 'FAIL_DISPLACEMENT'   # 옛 코드 (FAIL 로 읽힌다)
     FAIL_DETACHED = 'FAIL_DETACHED'           # 옛 코드 (FAIL 로 읽힌다)
 
-    PRODUCT_CODES = (PASS, FAIL, MISSING)
+    PRODUCT_CODES = (PASS, FAIL)
     FAIL_CODES = (FAIL, FAIL_DISPLACEMENT, FAIL_DETACHED)
 
     @staticmethod
     def category(code: str) -> str:
-        """결과 코드를 PASS / FAIL / MISSING / INCOMPLETE 네 부류로 묶는다."""
+        """결과 코드를 PASS / FAIL / INCOMPLETE 세 부류로 묶는다."""
         if code == ResultCode.PASS:
             return 'PASS'
-        if code == ResultCode.MISSING:
-            return 'MISSING'
         if code in ('', ResultCode.INCOMPLETE):
             return 'INCOMPLETE'
         return 'FAIL'
@@ -120,7 +117,7 @@ class ReasonCode:
     판정의 상세 원인 (Sequence #06). PointResult.reason_code 에 싣는다.
 
     문서는 "Reason 코드는 HMI Interface 정의에서 최종 확정한다" 고 했다 - 여기가 그 정의다.
-    앞부분(PASS_ / FAIL_ / MISSING_)이 결과 부류와 같아서 result_of() 로 결과를 얻을 수 있다.
+    앞부분(PASS_ / FAIL_)이 결과 부류와 같아서 result_of() 로 결과를 얻을 수 있다.
     유효한 판정을 만들지 못한 Point(INCOMPLETE)에는 원인 코드를 붙이지 않는다 - 제품 결과가
     아니기 때문이다. 사유는 reason 문장과 termination_reason 으로 남긴다.
     """
@@ -128,33 +125,34 @@ class ReasonCode:
     PASS_FORCE_DISPLACEMENT_OK = 'PASS_FORCE_DISPLACEMENT_OK'   # 기준 힘 도달 + 변위 한계 이내
     FAIL_DISPLACEMENT_LIMIT = 'FAIL_DISPLACEMENT_LIMIT'         # 변위 한계(5 mm) 초과
     FAIL_MAX_DISTANCE = 'FAIL_MAX_DISTANCE'                     # 미끄러짐 없이 최대 거리(25 mm)까지 이동
-    MISSING_GRIP_SLIP = 'MISSING_GRIP_SLIP'                     # 파지 미끄러짐 - 검사 무효
-    MISSING_NOT_IMPLEMENTED = 'MISSING_NOT_IMPLEMENTED'         # 검사 동작 미구현 (개발 중 전용)
+    FAIL_GRIP_SLIP = 'FAIL_GRIP_SLIP'                     # 파지 미끄러짐 - 검사 무효
+    INCOMPLETE_NOT_IMPLEMENTED = 'INCOMPLETE_NOT_IMPLEMENTED'         # 검사 동작 미구현 (개발 중 전용)
 
     # 통합문서(2026-09-22) 이전 코드. 새 결과에는 쓰지 않고, 지난 기록을 읽을 때만 쓴다.
     FAIL_FORCE_REQUIREMENT = 'FAIL_FORCE_REQUIREMENT'
-    MISSING_INVALID_DATA = 'MISSING_INVALID_DATA'
-    MISSING_ABNORMAL_TERMINATION = 'MISSING_ABNORMAL_TERMINATION'
+    INCOMPLETE_INVALID_DATA = 'INCOMPLETE_INVALID_DATA'
+    INCOMPLETE_ABNORMAL_TERMINATION = 'INCOMPLETE_ABNORMAL_TERMINATION'
 
     ALL = (PASS_FORCE_DISPLACEMENT_OK, FAIL_DISPLACEMENT_LIMIT, FAIL_MAX_DISTANCE,
-           MISSING_GRIP_SLIP, MISSING_NOT_IMPLEMENTED)
+           FAIL_GRIP_SLIP, INCOMPLETE_NOT_IMPLEMENTED)
 
     LABELS = {
         PASS_FORCE_DISPLACEMENT_OK: '기준 힘 도달, 변위 허용 범위 이내',
         FAIL_DISPLACEMENT_LIMIT: '변위 허용 한계 초과',
         FAIL_MAX_DISTANCE: '미끄러짐 없이 Pull 최대 거리까지 이동',
-        MISSING_GRIP_SLIP: '파지 미끄러짐으로 검사 무효',
-        MISSING_NOT_IMPLEMENTED: '검사 동작 미구현',
+        FAIL_GRIP_SLIP: '파지 미끄러짐으로 불량',
+        INCOMPLETE_NOT_IMPLEMENTED: '검사 동작 미구현',
         FAIL_FORCE_REQUIREMENT: '기준 힘에 도달하지 못함 (옛 코드)',
-        MISSING_INVALID_DATA: '검사 데이터 누락 또는 비정상 (옛 코드)',
-        MISSING_ABNORMAL_TERMINATION: '검사 비정상 종료 (옛 코드)',
+        INCOMPLETE_INVALID_DATA: '검사 데이터 누락 또는 비정상 (옛 코드)',
+        INCOMPLETE_ABNORMAL_TERMINATION: '검사 비정상 종료 (옛 코드)',
     }
 
     @staticmethod
     def result_of(reason_code: str) -> str:
-        """원인 코드에서 결과(PASS / FAIL / MISSING)를 얻는다. 코드가 없으면 INCOMPLETE."""
-        for prefix, result in (('PASS_', ResultCode.PASS), ('FAIL_', ResultCode.FAIL),
-                               ('MISSING_', ResultCode.MISSING)):
+        """원인 코드에서 결과(PASS / FAIL)를 얻는다. 코드가 없으면 INCOMPLETE."""
+        if reason_code == 'MISSING_GRIP_SLIP':  # 기존 저장 기록 호환
+            return ResultCode.FAIL
+        for prefix, result in (('PASS_', ResultCode.PASS), ('FAIL_', ResultCode.FAIL)):
             if reason_code.startswith(prefix):
                 return result
         return ResultCode.INCOMPLETE
@@ -285,16 +283,16 @@ class JudgmentStatus:
 
 class ProductResult:
     """
-    제품 단위 최종 판정. MISSING 이 남으면 PASS 가 될 수 없다.
+    제품 단위 최종 판정. 판정 미완료가 남으면 PASS 가 될 수 없다.
 
-    Job 을 종료해도 되는가(#07 Work Finish)와는 다른 이야기다: FAIL 이나 MISSING 이 있어도
+    Job 을 종료해도 되는가(#07 Work Finish)와는 다른 이야기다: FAIL 이 있어도
     모든 Point 판정이 정상 완료됐다면 Job 은 정상 종료된다.
     """
 
     NONE = ''
     PASS = 'PASS'
     FAIL = 'FAIL'
-    INCOMPLETE = 'INCOMPLETE'   # FAIL 은 없지만 미검사(MISSING) Point 존재
+    INCOMPLETE = 'INCOMPLETE'   # FAIL 은 없지만 판정 미완료 Point 존재
 
 
 class PauseReason:
@@ -330,7 +328,7 @@ class CommandName:
     ESTOP = 'ESTOP'
     ESTOP_RESET = 'ESTOP_RESET'
     MOVE_HOME = 'MOVE_HOME'
-    MOVE_TO_POINT = 'MOVE_TO_POINT'  # args: point_id, reason('FAIL'|'MISSING')
+    MOVE_TO_POINT = 'MOVE_TO_POINT'  # args: point_id, reason('FAIL')
     SET_SPEED = 'SET_SPEED'          # args: percent(1~100)
     SELECT_RECIPE = 'SELECT_RECIPE'  # args: recipe_id. 목록에서 Recipe 를 고름(검사 시작 아님)
     SYNC = 'SYNC'                    # 현재 run 의 결과를 다시 보내 달라는 요청(선택 구현)
@@ -354,7 +352,7 @@ class Criteria:
 
         PASS    = 기준 힘(required_pull_force_n)에 도달 AND 변위 <= max_displacement_mm
         FAIL    = 유효한 검사인데 위 조건을 못 채움 (변위 초과, 최대 거리까지 이동)
-        MISSING = Grip Slip 으로 유효한 검사가 성립하지 않음
+        FAIL = Grip Slip을 포함한 불량
 
     기준 Pull 힘(required_pull_force_n)은 합격선이면서 **Pull 정지 조건**이다 - 이 힘에 도달하면
     Pull 을 멈춘다(#05). 허용 변위 5 mm 는 판정 기준일 뿐 정지 조건이 아니며, 5 mm 를 넘어도
@@ -420,7 +418,7 @@ class PointResult:
     point_id: str = ''           # 예: 'Place 2'
     cable_id: str = ''           # 예: 'LAN-3'
     cable_type: str = ''         # 예: 'RJ45'
-    result: str = ''             # ResultCode: PASS / FAIL / MISSING / INCOMPLETE(제품 결과 아님)
+    result: str = ''             # ResultCode: PASS / FAIL / INCOMPLETE(제품 결과 아님)
     reason_code: str = ''        # ReasonCode: 상세 원인 (결과와 분리, #06)
     judgment_status: str = ''    # JudgmentStatus: PENDING / COMPLETED / ERROR
     # 판정 입력(#06 9장)과 그때 쓴 조건을 짝지어 싣는다:

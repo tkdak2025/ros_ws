@@ -31,12 +31,12 @@ def test_max_distance_without_slip_is_fail():
     assert result.result == InspectionResult.FAIL
 
 
-def test_confirmed_slip_is_missing():
+def test_confirmed_slip_is_fail():
     result = judge_pull(
         termination=PullTermination.MAX_DISTANCE, peak_force_n=3.0,
         displacement_mm=25.0, required_force_n=15.0, slip_confirmed=True,
     )
-    assert result.result == InspectionResult.MISSING
+    assert result.result == InspectionResult.FAIL
 
 
 def test_timeout_is_incomplete_without_product_result():

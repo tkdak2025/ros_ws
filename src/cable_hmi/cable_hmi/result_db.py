@@ -112,7 +112,7 @@ class ResultDb:
     def save_run_end(self, status: itf.SystemStatus, end_reason: str):
         """검사 1회가 끝났다. Point 집계는 저장된 결과(inspection_result)에서 센다."""
         now = datetime.now().isoformat(timespec='seconds')
-        counts = {'PASS': 0, 'FAIL': 0, 'MISSING': 0}
+        counts = {'PASS': 0, 'FAIL': 0, 'INCOMPLETE': 0}
         for result in self.results_of_run(status.run_id):
             counts[itf.ResultCode.category(result)] += 1
         self._write([
@@ -124,7 +124,7 @@ class ResultDb:
              'total_points = ?, pass_count = ?, fail_count = ?, missing_count = ? '
              'WHERE run_id = ?',
              (now, end_reason, status.product_result, status.total_points,
-              counts['PASS'], counts['FAIL'], counts['MISSING'], status.run_id))])
+              counts['PASS'], counts['FAIL'], 0, status.run_id))])
 
     def results_of_run(self, run_id: int):
         """그 run 에 저장된 결과 코드 목록. 테이블이 아직 없으면 빈 목록."""
@@ -217,7 +217,7 @@ def export_run(directory, results: List[itf.PointResult],
         db.save(result)
 
     stamps = sorted(r.stamp for r in results if r.stamp)
-    counts = {'PASS': 0, 'FAIL': 0, 'MISSING': 0}
+    counts = {'PASS': 0, 'FAIL': 0, 'INCOMPLETE': 0}
     for result in results:
         counts[itf.ResultCode.category(result.result)] += 1
     db._write([
@@ -229,7 +229,7 @@ def export_run(directory, results: List[itf.PointResult],
           stamps[0] if stamps else '', stamps[-1] if stamps else '',
           status.end_reason, status.product_result,
           status.total_points or len(results),
-          counts['PASS'], counts['FAIL'], counts['MISSING']))])
+          counts['PASS'], counts['FAIL'], 0))])
 
     try:
         with csv_path.open('w', encoding='utf-8-sig', newline='') as handle:
