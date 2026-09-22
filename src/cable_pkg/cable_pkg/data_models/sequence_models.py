@@ -34,7 +34,6 @@ class JudgmentStatus(str, Enum):
 class InspectionResult(str, Enum):
     PASS = "PASS"
     FAIL = "FAIL"
-    MISSING = "MISSING"
 
 
 class PullTermination(str, Enum):

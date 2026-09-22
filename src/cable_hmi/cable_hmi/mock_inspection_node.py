@@ -80,7 +80,7 @@ RECIPES = {
             MockPoint('Place 2', 'LAN-3', 'RJ45', 14.0, 0.0, 5.0,
                       RS.FAIL_DISPLACEMENT_LIMIT, required_pull_force_n=15.0),
             MockPoint('Place 3', 'HDMI-4', 'HDMI', 25.0, 0.0, 5.0,
-                      RS.MISSING_GRIP_SLIP, required_pull_force_n=15.0),
+                      RS.FAIL_GRIP_SLIP, required_pull_force_n=15.0),
             MockPoint('Place 4', 'USB-7', 'USB', 12.0, 0.0, 5.0,
                       INCOMPLETE_TIMEOUT, required_pull_force_n=12.0),
         ],
@@ -103,10 +103,10 @@ RECIPES = {
 
 # DB 에서 읽은 Recipe 에는 mock 결과가 없으므로 이 순서를 돌려 쓴다.
 MOCK_OUTCOME_CYCLE = (RS.PASS_FORCE_DISPLACEMENT_OK, RS.FAIL_DISPLACEMENT_LIMIT,
-                      RS.MISSING_GRIP_SLIP, RS.PASS_FORCE_DISPLACEMENT_OK)
+                      RS.FAIL_GRIP_SLIP, RS.PASS_FORCE_DISPLACEMENT_OK)
 
 # mock 이 흉내 내는 상황: outcome -> (Pull 종료 이유, 판정 상태, 사유 문장, 처리)
-# 결과 3개(PASS/FAIL/MISSING)와 상세 원인(ReasonCode)은 Sequence #06 기준이다.
+# 결과 2개(PASS/FAIL)와 상세 원인(ReasonCode)은 Sequence #06 기준이다.
 CASES = {
     RS.PASS_FORCE_DISPLACEMENT_OK: (
         TR.FORCE_LIMIT, JS.COMPLETED, '기준 힘 도달, 변위 허용 범위 이내', '결과 기록'),
@@ -116,7 +116,7 @@ CASES = {
     RS.FAIL_MAX_DISTANCE: (
         TR.MAX_DISTANCE, JS.COMPLETED, '미끄러짐 없이 Pull 최대 거리까지 이동',
         '불량 결과 기록 · 케이블 상태 확인'),
-    RS.MISSING_GRIP_SLIP: (
+    RS.FAIL_GRIP_SLIP: (
         TR.MAX_DISTANCE, JS.COMPLETED, 'Pull 중 그리퍼 폭 변화 - 미끄러짐으로 검사 무효',
         '사유 기록 · 안전 후퇴 후 다음 Point 진행'),
     INCOMPLETE_TIMEOUT: (
@@ -398,7 +398,7 @@ class MockInspectionNode(Node):
         if self.get_parameter('random_outcomes').value:
             point.outcome = random.choices(
                 [RS.PASS_FORCE_DISPLACEMENT_OK, RS.FAIL_DISPLACEMENT_LIMIT,
-                 RS.FAIL_MAX_DISTANCE, RS.MISSING_GRIP_SLIP, INCOMPLETE_TIMEOUT],
+                 RS.FAIL_MAX_DISTANCE, RS.FAIL_GRIP_SLIP, INCOMPLETE_TIMEOUT],
                 weights=[6, 2, 1, 1, 1])[0]
         self._steps = build_steps(point)
         self._step_idx = 0
@@ -480,7 +480,7 @@ class MockInspectionNode(Node):
             else:
                 st.force_n = max(0.0, (peak + 1.5) * wave + noise)
             st.displacement_mm = round(final_disp * max(wave, ratio), 2)
-            if point.outcome == RS.MISSING_GRIP_SLIP and ratio > 0.5:
+            if point.outcome == RS.FAIL_GRIP_SLIP and ratio > 0.5:
                 st.gripper_width_mm = point.grip_width_mm + 3.0 * (ratio - 0.5)
             self._max_force = max(self._max_force, st.force_n)
         elif step.kind in ('retreat', 'recover'):
@@ -494,7 +494,6 @@ class MockInspectionNode(Node):
         point = self._points[self._point_idx]
         st = self._st
         termination, judgment_status, reason, action = CASES[point.outcome]
-        missing = point.result == RC.MISSING
         result = itf.PointResult(
             run_id=st.run_id,
             stamp=datetime.now().isoformat(timespec='seconds'),
@@ -518,7 +517,7 @@ class MockInspectionNode(Node):
             grip_width_change_mm=round(max(0.0, st.gripper_width_mm - point.grip_width_mm), 2),
             reason=reason,
             action=action,
-            force_data_id='' if missing else f'FORCE-{st.run_id:05d}-P{self._point_idx + 1}',
+            force_data_id=f'FORCE-{st.run_id:05d}-P{self._point_idx + 1}',
             repeat_count=point.repeat_count,
             grip_width_mm=point.grip_width_mm,
             # db_saved 는 채우지 않는다: result_recorder_node 가 저장한 뒤 True 로 다시 보낸다.
@@ -535,7 +534,7 @@ class MockInspectionNode(Node):
         codes = [r.result for r in self._results]
         if any(c in RC.FAIL_CODES for c in codes):
             st.product_result = itf.ProductResult.FAIL
-        elif RC.MISSING in codes or RC.INCOMPLETE in codes:
+        elif RC.INCOMPLETE in codes:
             st.product_result = itf.ProductResult.INCOMPLETE
         else:
             st.product_result = itf.ProductResult.PASS

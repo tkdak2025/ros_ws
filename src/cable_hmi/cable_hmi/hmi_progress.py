@@ -534,7 +534,7 @@ class ProgressReporter:
             return itf.ProductResult.NONE
         if 'FAIL' in categories:
             return itf.ProductResult.FAIL
-        if categories & {'MISSING', 'INCOMPLETE'}:
+        if 'INCOMPLETE' in categories:
             return itf.ProductResult.INCOMPLETE
         return itf.ProductResult.PASS
 

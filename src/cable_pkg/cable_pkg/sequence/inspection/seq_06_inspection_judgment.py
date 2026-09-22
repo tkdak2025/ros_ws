@@ -27,8 +27,8 @@ def judge_pull(
         return Judgment(
             JudgmentStatus.COMPLETED,
             SequenceStatus.SUCCESS,
-            InspectionResult.MISSING,
-            "그리퍼 폭 변화로 케이블 이탈이 확인됐습니다.",
+            InspectionResult.FAIL,
+            "Grip Slip이 확인되어 FAIL로 처리합니다.",
         )
 
     if termination in {PullTermination.TIMEOUT, PullTermination.MOTION_ERROR}:

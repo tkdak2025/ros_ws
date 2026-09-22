@@ -45,6 +45,13 @@ def test_decode_rejects_malformed_payload(payload):
 
 def test_result_category():
     assert itf.ResultCode.category(itf.ResultCode.PASS) == 'PASS'
-    assert itf.ResultCode.category(itf.ResultCode.MISSING) == 'MISSING'
+    assert itf.ResultCode.category('MISSING') == 'FAIL'
     assert itf.ResultCode.category(itf.ResultCode.FAIL_DETACHED) == 'FAIL'
     assert itf.ResultCode.category(itf.ResultCode.FAIL_DISPLACEMENT) == 'FAIL'
+
+
+def test_product_results_exclude_missing_and_slip_is_fail():
+    assert itf.ResultCode.PRODUCT_CODES == ('PASS', 'FAIL')
+    assert itf.ReasonCode.result_of(itf.ReasonCode.FAIL_GRIP_SLIP) == 'FAIL'
+    assert itf.ReasonCode.result_of('MISSING_GRIP_SLIP') == 'FAIL'
+    assert itf.ReasonCode.result_of(itf.ReasonCode.INCOMPLETE_INVALID_DATA) == 'INCOMPLETE'
