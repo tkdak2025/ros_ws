@@ -1,0 +1,15 @@
+build/
+install/
+log/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# 검사 결과·레시피 DB 는 저장소에 올리지 않는다 (공개 저장소)
+results/
+*.db
+
+
+
+# 테스트용 테스트 측정값들
+measurement_results/

@@ -1,1 +1,0 @@
-timestamp,trial_id,inspection_point_id,state,tcp_x,tcp_y,tcp_z,tcp_rx,tcp_ry,tcp_rz,base_fx,base_fy,base_fz,base_tx,base_ty,base_tz,base_dfx,base_dfy,base_dfz,base_dtx,base_dty,base_dtz,tool_fx,tool_fy,tool_fz,tool_tx,tool_ty,tool_tz,tool_dfx,tool_dfy,tool_dfz,tool_dtx,tool_dty,tool_dtz,entry_force_n,entry_depth_mm,pull_force_n,pull_displacement_mm,gripper_width,gripper_state

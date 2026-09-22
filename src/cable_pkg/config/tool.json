@@ -1,0 +1,15 @@
+{
+  "name": "ToolWeight",
+  "weight": 1.470,
+  "cog": [1.490, 85.380, 15.620],
+  "cog_axis_order": ["X", "Y", "Z"],
+  "inertia": null,
+  "units": {
+    "weight": "kg",
+    "cog": "mm"
+  },
+  "source": "DART Platform 툴 설정 화면의 활성 ToolWeight 표시값(2026-09-18 제공 이미지)",
+  "verified_at": "2026-09-21",
+  "verification": "사용자가 제공한 실물 제어기 화면과 수치 대조 완료",
+  "note": "질량 1.470 kg, 무게중심 XYZ [1.490, 85.380, 15.620] mm. 관성값은 화면에 표시되지 않아 null로 유지하며 가상 시험용 0과 구분한다."
+}
