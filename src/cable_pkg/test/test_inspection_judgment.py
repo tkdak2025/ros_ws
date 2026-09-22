@@ -1,6 +1,6 @@
 """#06 검사 판정 규칙을 검증한다."""
 
-from cable_pkg.sequence.seq_06_inspection_judgment import judge_pull
+from cable_pkg.sequence.inspection.seq_06_inspection_judgment import judge_pull
 from cable_pkg.data_models.sequence_models import (
     InspectionResult, JudgmentStatus, PullTermination, SequenceStatus,
 )

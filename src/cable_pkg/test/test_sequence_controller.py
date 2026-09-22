@@ -1,7 +1,7 @@
 """확정된 공통 시퀀스의 상태와 호출 순서를 검증한다."""
 
 from cable_pkg.interfaces.sequence_backend import UnimplementedPointExecutor
-from cable_pkg.sequence.seq_00_main_work import SequenceController
+from cable_pkg.sequence.common.seq_00_main_work import SequenceController
 from cable_pkg.data_models.sequence_models import SequenceResult, SystemState
 
 
