@@ -1,6 +1,8 @@
 """CCCIS 실행 상태와 단계 전달 데이터 구조를 공개한다."""
 
-from .inspection_models import AdaptiveGripResult, PointCycleResult
+from .inspection_models import (
+    AdaptiveGripResult, InspectionPointResult, JudgmentRequest,
+)
 from .sequence_models import (
     InspectionResult, JobContext, JudgmentStatus, PointRuntime, PullTermination,
     SequenceResult, SequenceStatus, SystemState,
@@ -8,6 +10,6 @@ from .sequence_models import (
 
 __all__ = [
     "AdaptiveGripResult", "InspectionResult", "JobContext", "JudgmentStatus",
-    "PointCycleResult", "PointRuntime", "PullTermination", "SequenceResult",
+    "InspectionPointResult", "JudgmentRequest", "PointRuntime", "PullTermination", "SequenceResult",
     "SequenceStatus", "SystemState",
 ]

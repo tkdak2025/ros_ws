@@ -2,7 +2,7 @@
 
 from cable_pkg.interfaces.sequence_backend import InspectionPointExecutor, SequenceBackend
 from .seq_02_home_return import HomeReturnSequence
-from cable_pkg.data_models.sequence_models import JobContext, SequenceResult, SystemState
+from cable_pkg.data_models.sequence_models import JobContext, SequenceResult, SystemState, InspectionResult
 from .seq_01_work_initialize import WorkInitializeSequence
 
 
@@ -121,11 +121,24 @@ class SequenceController:
         """정상 작업 완료 후 Home Return하고 SYSTEM_READY로 돌아간다."""
         if self.state != SystemState.RUNNING:
             return self._reject("COMPLETE_NOT_ALLOWED", "RUNNING 상태가 아닙니다.")
+        if self.context is None:
+            return self._reject("JOB_CONTEXT_REQUIRED", "실행 중인 Job 정보가 없습니다.")
+        missing = [point_id for point_id in self.context.enabled_point_ids
+                   if point_id not in self.context.point_runtime
+                   or self.context.point_runtime[point_id].result not in set(InspectionResult)]
+        if missing or self.context.pending_judgments:
+            return SequenceResult(False, "JUDGMENT_PENDING", "모든 Point 결과가 필요합니다.",
+                                  {"missing_points": missing,
+                                   "pending_points": sorted(self.context.pending_judgments)})
+        counts = {value.value: 0 for value in InspectionResult}
+        for point_id in self.context.enabled_point_ids:
+            counts[self.context.point_runtime[point_id].result] += 1
         result = self.home_return.run()
         self.context = None
         if result.success:
             self.state = SystemState.SYSTEM_READY
-            return SequenceResult(True, "JOB_COMPLETE", "작업 완료와 Home Return을 마쳤습니다.")
+            return SequenceResult(True, "JOB_COMPLETE", "작업 완료와 Home Return을 마쳤습니다.",
+                                  {"counts": counts})
         return self._fail(result)
 
     def communication_lost(self) -> SequenceResult:
