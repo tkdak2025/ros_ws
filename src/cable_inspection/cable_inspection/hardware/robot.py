@@ -1115,37 +1115,47 @@ class SequenceRobot(HardwareRobot):
 
     def relax_grip(self):
         self.grip(self.system["relax_width_mm"], self.system["relax_force_n"], opening=True)
-        self.wait_gripper_idle()
+        measured = self.wait_gripper_idle()
+        if (measured["gripper_busy"] or not math.isfinite(measured["width_mm"])
+                or abs(measured["width_mm"] - self.system["relax_width_mm"])
+                > self.config.width_tolerance_mm):
+            raise RuntimeError("Safe Escape 전 그리퍼 Open 폭/정지 확인 실패")
         return self.ok("GRIP_RELAXED")
 
-    def safe_escape(self, max_distance_mm):
-        # 현재 TCP의 ZYZ 자세로 Tool 접근축을 BASE로 회전한 뒤 반대로 빠진다.
+    def safe_escape(self, distance_mm):
+        """현재 Tool 접근축 반대로 지정 거리만큼 후퇴하고 목표 도달을 확인한다."""
         tcp = self.get_tcp()
+        RobotPose(task=tcp, joint=[0.0] * 6).validate("현재 TCP")
+        if (isinstance(distance_mm, bool) or not isinstance(distance_mm, (int, float))
+                or not math.isfinite(distance_mm) or not 0 < distance_mm <= 30.0):
+            raise ValueError("Safe Escape 거리는 0 초과 30 mm 이하여야 합니다.")
         direction = reverse_tool_axis(tcp[3:], self.system["tool_approach_axis"])
-        box = BoxBoundary(**self.system["work_area"])
-        exits = []
-        for position, component, low, high in zip(tcp[:3], direction,
-                (box.x_min_mm, box.y_min_mm, box.z_min_mm),
-                (box.x_max_mm, box.y_max_mm, box.z_max_mm)):
-            if abs(component) > 1e-9:
-                exits.append(((high if component > 0 else low) - position) / component)
-        distance = min(value for value in exits if value >= 0) + self.system["escape_clearance_mm"]
-        if distance > min(30.0, max_distance_mm):
-            raise RuntimeError("Safe Escape 상한 내에서 작업영역을 벗어날 수 없습니다.")
-        target = [tcp[i] + direction[i] * distance for i in range(3)] + tcp[3:]
-        self.move_linear(target)
-        if self.tcp_is_in_work_area(self.get_tcp()):
-            raise RuntimeError("Safe Escape 후에도 TCP가 작업영역 내부입니다.")
-        return self.ok("SAFE_ESCAPE_DONE", {"distance_mm": distance})
+        target = [tcp[i] + direction[i] * distance_mm for i in range(3)] + tcp[3:]
+        motion = self.move_linear(target)
+        if motion.get("stop_reason") != "TARGET_REACHED":
+            raise RuntimeError("Safe Escape 후퇴 목표 도달 확인 실패")
+        return self.ok("SAFE_ESCAPE_DONE", {"distance_mm": distance_mm})
 
     def move_work_access_safe_pose(self):
         self.move_joint(RobotPose(**self.system["work_Access_safe_pose"]))
         return self.ok("WORK_ACCESS_REACHED")
 
+    def move_safe_route_home(self):
+        """사전에 설정한 경유점만 사용한다. 실패 시 대체 경로를 생성하지 않는다."""
+        route = self.system.get("safe_home_route")
+        if not route or route[-1] != self.system["home_pose"]:
+            raise ValueError("검증된 safe_home_route와 마지막 Home 자세가 필요합니다.")
+        for pose in route[:-1]:
+            self.move_joint(RobotPose(**pose))
+        return self.move_home_pose()
+
     def move_home_pose(self):
-        self.move_joint(RobotPose(**self.system["home_pose"]))
-        if any(abs(value) > 0.1 for value in self.current_joints()):
-            raise RuntimeError("Home 복귀 후 전체 관절 0도 확인 실패")
+        pose = RobotPose(**self.system["home_pose"])
+        self.move_joint(pose)
+        tolerance = self.system["home_joint_tolerance_deg"]
+        if any(abs(actual - target) > tolerance
+               for actual, target in zip(self.current_joints(), pose.joint)):
+            raise RuntimeError("Home 복귀 후 목표 관절각 도달 확인 실패")
         return self.ok("HOME_REACHED")
 
     def current_joints(self):
@@ -1167,6 +1177,10 @@ class SequenceRobot(HardwareRobot):
 
 def reverse_tool_axis(abc, tool_axis):
     """ZYZ: Rz(A) Ry(B) Rz(C). 반환값은 BASE 기준 단위 이탈벡터다."""
+    if (not isinstance(tool_axis, (list, tuple)) or len(tool_axis) != 3
+            or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in tool_axis)
+            or math.hypot(*tool_axis) == 0):
+        raise ValueError("유효한 Tool 접근축이 필요합니다.")
     a, b, c = map(math.radians, abc)
     x, y, z = tool_axis
     x, y = math.cos(c)*x - math.sin(c)*y, math.sin(c)*x + math.cos(c)*y

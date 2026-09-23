@@ -101,3 +101,7 @@ HMI RESUME 수신 후 정의된 Resume Point에서 RUNNING 복귀.
 - HMI Heartbeat Monitor와 Sequence State Machine 분리
 - Context Snapshot 구조 정의
 - 각 Sequence는 `pause_safe_state`를 명시적으로 노출하도록 설계
+
+## 11. 2026-09-23 오류 감시 보완
+
+PAUSED 진입 시와 대기 중 약 1초 간격으로 Robot Operability를 재확인한다. 서비스 응답시간에 따라 주기는 늘어날 수 있다. 오류는 상위 Job/HOME 처리에 전달하여 ERROR로 전환하고 다음 모션을 진행하지 않는다. RESUME 뒤 재확인도 유지한다. 물리 E-STOP 응답을 이 소프트웨어 조회 주기로 대체하지 않는다.

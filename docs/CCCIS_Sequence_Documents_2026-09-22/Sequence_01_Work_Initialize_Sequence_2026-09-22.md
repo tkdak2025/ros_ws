@@ -1,3 +1,5 @@
+> 2026-09-23 설계·구현 정합성 갱신: [05 보류항목 반영 결과](../05_시퀀스_보류항목_반영결과_2026-09-23.md)를 함께 적용한다. 같은 이름의 기존 PDF는 갱신 전 보존본이다.
+
 # Sequence #01 - Work Initialize Sequence
 
 **프로젝트:** CCCIS (Contact-based Cable Connection Inspection System)  
@@ -21,7 +23,7 @@ HMI START 승인 후 실제 Robot Motion에 진입하기 전에 Robot, HMI 통�
 ## 3. 진입 조건
 
 - #00 START Validation 승인
-- HMI START Trigger와 Recipe ID 수신 완료
+- HMI StartInspection 서비스 요청 ID와 전체 Recipe 수신 완료
 - 신규 Job Context 생성 가능
 
 ## 4. Sequence Flow
@@ -66,7 +68,7 @@ INIT SUCCESS --> #02 Home Return
 |---|---|
 | Robot Operability | Controller/Robot/Safety/Tool 상태가 Motion 가능한지 확인 |
 | System Recipe | home_pose, work_Access_safe_pose, Boundary 등 공통 설정 |
-| Inspection Recipe | Point별 ready/entry/direction/grip/pull 설정 |
+| Inspection Recipe | Point별 ready/entry/Entry 자세 기반 방향/grip/pull 설정 |
 | Enabled Point | 현재 Job에서 실제 검사 대상인 `enabled=true` Point |
 
 ## 6. 세부 동작 및 판단 조건

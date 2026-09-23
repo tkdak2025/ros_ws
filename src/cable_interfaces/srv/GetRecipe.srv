@@ -1,3 +1,4 @@
+# HMI 측 레시피 관리 서버에서 지정한 레시피와 버전의 전체 검사 조건을 조회하기 위한 서비스다.
 string recipe_id
 # Empty means latest saved version.
 string recipe_version

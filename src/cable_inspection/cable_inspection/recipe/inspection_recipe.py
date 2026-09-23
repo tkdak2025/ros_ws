@@ -227,8 +227,11 @@ class OperatingInspectionPoint:
                 value = group.get(key)
                 if not isinstance(value, (int, float)) or value <= 0 or not math.isfinite(value):
                     raise ValueError(f"{self.point_id}: {group_name}.{key}가 유효하지 않습니다.")
-        if self.entry_setting["max_distance_mm"] > 25.0:
-            raise ValueError(f"{self.point_id}: Entry 최대거리는 25 mm 이하여야 합니다.")
+        for name, setting in (("Entry", self.entry_setting), ("Pull", self.pull_setting)):
+            if setting["max_distance_mm"] > 25.0:
+                raise ValueError(f"{self.point_id}: {name} 최대거리는 25 mm 이하여야 합니다.")
+            if setting["timeout_s"] > 10.0:
+                raise ValueError(f"{self.point_id}: {name} 제한시간은 10 s 이하여야 합니다.")
 
 
 @dataclass
@@ -353,19 +356,23 @@ def load_system_recipe(path):
         if not data.get(name):
             raise ValueError(f"System Recipe의 {name} 경계를 입력하세요.")
         BoxBoundary(**data[name]).validate(name)
-    if any(value != 0 for value in data["home_pose"]["joint"]):
-        raise ValueError("Home 복귀의 home_pose.joint는 모두 0도여야 합니다.")
+    route = data.get("safe_home_route")
+    if not isinstance(route, list) or not route:
+        raise ValueError("검증된 safe_home_route를 입력하세요. 마지막 자세는 home_pose여야 합니다.")
+    for index, pose in enumerate(route):
+        RobotPose(**pose).validate(f"safe_home_route[{index}]")
+    if route[-1] != data["home_pose"]:
+        raise ValueError("safe_home_route의 마지막 자세는 home_pose와 같아야 합니다.")
     direction = data.get("tool_approach_axis")
-    # 현재 Home Return은 Safe Escape를 호출하지 않으므로 접근축은 필수가 아니다.
-    if direction is not None and (not isinstance(direction, list) or len(direction) != 3
+    if (not isinstance(direction, list) or len(direction) != 3
             or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in direction)
             or math.hypot(*direction) == 0):
         raise ValueError("Tool 좌표계 접근축 tool_approach_axis를 입력하세요.")
-    for key in ("max_escape_distance_mm", "escape_clearance_mm", "heartbeat_timeout_s",
+    for key in ("max_escape_distance_mm", "heartbeat_timeout_s",
                 "communication_recovery_timeout_s", "judgment_timeout_s",
-                "relax_width_mm", "relax_force_n"):
+                "relax_width_mm", "relax_force_n", "home_joint_tolerance_deg"):
         value = data.get(key)
-        if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
             raise ValueError(f"System Recipe의 {key}는 양수여야 합니다.")
     if data["max_escape_distance_mm"] > 30:
         raise ValueError("Safe Escape 상한은 30 mm 이하여야 합니다.")
