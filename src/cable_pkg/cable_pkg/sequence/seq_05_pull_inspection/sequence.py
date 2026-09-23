@@ -41,6 +41,7 @@ class PullInspectionSequence:
     #     ------------------------------------------------------------
     #     반환: 최대 힘(N), 실제 변위(mm), 최소 폭(mm), 종료 사유를 담은 dict.
     def pull(self, point):
+        # Entry ABC에서 구한 체결 방향의 반대로 당긴다.
         pull_direction = [-value for value in point.normalized_entry_direction()]
         return self.hardware.relative(
             pull_direction,

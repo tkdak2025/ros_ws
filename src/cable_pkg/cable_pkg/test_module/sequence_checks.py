@@ -28,7 +28,7 @@ def check_01_initialize(backend, recipe_id):
 
 
 def check_02_home_return(controller):
-    """영역 안: Relax→Escape→Access→Home / 밖: Safe Route→Home. 실제 이동한다."""
+    """영역 안: Work Access→전체 관절 0도 MoveJ / 밖: 바로 전체 관절 0도 MoveJ. 실제 이동한다."""
     controller.backend.validate_system_recipe()
     tcp = controller.backend.current_tcp()
     print("현재 TCP:", tcp, "영역 내부:", controller.backend.tcp_is_in_work_area(tcp))

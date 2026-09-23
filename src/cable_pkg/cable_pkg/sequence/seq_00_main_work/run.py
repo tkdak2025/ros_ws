@@ -6,12 +6,15 @@
 import argparse
 import io
 import json
+import signal
+import threading
 from pathlib import Path
 
 import rclpy
 from ament_index_python.packages import get_package_share_directory
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.signals import SignalHandlerOptions
+from rclpy.utilities import remove_ros_args
 
 from cable_pkg.hardware.sequence_robot import SequenceRobot
 from .sequence import SequenceController
@@ -27,8 +30,11 @@ def main(argv=None):
     parser.add_argument("--recipe", type=Path, action="append",
                         help="등록할 Inspection Recipe. 여러 번 지정할 수 있습니다.")
     parser.add_argument("--results-dir", type=Path, default=Path("results/inspection_sequence"))
-    args = parser.parse_args(argv)
-    paths = args.recipe or [share / "recipe/inspection/lan_inspection_recipe.json"]
+    parser.add_argument("--control-mode", choices=("hmi", "terminal"), default="hmi")
+    # ros2 launch가 붙이는 --ros-args는 argparse에 넘기지 않는다.
+    cli_args = remove_ros_args() if argv is None else remove_ros_args(args=["main_sequence", *argv])
+    args = parser.parse_args(cli_args[1:])
+    paths = args.recipe or [share / "recipe/inspection/rcp_BMW_LWR_01.json"]
     recipes = {}
     for path in paths:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -38,15 +44,23 @@ def main(argv=None):
     # 좌표 미입력 상태에서도 노드는 실행된다. START의 Initialize가 상세 사유를 반환한다.
     system = json.loads(args.system_recipe.read_text(encoding="utf-8"))
     # Ctrl+C 때 통신부터 닫히지 않게 하고, Worker 정지 요청을 먼저 마친다.
-    rclpy.init(args=[], signal_handler_options=SignalHandlerOptions.NO)
+    shutdown_requested = threading.Event()
+    previous_signals = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
+    for sig in previous_signals:
+        signal.signal(sig, lambda *_: shutdown_requested.set())
+    rclpy.init(args=argv, signal_handler_options=SignalHandlerOptions.NO)
     robot = SequenceRobot(args.system_recipe, recipes, io.StringIO())
     controller = SequenceController(robot, args.results_dir)
-    node = SequenceNode(controller, heartbeat_timeout_s=system["heartbeat_timeout_s"])
+    node = SequenceNode(controller, heartbeat_timeout_s=system["heartbeat_timeout_s"],
+                        control_mode=args.control_mode)
     executor = SingleThreadedExecutor(context=node.context)
     executor.add_node(node)  # 장비 노드는 Worker에서만 spin한다.
-    print("Main Work 대기 중. Judgment 노드와 Heartbeat가 준비되면 START를 보내세요.", flush=True)
+    print(f"Main Work 대기 중 [{args.control_mode}]. START 전에는 검사 모션을 시작하지 않습니다.", flush=True)
+    if args.control_mode == "terminal":
+        print("별도 터미널: ros2 run cable_pkg sequence_console", flush=True)
     try:
-        executor.spin()
+        while rclpy.ok() and not shutdown_requested.is_set():
+            executor.spin_once(timeout_sec=0.1)
     except KeyboardInterrupt:
         pass
     finally:
@@ -55,6 +69,8 @@ def main(argv=None):
         node.destroy_node()
         robot.close()
         rclpy.try_shutdown()
+        for sig, handler in previous_signals.items():
+            signal.signal(sig, handler)
 
 
 if __name__ == "__main__":

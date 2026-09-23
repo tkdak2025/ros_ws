@@ -72,6 +72,7 @@ class SequenceRobot(HardwareRobot):
 
     def validate_system_recipe(self):
         self.system = load_system_recipe(self.system_path)
+        self.config.joint_speed_deg_s = self.system["joint_speed_deg_s"]
         return self.ok("SYSTEM_RECIPE_VALID")
 
     def validate_inspection_recipe(self, recipe_id):
@@ -80,10 +81,6 @@ class SequenceRobot(HardwareRobot):
         self.recipe = OperatingInspectionRecipe.load_json(self.recipe_paths[recipe_id])
         if self.recipe.recipe_id != recipe_id:
             raise ValueError("선택한 Recipe ID와 파일의 ID가 다릅니다.")
-        for point in self.recipe.points.values():
-            if point.enabled:
-                self._check_target(point.ready_pose.task)
-                self._check_target(point.entry_pose.task)
         return self.ok("INSPECTION_RECIPE_VALID")
 
     def enabled_point_ids(self, recipe_id):
@@ -95,18 +92,11 @@ class SequenceRobot(HardwareRobot):
     def tcp_is_in_work_area(self, tcp):
         return BoxBoundary(**self.system["work_area"]).contains_inside(tcp[:3], 0)
 
-    def _check_target(self, task):
-        if self.system is not None:
-            if not BoxBoundary(**self.system["allowed_workspace"]).contains_inside(task[:3], 0):
-                raise ValueError(f"목표 TCP가 allowed_workspace 밖입니다: {task[:3]}")
-
     def move_joint(self, pose, allow_incomplete=False):
-        self._check_target(pose.task)
         self.control_poll()
         return super().move_joint(pose, allow_incomplete)
 
     def move_linear(self, target, entry_guard=False, measurement_kind=None):
-        self._check_target(target)
         self.control_poll()
         return super().move_linear(target, entry_guard, measurement_kind)
 
@@ -141,12 +131,15 @@ class SequenceRobot(HardwareRobot):
 
     def move_home_pose(self):
         self.move_joint(RobotPose(**self.system["home_pose"]))
+        if any(abs(value) > 0.1 for value in self.current_joints()):
+            raise RuntimeError("Home 복귀 후 전체 관절 0도 확인 실패")
         return self.ok("HOME_REACHED")
 
-    def move_safe_route_home(self):
-        for raw in self.system["safe_home_route"]:
-            self.move_joint(RobotPose(**raw))
-        return self.ok("HOME_REACHED")
+    def current_joints(self):
+        joints = list(self._call(self.joint_client, GetCurrentPosj.Request()).pos)
+        if len(joints) != 6 or not all(math.isfinite(v) for v in joints):
+            raise RuntimeError("현재 관절값이 유효하지 않습니다.")
+        return joints
 
     def request_motion_stop(self):
         # STOP 자체는 control_poll로 다시 차단하지 않는다.

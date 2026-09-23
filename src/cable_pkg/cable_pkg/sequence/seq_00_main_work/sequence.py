@@ -459,8 +459,7 @@ class SequenceController:
     #     ------------------------------------------------------------
     #     반환: Home 복귀 결과를 담은 SequenceResult.
     def home_return(self):
-        return HomeReturnSequence(self.backend, self.backend.system["max_escape_distance_mm"],
-                                  self.checkpoint).run()
+        return HomeReturnSequence(self.backend, checkpoint=self.checkpoint).run()
 
 
 

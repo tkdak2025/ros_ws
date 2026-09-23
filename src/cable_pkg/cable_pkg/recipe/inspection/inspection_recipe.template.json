@@ -1,0 +1,41 @@
+{
+  "recipe_id": "rcp_XXX_LWR_01",
+  "recipe_version": "1.0.0",
+  "coordinate_frame": "BASE",
+  "connector_type": "RJ45_LAN",
+  "execution_order": ["POINT_01"],
+  "points": {
+    "POINT_01": {
+      "point_id": "POINT_01",
+      "point_name": "검사포인트 이름 입력",
+      "enabled": false,
+      "ready_pose": {
+        "task": [],
+        "joint": []
+      },
+      "entry_pose": {
+        "task": [],
+        "joint": []
+      },
+      "entry_setting": {
+        "max_distance_mm": 5.0,
+        "force_guard_n": 5.0,
+        "timeout_s": 10.0
+      },
+      "grip_setting": {
+        "soft_close_width_mm": 22.0,
+        "soft_open_width_mm": 25.0,
+        "hard_width_mm": 16.0,
+        "soft_force_n": 10.0,
+        "hard_force_n": 20.0
+      },
+      "pull_setting": {
+        "force_limit_n": 15.0,
+        "max_distance_mm": 25.0,
+        "timeout_s": 10.0,
+        "speed_mm_s": 10.0,
+        "normal_displacement_limit_mm": 5.0
+      }
+    }
+  }
+}

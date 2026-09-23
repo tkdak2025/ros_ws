@@ -71,7 +71,6 @@ class RecordedRobot:
     def safe_escape(self, distance): return self.step(f"escape:{distance}")
     def move_work_access_safe_pose(self): return self.step("access")
     def move_home_pose(self): return self.step("home")
-    def move_safe_route_home(self): return self.step("safe_route_home")
     def request_motion_stop(self): return self.step("stop")
 
     def configure_point(self, point):
@@ -121,19 +120,27 @@ def test_01_no_active_points():
 
 
 @pytest.mark.parametrize("inside,expected", [
-    (True, ["robot", "relax", "escape:30.0", "access", "home"]),
-    (False, ["robot", "safe_route_home"]),
+    (True, ["robot", "access", "home"]),
+    (False, ["robot", "home"]),
 ])
 def test_02_home_routes(inside, expected):
     robot = RecordedRobot(inside=inside)
-    assert HomeReturnSequence(robot, 30.0).run().success
+    assert HomeReturnSequence(robot).run().success
     assert robot.calls == expected
 
 
-def test_02_escape_failure_prevents_access_and_home():
-    robot = RecordedRobot(failure="escape:30.0")
-    assert not HomeReturnSequence(robot, 30.0).run().success
-    assert robot.calls == ["robot", "relax", "escape:30.0"]
+def test_02_access_failure_prevents_home():
+    robot = RecordedRobot(failure="access")
+    assert not HomeReturnSequence(robot).run().success
+    assert robot.calls == ["robot", "access"]
+
+
+def test_02_access_and_home_checkpoints():
+    robot = RecordedRobot()
+    checkpoints = []
+    result = HomeReturnSequence(robot, checkpoint=checkpoints.append).run()
+    assert result.data["route"] == "WORK_ACCESS_HOME"
+    assert checkpoints == ["WORK_ACCESS_REACHED", "HOME_REACHED"]
 
 
 def completed_context():
@@ -225,29 +232,82 @@ def test_recipe_add_save_reload_preserves_order(tmp_path):
         recipe.add_point(point)
 
 
-def test_system_recipe_without_coordinates_is_rejected():
+@pytest.mark.parametrize("abc,expected", [
+    ([0, 0, 0], [0, 0, 1]),
+    ([0, 180, 0], [0, 0, -1]),
+    ([20, 180, 20], [0, 0, -1]),
+    ([30, 180, 30], [0, 0, -1]),
+    ([0, 90, 0], [1, 0, 0]),
+    ([90, 90, 0], [0, 1, 0]),
+    ([90, -90, 0], [0, -1, 0]),
+    ([45, 45, 0], [0.5, 0.5, 2**-0.5]),
+    ([45, 45, 70], [0.5, 0.5, 2**-0.5]),
+])
+def test_entry_direction_comes_from_entry_abc(abc, expected):
+    point = OperatingInspectionRecipe.load_json(RECIPE).points["LAN_L2"]
+    pose = replace(point.entry_pose, task=point.entry_pose.task[:3] + abc)
+    point = replace(point, entry_pose=pose)
+    assert point.normalized_entry_direction() == pytest.approx(expected, abs=1e-12)
+
+
+def test_legacy_direction_cannot_override_entry_abc(tmp_path):
+    raw = json.loads(RECIPE.read_text())
+    raw["points"]["LAN_L2"]["entry_direction"] = [1.0, 0.0, 0.0]
+    path = tmp_path / "legacy_recipe.json"
+    path.write_text(json.dumps(raw))
+    loaded = OperatingInspectionRecipe.load_json(path)
+    assert loaded.points["LAN_L2"].normalized_entry_direction() == [0.0, -1.0, 0.0]
+
+
+def test_system_recipe_without_coordinates_is_rejected(tmp_path):
+    data = json.loads((PACKAGE / "config/system_recipe.json").read_text())
+    data["home_pose"] = {"task": None, "joint": None}
+    path = tmp_path / "missing_home.json"
+    path.write_text(json.dumps(data))
     with pytest.raises(ValueError, match="home_pose"):
-        load_system_recipe(PACKAGE / "config/system_recipe.json")
+        load_system_recipe(path)
 
 
-@pytest.mark.parametrize("invalid", [None, "route", "access", "escape", "axis"])
+@pytest.mark.parametrize("actual,target,expected", [
+    ([0, 180, 0], [20, 180, 20], 0.0),
+    ([0, 180, 0], [30, 180, 30], 0.0),
+    ([0, 180, 0], [20, 180, 30], 10.0),
+    ([0, 0, 0], [0, 0, 360], 0.0),
+    ([0, 180, 0], [0, 179, 0], 1.0),
+    ([0, 0, 0], [0, 180, 0], 180.0),
+])
+def test_orientation_uses_actual_rotation_difference(actual, target, expected):
+    from cable_pkg.hardware.inspection_robot import orientation_error_deg
+    assert orientation_error_deg(actual, target) == pytest.approx(expected, abs=1e-5)
+
+
+def test_motion_accepts_equivalent_zyz_pose_without_timeout():
+    from cable_pkg.hardware.inspection_robot import HardwareRobot, RobotRuntimeConfig
+    measured = {"tcp": [589.95, 186.61, 98.98, 0.0, 180.0, 0.0],
+                "wrench_base": [0.0] * 6}
+    robot = SimpleNamespace(
+        config=RobotRuntimeConfig(), check_client=None,
+        sample=lambda: measured,
+        _call=lambda *_args: SimpleNamespace(status=0),
+    )
+    target = [589.95, 186.61, 98.98, 20.0, 180.0, 20.0]
+    result = HardwareRobot._monitor(robot, target, measured)
+    assert result["stop_reason"] == "TARGET_REACHED"
+
+
+@pytest.mark.parametrize("invalid", [None, "home_joint", "escape", "axis"])
 def test_system_recipe_entered_values(tmp_path, invalid):
     # 가상 좌표는 임시 파일에만 저장한다. 운영 레시피의 미정 좌표는 유지한다.
     data = json.loads((PACKAGE / "config/system_recipe.json").read_text())
     data.update(
         home_pose={"task": [50.0, 0, 0, 0, 0, 0], "joint": [0.0] * 6},
-        work_Access_safe_pose={"task": [30.0, 0, 0, 0, 0, 0], "joint": [0.0] * 6},
+        work_Access_safe_pose={"task": [0.0] * 6, "joint": [0.0] * 6},
         work_area={f"{axis}_{side}_mm": value for axis in "xyz"
                    for side, value in (("min", -10.0), ("max", 10.0))},
-        allowed_workspace={f"{axis}_{side}_mm": value for axis in "xyz"
-                           for side, value in (("min", -100.0), ("max", 100.0))},
-        tool_approach_axis=[0.0, 0.0, 1.0],
+        tool_approach_axis=None,
     )
-    data["safe_home_route"] = [data["home_pose"]]
-    if invalid == "route":
-        data["safe_home_route"] = [data["work_Access_safe_pose"]]
-    elif invalid == "access":
-        data["work_Access_safe_pose"]["task"] = [0.0] * 6
+    if invalid == "home_joint":
+        data["home_pose"]["joint"][0] = 1.0
     elif invalid == "escape":
         data["max_escape_distance_mm"] = 31.0
     elif invalid == "axis":
@@ -343,11 +403,40 @@ def test_00_job_order_delayed_results_and_stop(monkeypatch, tmp_path, stop_after
              "hard", "pull", "judgment_request", "open", "return_entry", "ready"]
     assert robot.calls == (
         ["robot", "hmi", "system_recipe", "inspection_recipe", "robot",
-         "robot", "relax", "escape:30.0", "access", "home", "access",
+         "robot", "access", "home", "access",
          "LAN_L2"] + cycle + ["LAN_L5"] + cycle +
-        ["access", "hmi", "robot", "relax", "escape:30.0", "access", "home"])
+        ["access", "hmi", "robot", "access", "home"])
     assert result.data["counts"] == {"PASS": 2, "FAIL": 0, "SYSTEM_ERROR": 0}
     assert status["completed"] is True
     records = json.loads((controller.output / "inspection_results.json").read_text())
     assert list(records) == ["LAN_L2", "LAN_L5"]
     assert all(record["result"] == "PASS" for record in records.values())
+
+
+@pytest.mark.parametrize("failure", [None, "motion", "joint"])
+def test_home_uses_single_move_and_checks_all_joints(failure):
+    from cable_pkg.hardware.sequence_robot import SequenceRobot
+    targets = []
+    robot = SimpleNamespace(
+        system={"home_pose": {"task": [0.0] * 6, "joint": [0.0] * 6}},
+        current_joints=lambda: [0.0] * 5 + [1.0 if failure == "joint" else 0.0],
+        ok=SequenceRobot.ok,
+    )
+    def move(pose):
+        targets.append(pose.joint[:])
+        if failure == "motion":
+            raise RuntimeError("motion failed")
+    robot.move_joint = move
+    if failure:
+        with pytest.raises(RuntimeError):
+            SequenceRobot.move_home_pose(robot)
+    else:
+        assert SequenceRobot.move_home_pose(robot).success
+    assert targets == [[0.0] * 6]
+
+
+def test_current_system_recipe_requires_no_extra_workspace():
+    data = load_system_recipe(PACKAGE / "config/system_recipe.json")
+    assert "allowed_workspace" not in data
+    assert "safe_home_route" not in data
+    assert data["home_pose"]["joint"] == [0.0] * 6

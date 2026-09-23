@@ -19,6 +19,8 @@
   <exec_depend>cable_hmi</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>dsr_bringup2</exec_depend>
+  <exec_depend>onrobot_rg_control</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

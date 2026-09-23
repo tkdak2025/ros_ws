@@ -19,19 +19,24 @@ class SequenceNode(Node):
 
     # 기능: 명령 수신·상태 발행과 Heartbeat 감시를 준비한다.
     #     controller: 현재 Job 상태, 결과 저장, 제어 명령을 관리하는 SequenceController.
-    #     heartbeat_timeout_s: Heartbeat를 기다릴 최대 시간(s).
-    def __init__(self, controller, heartbeat_timeout_s=2.0):
+    #     heartbeat_timeout_s: 선택한 운전 입력의 Heartbeat를 기다릴 최대 시간(s).
+    #     control_mode: hmi 또는 terminal. 선택한 쪽의 명령/Heartbeat만 수신한다.
+    def __init__(self, controller, heartbeat_timeout_s=2.0, control_mode="hmi"):
         super().__init__("ccc_sequence_node")
+        if control_mode not in {"hmi", "terminal"}:
+            raise ValueError(f"지원하지 않는 운전 모드: {control_mode}")
+        self.control_mode = control_mode
         self.controller = controller
         self.heartbeat_timeout_s = heartbeat_timeout_s
         self.last_heartbeat = None
         self.communication_lost_handled = False
         self.worker = None
-        self.selected_recipe = ""
+        self.selected_recipe = next(iter(controller.backend.recipe_paths), "")
         self.status_pub = self.create_publisher(String, "cable_inspection/status", 50)
         self.log_pub = self.create_publisher(String, "cable_inspection/log", 50)
-        self.create_subscription(String, "cable_inspection/command", self._on_command, 50)
-        self.create_subscription(Empty, "cable_inspection/hmi_heartbeat", self._on_heartbeat, 10)
+        command_topic = "command" if control_mode == "hmi" else "terminal_command"
+        self.create_subscription(String, f"cable_inspection/{command_topic}", self._on_command, 50)
+        self.create_subscription(Empty, f"cable_inspection/{control_mode}_heartbeat", self._on_heartbeat, 10)
         self.create_timer(0.1, self._tick)
         controller.notify = self._log
         controller.backend.hmi_available = self.hmi_available
@@ -77,7 +82,8 @@ class SequenceNode(Node):
                 raise ValueError("명령은 name과 args를 가진 JSON 객체여야 합니다.")
             name, args = str(raw.get("name", "")).upper(), raw.get("args", {})
             if name == "START":
-                recipe_id = str(args.get("recipe_id", self.selected_recipe))
+                recipe_id = args.get("recipe_id", self.selected_recipe)
+                self._select_recipe(recipe_id)
                 self._launch(lambda: self.controller.run(recipe_id))
             elif name in {"HOME_RETURN", "MOVE_HOME"}:
                 self._launch(self.controller.request_home_return)
@@ -93,19 +99,28 @@ class SequenceNode(Node):
                     self.controller.state = SystemState.STOPPED
                     self._log("INFO", "STOPPED: 진행 중인 Job이 없습니다.")
             elif name == "SELECT_RECIPE":
-                recipe_id = str(args.get("recipe_id", ""))
-                if recipe_id not in self.controller.backend.recipe_paths:
-                    raise ValueError(f"등록되지 않은 Recipe: {recipe_id}")
-                if self.controller.state != SystemState.SYSTEM_READY:
-                    raise ValueError("실행 중 Recipe를 변경할 수 없습니다.")
-                self.selected_recipe = recipe_id
-                self._log("INFO", f"RECIPE_SELECTED: {recipe_id}")
+                self._select_recipe(args.get("recipe_id", ""))
             elif name == "SYNC":
                 self._publish_status()
             else:
                 raise ValueError(f"지원하지 않는 명령: {name}")
         except (ValueError, TypeError, KeyError) as error:
             self._log("ERROR", str(error))
+
+
+
+    # 기능: 대기 중 등록된 레시피를 선택하고 HMI에 선택 상태를 즉시 전달한다.
+    #     recipe_id: 등록된 Inspection Recipe ID. 파일 경로가 아닌 식별자다.
+    def _select_recipe(self, recipe_id):
+        if not isinstance(recipe_id, str) or recipe_id not in self.controller.backend.recipe_paths:
+            raise ValueError(f"등록되지 않은 Recipe: {recipe_id}")
+        if (self.controller.state != SystemState.SYSTEM_READY
+                or self.controller.context is not None
+                or (self.worker is not None and self.worker.is_alive())):
+            raise ValueError("작업이 끝나고 SYSTEM_READY일 때 Recipe를 선택할 수 있습니다.")
+        self.selected_recipe = recipe_id
+        self._log("INFO", f"RECIPE_SELECTED: {recipe_id}")
+        self._publish_status()
 
 
 
@@ -126,7 +141,7 @@ class SequenceNode(Node):
         if active and not self.hmi_available() and not self.communication_lost_handled:
             self.communication_lost_handled = True
             self.controller.communication_lost()
-            self._log("WARN", "HMI COMM LOST: Safe Pause 요청")
+            self._log("WARN", f"{self.control_mode.upper()} COMM LOST: Safe Pause 요청")
         self._publish_status()
 
 
@@ -139,11 +154,13 @@ class SequenceNode(Node):
         status = {
             "state": "IDLE" if state == "SYSTEM_READY" else state,
             "run_state": state, "alarm": self.controller.last_error,
+            "control_mode": self.control_mode, "control_connected": self.hmi_available(),
             "robot_connected": backend.connected, "gripper_connected": backend.connected,
             "tool": {"configured": backend.connected, "name": backend.config.tool_name,
                      "tcp": backend.config.tcp_name, "force_zero_done": False},
             "available_recipes": list(backend.recipe_paths), "run_id": self.controller.run_id,
             "recipe_id": context.recipe_id if context else self.selected_recipe,
+            "selected_recipe_id": self.selected_recipe,
             "job_id": context.job_id if context else "",
             "recipe_version": context.recipe_snapshot.get("recipe_version", "") if context else "",
             "execution_index": context.current_point_index if context else 0,

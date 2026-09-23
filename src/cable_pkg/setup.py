@@ -41,6 +41,7 @@ setup(
     entry_points={
         'console_scripts': [
             'main_sequence = cable_pkg.sequence.seq_00_main_work.run:main',
+            'sequence_console = cable_pkg.sequence.seq_00_main_work.console:main',
             'inspection_judgment = cable_pkg.sequence.seq_06_inspection_judgment.node:main',
             'inspection_sequence = cable_pkg.sequence.inspection.run:main',
             'manual_check = cable_pkg.diagnostics.manual_check:main',

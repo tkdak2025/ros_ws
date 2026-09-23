@@ -32,7 +32,7 @@ class AdaptiveGripSequence:
         # Soft Grip → 추가진입 → 기준 폭 측정 → Hard Grip 순서로 진행한다.
         self.soft_grip(point)
         entry = self.hardware.relative(
-            point.normalized_entry_direction(),
+            point.normalized_entry_direction(),  # Entry ABC에서 계산한 Tool +Z의 BASE 방향.
             point.entry_setting["max_distance_mm"],
             entry_guard=True,  # 진입 힘 상한을 감시하고 도달하면 추가진입을 멈춘다.
         )

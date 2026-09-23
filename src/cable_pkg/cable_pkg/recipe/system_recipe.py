@@ -8,9 +8,24 @@ from cable_pkg.recipe.inspection_recipe import RobotPose
 from cable_pkg.safety.workspace_boundary import BoxBoundary
 
 
+# 기능: 공통 Joint 이동 속도를 확인한다. 검사 단독 실행에서도 좌표 검증 없이 사용한다.
+#     system: System Recipe JSON을 읽은 dict. joint_speed_deg_s 단위는 deg/s.
+#
+#     ------------------------------------------------------------
+#     반환: MoveJ 명령에 적용할 Joint 속도(deg/s).
+def joint_speed_from_system(system):
+    value = system.get("joint_speed_deg_s")
+    if (isinstance(value, bool) or not isinstance(value, (int, float))
+            or not math.isfinite(value) or value <= 0):
+        raise ValueError("System Recipe의 joint_speed_deg_s는 유한한 양수여야 합니다.")
+    return float(value)
+
+
+
 def load_system_recipe(path):
     """미입력 좌표는 거부한다. Tool/TCP를 등록하거나 Fault를 해제하지 않는다."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
+    joint_speed_from_system(data)
     if data.get("coordinate_frame") != "BASE":
         raise ValueError("System Recipe는 BASE 기준이어야 합니다.")
     for name in ("home_pose", "work_Access_safe_pose"):
@@ -18,18 +33,15 @@ def load_system_recipe(path):
         if not raw or raw.get("task") is None or raw.get("joint") is None:
             raise ValueError(f"System Recipe의 {name} 좌표를 입력하세요.")
         RobotPose(**raw).validate(name)
-    for name in ("work_area", "allowed_workspace"):
+    for name in ("work_area",):
         if not data.get(name):
             raise ValueError(f"System Recipe의 {name} 경계를 입력하세요.")
         BoxBoundary(**data[name]).validate(name)
-    if not data.get("safe_home_route"):
-        raise ValueError("검증된 safe_home_route를 입력하세요. 마지막 Pose는 Home이어야 합니다.")
-    for index, raw in enumerate(data["safe_home_route"]):
-        RobotPose(**raw).validate(f"safe_home_route[{index}]")
-    if data["safe_home_route"][-1] != data["home_pose"]:
-        raise ValueError("safe_home_route의 마지막 Pose가 home_pose와 다릅니다.")
+    if any(value != 0 for value in data["home_pose"]["joint"]):
+        raise ValueError("Home 복귀의 home_pose.joint는 모두 0도여야 합니다.")
     direction = data.get("tool_approach_axis")
-    if (not isinstance(direction, list) or len(direction) != 3
+    # 현재 Home Return은 Safe Escape를 호출하지 않으므로 접근축은 필수가 아니다.
+    if direction is not None and (not isinstance(direction, list) or len(direction) != 3
             or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in direction)
             or math.hypot(*direction) == 0):
         raise ValueError("Tool 좌표계 접근축 tool_approach_axis를 입력하세요.")
@@ -41,10 +53,4 @@ def load_system_recipe(path):
             raise ValueError(f"System Recipe의 {key}는 양수여야 합니다.")
     if data["max_escape_distance_mm"] > 30:
         raise ValueError("Safe Escape 상한은 30 mm 이하여야 합니다.")
-    allowed = BoxBoundary(**data["allowed_workspace"])
-    for raw in [data["home_pose"], data["work_Access_safe_pose"], *data["safe_home_route"]]:
-        if not allowed.contains_inside(raw["task"][:3], 0):
-            raise ValueError("공통 Pose가 allowed_workspace 밖입니다.")
-    if BoxBoundary(**data["work_area"]).contains_inside(data["work_Access_safe_pose"]["task"][:3], 0):
-        raise ValueError("Work Access Safe Pose는 work_area 밖이어야 합니다.")
     return data

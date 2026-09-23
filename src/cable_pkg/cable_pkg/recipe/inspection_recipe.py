@@ -188,24 +188,27 @@ class OperatingInspectionPoint:
     enabled: bool
     ready_pose: RobotPose
     entry_pose: RobotPose
-    entry_direction: list[float]
     entry_setting: dict[str, float]
     grip_setting: dict[str, float]
     pull_setting: dict[str, float]
 
+    # 기능: Entry의 ZYZ 자세에서 Tool +Z를 BASE 기준 진입 방향으로 계산한다.
+    #     자세 입력: entry_pose.task의 [A, B, C](deg). Tool +Z를 체결축에 맞춰 교시한다.
+    #
+    #     ------------------------------------------------------------
+    #     반환: BASE 기준 단위벡터 [dx, dy, dz]. Pull은 이 벡터의 반대 방향이다.
     def normalized_entry_direction(self) -> list[float]:
-        length = math.sqrt(sum(value * value for value in self.entry_direction))
-        return [value / length for value in self.entry_direction]
+        a, b, _c = map(math.radians, self.entry_pose.task[3:])
+        # Rz(A) × Ry(B) × Rz(C)의 세 번째 열. C는 Tool +Z 방향에 영향을 주지 않는다.
+        direction = [math.cos(a) * math.sin(b), math.sin(a) * math.sin(b), math.cos(b)]
+        length = math.sqrt(sum(value * value for value in direction))
+        return [0.0 if abs(value) < 1e-12 else value / length for value in direction]
+
+
 
     def validate(self) -> None:
         self.ready_pose.validate("ready_pose")
         self.entry_pose.validate("entry_pose")
-        if len(self.entry_direction) != 3:
-            raise ValueError(f"{self.point_id}: entry_direction은 3개 값이어야 합니다.")
-        if not all(math.isfinite(value) for value in self.entry_direction):
-            raise ValueError(f"{self.point_id}: entry_direction 값이 유효하지 않습니다.")
-        if math.sqrt(sum(value * value for value in self.entry_direction)) == 0:
-            raise ValueError(f"{self.point_id}: entry_direction은 0 벡터일 수 없습니다.")
         required = {
             "entry_setting": (self.entry_setting, (
                 "max_distance_mm", "force_guard_n", "timeout_s")),
@@ -276,13 +279,14 @@ class OperatingInspectionRecipe:
     @classmethod
     def load_json(cls, path: str | Path) -> "OperatingInspectionRecipe":
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        points = {
-            point_id: OperatingInspectionPoint(
-                **{**raw, "ready_pose": RobotPose(**raw["ready_pose"]),
-                   "entry_pose": RobotPose(**raw["entry_pose"])},
-            )
-            for point_id, raw in data["points"].items()
-        }
+        # 이전 파일에 남은 entry_direction은 사용하지 않는다. Entry ABC가 방향의 기준이다.
+        points = {}
+        for point_id, raw in data["points"].items():
+            point_data = dict(raw)
+            point_data.pop("entry_direction", None)
+            point_data["ready_pose"] = RobotPose(**raw["ready_pose"])
+            point_data["entry_pose"] = RobotPose(**raw["entry_pose"])
+            points[point_id] = OperatingInspectionPoint(**point_data)
         recipe = cls(
             recipe_id=data["recipe_id"],
             recipe_version=data["recipe_version"],

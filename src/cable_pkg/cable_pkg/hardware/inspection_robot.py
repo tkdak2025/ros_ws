@@ -17,7 +17,7 @@ from cable_pkg.hardware.dsr_rg2_base import GripPullRobot
 class RobotRuntimeConfig:
     """포인트 레시피 밖에 있는 장비 통신·이동 공통값."""
 
-    joint_speed_deg_s: float = 10.0
+    joint_speed_deg_s: float = 10.0  # 운영 실행 시 System Recipe 값으로 적용한다.
     joint_acc_deg_s2: float = 10.0
     linear_speed_mm_s: float = 10.0
     linear_acc_mm_s2: float = 10.0
@@ -59,7 +59,7 @@ class HardwareRobot(GripPullRobot):
         self.check_client = self.node.create_client(CheckMotion, self.SERVICE_ROOT + "/motion/check_motion")
 
     def configure_point(self, point):
-        """현재 Cycle의 축과 Entry/Pull 제한을 Recipe에서 적용한다."""
+        """Entry ABC에서 감시 축을 계산하고 Entry/Pull 제한을 Recipe에서 적용한다."""
         self.axis = point.normalized_entry_direction()
         self.config.entry_force_limit_n = point.entry_setting["force_guard_n"]
         self.config.entry_timeout_s = point.entry_setting["timeout_s"]
@@ -320,10 +320,10 @@ class HardwareRobot(GripPullRobot):
                 stop_reason = "ENTRY_FORCE_LIMIT"
                 break
             # 정지 상태만으로 성공 처리하지 않는다. 목표 XYZ와 ABC도 확인한다.
-            # ABC는 각 성분의 ±180도 주기 차이로 비교하며 회전행렬 오차는 아니다.
+            # B=180°에서는 서로 다른 ABC가 같은 자세일 수 있어 실제 회전 차이로 비교한다.
             idle = self._call(self.check_client, CheckMotion.Request()).status == 0
             position_ok = math.dist(latest["tcp"][:3], target[:3]) <= self.config.position_tolerance_mm
-            angle_error = max(abs((a - b + 180) % 360 - 180) for a, b in zip(latest["tcp"][3:], target[3:]))
+            angle_error = orientation_error_deg(latest["tcp"][3:], target[3:])
             if idle and position_ok and angle_error <= self.config.orientation_tolerance_deg:
                 stop_reason = ("ENTRY_DISTANCE_REACHED" if entry_guard else
                                "PULL_MAX_DISTANCE" if pull_guard else "TARGET_REACHED")
@@ -382,3 +382,35 @@ class HardwareRobot(GripPullRobot):
             if time.monotonic() >= deadline:
                 raise TimeoutError("정지 완료 확인 실패")
             time.sleep(self.config.sample_period_s)
+
+
+
+# 기능: ZYZ Euler 각을 회전행렬로 바꿔 실제 자세 차이를 계산한다.
+#     actual_abc: 현재 TCP의 [A, B, C] 자세각(deg).
+#     target_abc: 목표 TCP의 [A, B, C] 자세각(deg).
+#
+#     ------------------------------------------------------------
+#     반환: 두 자세 사이의 최소 회전각(deg, 0~180). 동등한 Euler 표현은 0이다.
+def orientation_error_deg(actual_abc, target_abc):
+    # 기능: Rz(A) × Ry(B) × Rz(C) 회전행렬을 만든다.
+    #     abc: [A, B, C] 자세각(deg).
+    #
+    #     ------------------------------------------------------------
+    #     반환: Tool 축을 BASE로 변환하는 3×3 행렬.
+    def rotation_matrix(abc):
+        a, b, c = map(math.radians, abc)
+        ca, sa = math.cos(a), math.sin(a)
+        cb, sb = math.cos(b), math.sin(b)
+        cc, sc = math.cos(c), math.sin(c)
+        return (
+            (ca*cb*cc - sa*sc, -ca*cb*sc - sa*cc, ca*sb),
+            (sa*cb*cc + ca*sc, -sa*cb*sc + ca*cc, sa*sb),
+            (-sb*cc, sb*sc, cb),
+        )
+
+    actual = rotation_matrix(actual_abc)
+    target = rotation_matrix(target_abc)
+    # trace(R_actual.T × R_target) = 1 + 2*cos(자세 차이).
+    trace = sum(actual[i][j] * target[i][j] for i in range(3) for j in range(3))
+    cosine = max(-1.0, min(1.0, (trace - 1.0) / 2.0))
+    return math.degrees(math.acos(cosine))

@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from cable_pkg.recipe import OperatingInspectionRecipe
+from cable_pkg.recipe.system_recipe import joint_speed_from_system
 from cable_pkg.data_models.sequence_models import (
     InspectionResult,
     JudgmentStatus,
@@ -18,7 +19,7 @@ from cable_pkg.data_models.sequence_models import (
 )
 
 
-# 기능: 설치된 cable_pkg의 기본 LAN 레시피 경로를 찾는다.
+# 기능: 설치된 cable_pkg의 기본 BMW 레시피 경로를 찾는다.
 #
 #     ------------------------------------------------------------
 #     반환: 기본 레시피 파일의 Path.
@@ -26,7 +27,7 @@ def _default_recipe_path() -> Path:
     from ament_index_python.packages import get_package_share_directory
 
     share = Path(get_package_share_directory("cable_pkg"))
-    return share / "recipe" / "inspection" / "lan_inspection_recipe.json"
+    return share / "recipe" / "inspection" / "rcp_BMW_LWR_01.json"
 
 
 # 기능: 현재 포인트의 검사/건너뛰기 선택을 숫자로 받는다.
@@ -84,14 +85,20 @@ def _complete_results(motion_results, judgment_results):
 #     ------------------------------------------------------------
 #     반환: 성공 0, 입력 오류 2, 검사 오류 1, 사용자 중단 130.
 def main(argv=None) -> int:
+    from ament_index_python.packages import get_package_share_directory
+
+    share = Path(get_package_share_directory("cable_pkg"))
     parser = argparse.ArgumentParser(description="CCCIS 실제 검사 시퀀스")
     parser.add_argument("--recipe", type=Path, default=None)
+    parser.add_argument("--system-recipe", type=Path, default=share / "config/system_recipe.json")
     parser.add_argument("--results-dir", type=Path, default=Path("results/inspection_sequence"))
     args = parser.parse_args(argv)
 
     recipe_path = (args.recipe or _default_recipe_path()).resolve()
     try:
         recipe = OperatingInspectionRecipe.load_json(recipe_path)
+        system = json.loads(args.system_recipe.read_text(encoding="utf-8"))
+        joint_speed = joint_speed_from_system(system)
     except (OSError, KeyError, TypeError, ValueError) as error:
         print(f"검사 Recipe 오류: {error}")
         return 2
@@ -99,7 +106,12 @@ def main(argv=None) -> int:
     enabled = [point_id for point_id in recipe.execution_order
                if recipe.points[point_id].enabled]
     print(f"Recipe: {recipe.recipe_id}")
+    print(f"Joint 속도: {joint_speed:g} deg/s (System Recipe)")
     print("검사 순서: " + " → ".join(enabled))
+    for point_id in enabled:
+        direction = recipe.points[point_id].normalized_entry_direction()
+        pull_direction = [-value if value else 0.0 for value in direction]
+        print(f"  {point_id}: 추가진입(BASE)={direction}, Pull(BASE)={pull_direction}")
     print("Cycle: Ready → Entry → Soft Grip → 추가 진입 → Hard Grip → Pull → Entry → Ready")
     if input("작업영역과 케이블 상태 확인 후 START 입력: ").strip() != "START":
         print("검사를 시작하지 않았습니다.")
@@ -108,6 +120,8 @@ def main(argv=None) -> int:
     output = args.results_dir / datetime.now().astimezone().strftime("%Y%m%d_%H%M%S_%f")
     output.mkdir(parents=True, exist_ok=False)
     _save_json(output / "inputs.json", {
+        "system_recipe_path": str(args.system_recipe.resolve()),
+        "system_recipe": system,
         "recipe_path": str(recipe_path),
         "recipe": json.loads(recipe_path.read_text(encoding="utf-8")),
     })
@@ -126,7 +140,7 @@ def main(argv=None) -> int:
     try:
         rclpy.init(args=[])
         with (output / "samples.jsonl").open("w", encoding="utf-8") as stream:
-            robot = HardwareRobot(RobotRuntimeConfig(), stream)
+            robot = HardwareRobot(RobotRuntimeConfig(joint_speed_deg_s=joint_speed), stream)
             judgment = JudgmentClient(robot.node)
             judgment.wait_for_subscriber()
             robot.connect()

@@ -1,7 +1,7 @@
 """#02 Home Return: 현재 TCP 위치에 맞는 경로로 Home에 복귀한다.
 1. Robot 상태와 현재 TCP를 확인한다.
-2. 작업영역 안이면 Grip 완화 → Safe Escape → Work Access → Home으로 이동한다.
-3. 작업영역 밖이면 Safe Home Route를 따라 이동한다.
+2. 작업영역 안이면 Work Access Safe Pose로 이동한 뒤 전체 관절을 한 번의 MoveJ로 0도 복귀한다.
+3. 작업영역 밖이면 전체 관절을 한 번의 MoveJ로 0도 복귀한다.
 4. 각 동작 완료점에서 Pause/STOP을 확인한다."""
 
 from cable_pkg.interfaces.sequence_backend import SequenceBackend
@@ -11,16 +11,12 @@ from cable_pkg.data_models.sequence_models import SequenceResult
 class HomeReturnSequence:
     """현재 TCP의 작업영역 포함 여부에 따라 안전 복귀 경로를 선택한다."""
 
-    # 기능: Home 복귀 장비, 이탈 상한, 완료점 처리 함수를 준비한다.
+    # 기능: Home 복귀 장비와 완료점 처리 함수를 준비한다.
     #     backend: 로봇·통신·레시피 확인과 공통 이동을 제공하는 장비 객체.
-    #     max_escape_distance_mm: 작업영역에서 역방향 이탈할 때 허용하는 최대 거리(mm).
     #     checkpoint: 완료점 이름을 받아 Pause/STOP을 처리하는 함수. 생략하면 처리하지 않는다.
-    def __init__(self, backend: SequenceBackend, max_escape_distance_mm: float, checkpoint=lambda _step: None) -> None:
-        if max_escape_distance_mm <= 0.0:
-            raise ValueError("max_escape_distance_mm은 0보다 커야 합니다.")
+    def __init__(self, backend: SequenceBackend, checkpoint=lambda _step: None) -> None:
         self.backend = backend
         self.checkpoint = checkpoint
-        self.max_escape_distance_mm = max_escape_distance_mm
 
 
 
@@ -40,7 +36,7 @@ class HomeReturnSequence:
 
         if self.backend.tcp_is_in_work_area(tcp):
             result = self.return_from_work_area()
-            route = "WORK_AREA_ESCAPE"
+            route = "WORK_ACCESS_HOME"
         else:
             result = self.return_from_outside()
             route = "SAFE_ROUTE_HOME"
@@ -56,32 +52,25 @@ class HomeReturnSequence:
 
 
 
-    # 기능: Grip 완화 → Safe Escape → Work Access → Home 순서로 복귀한다.
+    # 기능: 작업영역 안에서는 Work Access를 경유한 뒤 Home으로 복귀한다.
     #
     #     ------------------------------------------------------------
     #     반환: 마지막 이동 결과 또는 처음 실패한 SequenceResult.
     def return_from_work_area(self):
-        steps = (
-            ("GRIP_RELAXED", self.backend.relax_grip),
-            ("SAFE_ESCAPE_DONE", lambda: self.backend.safe_escape(self.max_escape_distance_mm)),
-            ("WORK_ACCESS_REACHED", self.backend.move_work_access_safe_pose),
-            ("HOME_REACHED", self.backend.move_home_pose),
-        )
-        for name, step in steps:
-            result = step()
-            if not result.success:
-                return result
-            self.checkpoint(name)
-        return result
+        result = self.backend.move_work_access_safe_pose()
+        if not result.success:
+            return result
+        self.checkpoint("WORK_ACCESS_REACHED")
+        return self.return_from_outside()
 
 
 
-    # 기능: 레시피에 정한 Safe Home Route를 따라 Home으로 복귀한다.
+    # 기능: 전체 관절을 한 번의 MoveJ로 0도 복귀한다.
     #
     #     ------------------------------------------------------------
     #     반환: 경유 복귀 동작의 SequenceResult.
     def return_from_outside(self):
-        result = self.backend.move_safe_route_home()
+        result = self.backend.move_home_pose()
         if result.success:
             self.checkpoint("HOME_REACHED")
         return result
