@@ -30,6 +30,10 @@ from .style import (
     WARN_COLOR,
 )
 
+# 힘·변위 막대. 색만 바꿔 끼운다.
+GAUGE_QSS = ('QProgressBar {{ background: #E8EDF2; border: none; border-radius: 3px; }}'
+             'QProgressBar::chunk {{ background: {color}; border-radius: 3px; }}')
+
 # 없으면 실행을 거부하는 위젯. 나머지는 Designer 에서 지워도 HMI 가 뜬다.
 REQUIRED_WIDGETS = ('estopBtn',)
 UI_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'main_window.ui')
@@ -40,8 +44,10 @@ State = itf.State
 MONITOR_STATES = (State.MONITOR, State.MONITOR_MOVING)
 RESULT_CODES = (itf.ResultCode.PASS, *itf.ResultCode.FAIL_CODES)
 # '현재 검사 결과' 표의 열. 이름과 순서는 통합 조회 탭(lookup_tab.COLUMNS)의 용어에 맞춘다.
-RESULT_HEADERS = ('검사 시간', 'Point', '케이블', '종류', '결과', '상세')
-COL_TIME, COL_POINT, COL_CABLE, COL_TYPE, COL_RESULT, COL_DETAIL = range(len(RESULT_HEADERS))
+# 다만 '케이블' 열은 없다 - 판정 노드가 보내는 메시지(cable_interfaces/msg/InspectionResult)에
+# cable_id 가 없기 때문이다. 통합 조회 탭은 레시피 DB 에서 읽으므로 그 열을 그대로 쓴다.
+RESULT_HEADERS = ('검사 시간', 'Point', '종류', '결과', '상세')
+COL_TIME, COL_POINT, COL_TYPE, COL_RESULT, COL_DETAIL = range(len(RESULT_HEADERS))
 SPEED_HOLD_SEC = 1.0      # 슬라이더 조작 후 이 시간 동안은 status 값으로 덮어쓰지 않는다
 SPEED_DEBOUNCE_MS = 300
 
@@ -143,6 +149,9 @@ class MainWindow(QMainWindow):
             '속도 설정': w('pointSpeed'), '그리퍼 폭': w('pointGripper'),
             '현재 힘 값': w('pointForce'), '현재 변위': w('pointDisplacement'),
             '현재 판정': w('pointJudgement')}
+        # 힘·변위를 기준 대비 막대로도 보여 준다. 숫자를 읽고 암산하지 않아도 되게.
+        self.force_gauge = w('forceGauge', QProgressBar)
+        self.disp_gauge = w('dispGauge', QProgressBar)
         self.criteria_rows = {
             '허용 변위': w('critDisplacement'), '기준 Pull 힘': w('critRequired'),
             'Pull 정지 상한': w('critForce'), 'Pull 최대 거리': w('critMaxDistance'),
@@ -387,6 +396,10 @@ class MainWindow(QMainWindow):
         _set(self.point_rows['현재 변위'],
              f'{s.displacement_mm:.1f} / {c.max_displacement_mm:.1f} mm',
              BAD_COLOR if over else '')
+        # 힘은 기준에 '도달해야' 좋고, 변위는 한계를 '넘지 않아야' 좋다. 둘 다 초록 = 좋음.
+        self._set_gauge(self.force_gauge, s.force_n, c.required_pull_force_n,
+                        s.force_n >= c.required_pull_force_n)
+        self._set_gauge(self.disp_gauge, s.displacement_mm, c.max_displacement_mm, not over)
         judge_color = ''
         if s.judgement in RESULT_CODES:
             judge_color = RESULT_COLORS[itf.ResultCode.category(s.judgement)][0]
@@ -504,6 +517,18 @@ class MainWindow(QMainWindow):
         self.product_result.setText(text)
         self.product_result.setStyleSheet(chip_style(category) if text else '')
 
+    @staticmethod
+    def _set_gauge(gauge, value: float, limit: float, good: bool):
+        """기준 대비 채움을 그린다. 기준이 없으면(0) 빈 막대로 두고 색도 주지 않는다."""
+        if gauge is None:
+            return                      # Designer 에서 지웠으면 숫자만 보여 준다
+        if limit <= 0:
+            gauge.setValue(0)
+            gauge.setStyleSheet(GAUGE_QSS.format(color=MUTED_COLOR))
+            return
+        gauge.setValue(int(min(1.0, max(0.0, value / limit)) * gauge.maximum()))
+        gauge.setStyleSheet(GAUGE_QSS.format(color=OK_COLOR if good else BAD_COLOR))
+
     def _show_criteria_row(self, name: str, visible: bool):
         self.criteria_rows[name].setVisible(visible)
         self.criteria_keys[name].setVisible(visible)
@@ -553,18 +578,22 @@ class MainWindow(QMainWindow):
             hint = '모니터 모드 - 로봇 값 표시, Home 이동, 속도 설정, STOP 만 동작합니다.'
         elif state in (State.STOPPED, State.ERROR):
             label = State.LABELS.get(state, state)
-            hint = f'{label} - Home 이동으로 복귀한 뒤 다시 시작할 수 있습니다.'
+            hint = f'{label} · Home 이동 후 다시 시작하세요.'
         elif not ready:
-            hint = '이동 명령은 대기 또는 검사 완료 상태에서만 가능합니다.'
+            hint = '대기 · 검사 완료 상태에서만 이동합니다.'
         else:
-            hint = '결과 행을 선택하면 그 Point 로, 아니면 해당 결과의 Point 를 차례로 이동합니다.'
+            hint = '결과 행을 고르면 그 Point 로 이동합니다.'
+        # 좁은 사이드바에서 두 줄을 넘지 않게 줄인 문구다. 자세한 설명은 마우스를 올리면 나온다.
         self.move_hint.setText(hint)
+        self.move_hint.setToolTip(
+            '결과 행을 선택하면 그 Point 로, 선택하지 않으면 해당 결과의 Point 를 '
+            '차례로 이동합니다. 대기 또는 검사 완료 상태에서만 가능합니다.')
 
     def _fill_row(self, row: int, r: itf.PointResult):
         category = itf.ResultCode.category(r.result)
         fg, _chip, row_bg = RESULT_COLORS[category]
         cells = [r.stamp[11:19] if len(r.stamp) >= 19 else r.stamp,
-                 r.point_id, r.cable_id or '—', r.cable_type or '—', r.result, '›']
+                 r.point_id, r.cable_type or '—', r.result, '›']
         for col, text in enumerate(cells):
             item = QTableWidgetItem(text)
             item.setTextAlignment(Qt.AlignCenter)

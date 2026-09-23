@@ -13,17 +13,22 @@
 (result_db.py, result_recorder_node 가 씀)에서 포인트별 가장 최근 결과와 검사 시간도 함께 보여 준다.
 표에는 '현재 검사 결과' 표와 같은 열만 둔다(검사 시간 / Point / 케이블 / 종류 / 결과 / 상세).
 판정 기준, 좌표 같은 나머지는 행을 누르면 뜨는 상세 팝업에 있다.
+
+'결과 파일 저장' 은 DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db + .csv)로 내보낸다.
+'검사' 탭의 같은 이름 버튼이 이번 검사 1회분만 담는 것과 다르다. 화면 필터는 적용하지 않고,
+공용 DB 는 읽기만 한다.
 """
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 from PyQt5.QtCore import pyqtSignal, QObject, QRunnable, Qt, QThreadPool
 from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtWidgets import (
-    QAbstractItemView, QComboBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPushButton,
-    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QAbstractItemView, QComboBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMessageBox,
+    QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from . import interface as itf
@@ -201,6 +206,27 @@ class _LoadTask(QRunnable):
         self.signals.done.emit(rows, notes)
 
 
+class _ExportSignals(QObject):
+    done = pyqtSignal(object, object)       # (db 경로, csv 경로, 건수) 또는 None, 오류 메시지
+
+
+class _ExportTask(QRunnable):
+    """export_all 을 스레드 풀에서 돌린다. DB 가 크면 시간이 걸릴 수 있다."""
+
+    def __init__(self, directory, db_path):
+        super().__init__()
+        self.signals = _ExportSignals()
+        self._args = (directory, db_path)
+
+    def run(self):
+        try:
+            self.signals.done.emit(result_db.export_all(*self._args), '')
+        except result_db.ResultDbError as e:
+            self.signals.done.emit(None, str(e))
+        except Exception as e:  # noqa: BLE001 - 저장 실패가 HMI 를 죽이면 안 된다
+            self.signals.done.emit(None, repr(e))
+
+
 class LookupTab(QWidget):
     """통합 조회 탭."""
 
@@ -210,6 +236,8 @@ class LookupTab(QWidget):
         self._recipe_dir = recipe_dir
         self._rows: List[LookupRow] = []
         self._task = None
+        self._export_task = None
+        self._export_popup = None           # 떠 있는 '결과 파일 저장 완료' 알림
         self._loaded_once = False
         self._detail = None                 # 처음 행을 누를 때 만든다
 
@@ -231,6 +259,18 @@ class LookupTab(QWidget):
             'QPushButton { background: #379DD3; font-size: 13px; padding: 4px 16px; }'
             'QPushButton:disabled { background: #D5DBE3; }')
         bar.addWidget(self.reload_btn)
+        # '검사' 탭의 결과 파일 저장과 같은 모양이되, 이쪽은 DB 전체를 담는다.
+        self.export_btn = QPushButton('결과 파일 저장', objectName='lookupExportBtn')
+        self.export_btn.setStyleSheet(
+            'QPushButton { background: #FFFFFF; color: #2B3440; border: 1px solid #9AA5B1;'
+            ' font-size: 13px; padding: 4px 12px; border-radius: 6px; }'
+            'QPushButton:hover { background: #EEF2F6; }'
+            'QPushButton:disabled { background: #F2F4F7; color: #B5BDC7;'
+            ' border: 1px solid #D9E0E7; }')
+        self.export_btn.setToolTip(
+            'DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db + .csv)로 저장합니다.\n'
+            '화면 필터와 무관하며 공용 DB 는 바뀌지 않습니다.')
+        bar.addWidget(self.export_btn)
         layout.addLayout(bar)
 
         self.table = QTableWidget(0, len(COLUMNS))
@@ -258,6 +298,7 @@ class LookupTab(QWidget):
         layout.addWidget(self.summary)
 
         self.reload_btn.clicked.connect(self.reload)
+        self.export_btn.clicked.connect(self._on_export)
         self.table.cellClicked.connect(self._open_detail)
         self.search.textChanged.connect(self._apply_filter)
         self.recipe_filter.currentTextChanged.connect(self._apply_filter)
@@ -300,6 +341,61 @@ class LookupTab(QWidget):
         self.recipe_filter.setCurrentIndex(index if index >= 0 else 0)
         self.recipe_filter.blockSignals(False)
         self._apply_filter()
+
+    # ------------------------------------------------------- 결과 파일 저장 (DB 전체)
+    def _export_dir(self) -> Path:
+        """결과 파일을 둘 곳: 레시피 DB 옆의 runs 폴더. '검사' 탭과 같은 위치다."""
+        if self._db_path:
+            return Path(self._db_path).expanduser().parent / 'runs'
+        return Path('~/ros_ws/results/runs').expanduser()
+
+    def _on_export(self):
+        """DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db + .csv)로 내보낸다. 먼저 확인 창이 뜬다."""
+        if self._export_task is not None:
+            return                          # 이미 저장 중
+        if not self._db_path:
+            self._popup(QMessageBox.Warning, '결과 파일 저장',
+                        'DB 경로가 설정되지 않아 저장할 수 없습니다.')
+            return
+        box = QMessageBox(
+            QMessageBox.Question, '결과 파일 저장',
+            'DB 에 저장된 검사 결과를 전부 파일로 내보냅니다.\n\n'
+            f'읽을 DB: {self._db_path}\n'
+            f'저장 위치: {self._export_dir()}\n'
+            '파일 이름: all_<날짜_시각>.db / .csv\n\n'
+            '화면의 Recipe 필터와 검색어는 적용되지 않습니다.\n'
+            '공용 DB 는 바뀌지 않습니다.',
+            QMessageBox.Ok | QMessageBox.Cancel, self)
+        box.button(QMessageBox.Ok).setText('저장')
+        box.button(QMessageBox.Cancel).setText('취소')
+        box.setDefaultButton(QMessageBox.Cancel)
+        if box.exec_() != QMessageBox.Ok:
+            return
+        self.export_btn.setEnabled(False)
+        self.export_btn.setText('저장 중…')
+        self._export_task = _ExportTask(self._export_dir(), self._db_path)
+        self._export_task.signals.done.connect(self._on_exported)
+        QThreadPool.globalInstance().start(self._export_task)
+
+    def _on_exported(self, paths, error):
+        self._export_task = None
+        self.export_btn.setEnabled(True)
+        self.export_btn.setText('결과 파일 저장')
+        if paths is None:
+            self._popup(QMessageBox.Critical, '결과 파일 저장 실패', str(error))
+            return
+        db_path, csv_path, count = paths
+        self.export_btn.setToolTip(f'마지막 저장: {db_path}')
+        self._popup(QMessageBox.Information, '결과 파일 저장 완료',
+                    f'결과 {count}건을 저장했습니다.\n\n{db_path}\n{csv_path}')
+
+    def _popup(self, icon, title, text):
+        """비모달 알림. 창이 떠 있어도 '검사' 탭의 STOP 을 누를 수 있어야 한다."""
+        box = QMessageBox(icon, title, text, QMessageBox.Ok, self)
+        box.button(QMessageBox.Ok).setText('확인')
+        box.setModal(False)
+        box.show()
+        self._export_popup = box        # 참조를 남겨 둬야 창이 바로 닫히지 않는다
 
     def _apply_filter(self, *_args):
         shown = [row for row in self._rows

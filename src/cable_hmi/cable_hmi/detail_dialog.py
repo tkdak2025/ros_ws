@@ -12,7 +12,7 @@ objectName 뿐이다(각 클래스의 _load 참고). Designer 에서 그 라벨�
 두 창은 같은 구성이다: 레시피 + 배지 / 이름 · Point · 케이블 / 검사 결과 / 판정 기준 / 위치 / 아래 줄.
 같은 뜻의 라벨은 두 .ui 에서 objectName 도 같다.
 
-코드에 남아 있는 것은 상황에 따라 바뀌는 것뿐이다: 값, 배지 색(PASS / FAIL / MISSING),
+코드에 남아 있는 것은 상황에 따라 바뀌는 것뿐이다: 값, 배지 색(PASS / FAIL),
 '저장 완료' 색.
 """
 
@@ -75,7 +75,7 @@ RESULT_LABELS = {'결과 코드': 'resultCodeValue', '판정 코드': 'reasonCod
 CRITERIA_LABELS = {'허용 변위': 'limitValue', '기준 Pull 힘': 'requiredForceValue',
                    'Pull 정지 상한': 'pullForceValue', 'Pull 최대 거리': 'maxDistanceValue',
                    '반복 횟수': 'repeatValue', '파지 폭': 'gripWidthValue',
-                   '파지 폭 변화': 'gripChangeValue'}
+                   'Pull 폭 변화': 'gripChangeValue'}
 
 
 def _fill_result(labels, result):
@@ -96,13 +96,18 @@ def _fill_result(labels, result):
     status_text = itf.JudgmentStatus.LABELS.get(status, '')
     labels['판정 상태'].setText(f'{status_text} ({status})' if status_text else status or '-')
     labels['검사 시간'].setText(result.stamp.replace('T', ' ')[:19] or '-')
-    # MISSING 이어도 측정값이 있으면 보여 준다 (#06: 기준 미정·미끄러짐은 측정은 됐다).
+    # 판정을 만들지 못한(INCOMPLETE) Point 도 측정값이 있으면 보여 준다.
     if result.max_force_n == 0.0 and result.displacement_mm == 0.0:
         labels['대표 측정값'].setText('— (유효 검사 미완료)')
     else:
         measured = f'Pull Max {result.max_force_n:.1f} N  ·  변위 {result.displacement_mm:.1f} mm'
-        if result.grip_width_hard_mm > 0:
-            # 지시한 파지 폭이 아니라 Hard Grip 직후 실제로 측정된 폭이다.
+        # Pull 전체에서 가장 좁았던 실측 폭. 이 값이 기준 미만이면 파지 실패(FAIL)다.
+        if result.pull_width_mm > 0:
+            measured += f'  ·  Pull 최소 폭 {result.pull_width_mm:.1f} mm'
+            if result.grip_failure_width_mm > 0:
+                measured += f' (실패 기준 {result.grip_failure_width_mm:g} mm)'
+        elif result.grip_width_hard_mm > 0:
+            # 옛 기록: Hard Grip 직후 실측 폭
             measured += f'  ·  파지 폭(실측) {result.grip_width_hard_mm:.1f} mm'
         labels['대표 측정값'].setText(measured)
     term = result.termination_reason
@@ -137,7 +142,8 @@ def _fill_criteria(labels, limit, force, repeat, grip, required=0.0, grip_change
     labels['Pull 최대 거리'].setText(f'{max_distance:g} mm' if max_distance > 0 else '—')
     labels['반복 횟수'].setText(f'{repeat} 회' if repeat > 0 else '—')
     labels['파지 폭'].setText(f'{grip:g} mm (지시)' if grip > 0 else '—')
-    labels['파지 폭 변화'].setText('—' if grip_change is None else f'{grip_change:.2f} mm')
+    # 새 결과는 width_delta_mm(= Pull 최소 폭 - Soft 기준 폭, 부호 있음)를 싣는다.
+    labels['Pull 폭 변화'].setText('—' if grip_change is None else f'{grip_change:+.2f} mm')
 
 
 class ResultDetailDialog(_UiDialog):
@@ -168,14 +174,15 @@ class ResultDetailDialog(_UiDialog):
         self._badge.setStyleSheet(chip_style(category) + 'font-size: 18px;')
         self._point.setText(result.point_id or '-')
         self._name.setText(result.point_name or '-')
-        cable_type = f' ({result.cable_type})' if result.cable_type else ''
-        self._cable.setText(f'{result.cable_id}{cable_type}' or '-')
+        # cable_id 는 판정 메시지에 없다. 없으면 종류만 보인다.
+        cable_type = f'({result.cable_type})' if result.cable_type else ''
+        self._cable.setText(' '.join(x for x in (result.cable_id, cable_type) if x) or '-')
 
         _fill_result(self._info, result)
         # 결과에 실려 온 값이다. 0 은 '기준이 실려 오지 않음' (DB 에 이 포인트가 없을 때 등).
         _fill_criteria(self._criteria, result.displacement_limit_mm, result.pull_force_limit_n,
                        result.repeat_count, result.grip_width_mm,
-                       result.required_pull_force_n, result.grip_width_change_mm,
+                       result.required_pull_force_n, result.width_delta_mm,
                        result.pull_max_distance_mm)
         _fill_pose(self._pose, result.task, result.joint, '— (결과에 위치가 실려 오지 않음)')
 
@@ -225,7 +232,7 @@ class LookupDetailDialog(_UiDialog):
         if row.in_db:
             _fill_criteria(self._criteria, row.max_displacement_mm, row.pull_force_limit_n,
                            row.repeat_count, row.grip_width_mm, row.required_pull_force_n,
-                           row.result.grip_width_change_mm if row.result else None)
+                           row.result.width_delta_mm if row.result else None)
         else:
             for label in self._criteria.values():
                 label.setText('— (DB 에 없는 포인트)')

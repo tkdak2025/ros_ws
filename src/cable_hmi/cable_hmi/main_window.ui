@@ -394,6 +394,9 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
               <property name="text">
                <string>Joint 좌표</string>
               </property>
+              <property name="alignment">
+               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+              </property>
               <property name="role" stdset="0">
                <string>key</string>
               </property>
@@ -401,8 +404,17 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
             </item>
             <item row="1" column="1">
              <widget class="QLabel" name="extraRow2">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>58</height>
+               </size>
+              </property>
               <property name="text">
                <string>—</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
               </property>
               <property name="role" stdset="0">
                <string>value</string>
@@ -488,171 +500,82 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
         </spacer>
        </item>
        <item>
-        <widget class="QFrame" name="pointPanel">
+        <widget class="QFrame" name="moveCommandPanel">
          <property name="role" stdset="0">
           <string>subPanel</string>
          </property>
-         <layout class="QVBoxLayout" name="layout8">
+         <layout class="QVBoxLayout" name="layoutMoveCommand">
+          <property name="spacing">
+           <number>5</number>
+          </property>
           <item>
-           <widget class="QLabel" name="pointPanelTitle">
+           <widget class="QLabel" name="moveCommandTitle">
             <property name="text">
-             <string>검사 진행</string>
+             <string>로봇팔 이동 명령</string>
             </property>
             <property name="role" stdset="0">
              <string>groupTitle</string>
             </property>
            </widget>
           </item>
-          <item>
-           <layout class="QGridLayout" name="layout9" columnstretch="0,1">
-            <property name="horizontalSpacing">
-             <number>8</number>
-            </property>
-            <property name="verticalSpacing">
-             <number>7</number>
-            </property>
-            <item row="0" column="0">
-             <widget class="QLabel" name="pointPositionKey">
-              <property name="text">
-               <string>현재 위치</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>key</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QLabel" name="pointPosition">
-              <property name="text">
-               <string>—</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>value</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="pointStepKey">
-              <property name="text">
-               <string>현재 단계</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>key</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLabel" name="pointStep">
-              <property name="text">
-               <string>—</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>value</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="pointSpeedKey">
-              <property name="text">
-               <string>속도 설정</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>key</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
-             <widget class="QLabel" name="pointSpeed">
-              <property name="text">
-               <string>—</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>value</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="0">
-             <widget class="QLabel" name="pointGripperKey">
-              <property name="text">
-               <string>그리퍼 폭</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>key</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="1">
-             <widget class="QLabel" name="pointGripper">
-              <property name="text">
-               <string>—</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>value</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="0">
-             <widget class="QLabel" name="pointForceKey">
-              <property name="text">
-               <string>현재 힘 값</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>key</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="1">
-             <widget class="QLabel" name="pointForce">
-              <property name="text">
-               <string>—</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>value</string>
-              </property>
-             </widget>
-            </item>
-            <item row="5" column="0">
-             <widget class="QLabel" name="pointDisplacementKey">
-              <property name="text">
-               <string>현재 변위</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>key</string>
-              </property>
-             </widget>
-            </item>
-            <item row="5" column="1">
-             <widget class="QLabel" name="pointDisplacement">
-              <property name="text">
-               <string>—</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>value</string>
-              </property>
-             </widget>
-            </item>
-            <item row="6" column="0">
-             <widget class="QLabel" name="pointJudgementKey">
-              <property name="text">
-               <string>현재 판정</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>key</string>
-              </property>
-             </widget>
-            </item>
-            <item row="6" column="1">
-             <widget class="QLabel" name="pointJudgement">
-              <property name="text">
-               <string>—</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>value</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
+       <item>
+        <widget class="QPushButton" name="homeBtn">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>38</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>Home 이동</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="failBtn">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>38</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>FAIL 포인트 이동</string>
+         </property>
+        </widget>
+       </item>
+        <item>
+         <widget class="QPushButton" name="missingBtn">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>38</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>MISSING 포인트 이동</string>
+          </property>
+         </widget>
+        </item>
+       <item>
+        <widget class="QLabel" name="moveHint">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>40</height>
+          </size>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+         <property name="role" stdset="0">
+          <string>key</string>
+         </property>
+        </widget>
+       </item>
          </layout>
         </widget>
        </item>
@@ -911,29 +834,6 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                </property>
               </widget>
              </item>
-             <item>
-              <spacer name="resultsTitleSpacer">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item>
-              <widget class="QPushButton" name="exportBtn">
-               <property name="toolTip">
-                <string>지금 표에 있는 검사 결과만 새 파일(.db + .csv)로 저장합니다. 공용 DB 는 건드리지 않습니다.</string>
-               </property>
-               <property name="text">
-                <string>결과 파일 저장</string>
-               </property>
-              </widget>
-             </item>
             </layout>
            </item>
            <item>
@@ -1098,6 +998,42 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                   <number>0</number>
                  </property>
                  <item>
+                  <layout class="QHBoxLayout" name="resultToolbar">
+                   <property name="topMargin">
+                    <number>6</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>2</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>4</number>
+                   </property>
+                   <item>
+                    <spacer name="resultToolbarSpacer">
+                     <property name="orientation">
+                      <enum>Qt::Horizontal</enum>
+                     </property>
+                     <property name="sizeHint" stdset="0">
+                      <size>
+                       <width>40</width>
+                       <height>0</height>
+                      </size>
+                     </property>
+                    </spacer>
+                   </item>
+                   <item>
+                  <widget class="QPushButton" name="exportBtn">
+                   <property name="toolTip">
+                    <string>이번 검사 결과만 새 파일(.db + .csv)로 저장합니다. 공용 DB 는 건드리지 않습니다. DB 에 쌓인 전체는 &apos;통합 조회&apos; 탭에서 저장합니다.</string>
+                   </property>
+                   <property name="text">
+                    <string>결과 파일 저장</string>
+                   </property>
+                  </widget>
+                   </item>
+                  </layout>
+                 </item>
+                 <item>
                   <widget class="QTableWidget" name="resultTable">
                    <property name="focusPolicy">
                     <enum>Qt::NoFocus</enum>
@@ -1218,7 +1154,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
            <item>
             <widget class="QLabel" name="moveTitle">
              <property name="text">
-              <string>로봇팔 이동 명령</string>
+              <string>검사 정보</string>
              </property>
              <property name="role" stdset="0">
               <string>panelTitle</string>
@@ -1404,55 +1340,228 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="homeBtn">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>64</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Home 이동</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="failBtn">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>64</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>FAIL 포인트 이동</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="missingBtn">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>64</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>MISSING 포인트 이동</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QLabel" name="moveHint">
-               <property name="text">
-                <string/>
-               </property>
-               <property name="wordWrap">
-                <bool>true</bool>
-               </property>
+              <widget class="QFrame" name="pointPanel">
                <property name="role" stdset="0">
-                <string>key</string>
+                <string>subPanel</string>
                </property>
+               <layout class="QVBoxLayout" name="layout8">
+                <item>
+                 <widget class="QLabel" name="pointPanelTitle">
+                  <property name="text">
+                   <string>검사 진행</string>
+                  </property>
+                  <property name="role" stdset="0">
+                   <string>groupTitle</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <layout class="QGridLayout" name="layout9" columnstretch="0,1">
+                  <property name="horizontalSpacing">
+                   <number>8</number>
+                  </property>
+                  <property name="verticalSpacing">
+                   <number>7</number>
+                  </property>
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="pointPositionKey">
+                    <property name="text">
+                     <string>현재 위치</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QLabel" name="pointPosition">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="pointStepKey">
+                    <property name="text">
+                     <string>현재 단계</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QLabel" name="pointStep">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="0">
+                   <widget class="QLabel" name="pointSpeedKey">
+                    <property name="text">
+                     <string>속도 설정</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="1">
+                   <widget class="QLabel" name="pointSpeed">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="0">
+                   <widget class="QLabel" name="pointGripperKey">
+                    <property name="text">
+                     <string>그리퍼 폭</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="1">
+                   <widget class="QLabel" name="pointGripper">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="4" column="0">
+                   <widget class="QLabel" name="pointForceKey">
+                    <property name="text">
+                     <string>현재 힘 값</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="4" column="1">
+                   <widget class="QLabel" name="pointForce">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+            <item row="5" column="0" colspan="2">
+             <widget class="QProgressBar" name="forceGauge">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>7</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>7</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>기준 Pull 힘 대비 현재 힘</string>
+              </property>
+              <property name="maximum">
+               <number>1000</number>
+              </property>
+              <property name="value">
+               <number>0</number>
+              </property>
+              <property name="textVisible">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+                  <item row="6" column="0">
+                   <widget class="QLabel" name="pointDisplacementKey">
+                    <property name="text">
+                     <string>현재 변위</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="6" column="1">
+                   <widget class="QLabel" name="pointDisplacement">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+            <item row="7" column="0" colspan="2">
+             <widget class="QProgressBar" name="dispGauge">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>7</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>7</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>허용 변위 대비 현재 변위</string>
+              </property>
+              <property name="maximum">
+               <number>1000</number>
+              </property>
+              <property name="value">
+               <number>0</number>
+              </property>
+              <property name="textVisible">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+                  <item row="8" column="0">
+                   <widget class="QLabel" name="pointJudgementKey">
+                    <property name="text">
+                     <string>현재 판정</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>key</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="8" column="1">
+                   <widget class="QLabel" name="pointJudgement">
+                    <property name="text">
+                     <string>—</string>
+                    </property>
+                    <property name="role" stdset="0">
+                     <string>value</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
               </widget>
              </item>
              <item>

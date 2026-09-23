@@ -175,7 +175,7 @@ RECIPE_RESCAN_SEC = 5.0      # 레시피 폴더를 다시 확인하는 주기
 PROGRESS_STALE_SEC = 2.0     # HMI 버튼을 받는 동작 코드의 소식(0.5 s 주기)이 끊겼다고 보는 시간
 CONTROL_STATES = (itf.State.IDLE, itf.State.RUNNING, itf.State.PAUSE_REQUEST, itf.State.PAUSED,
                   itf.State.DONE,
-                  itf.State.MOVING)         # MOVING: 동작 코드가 FAIL / MISSING 포인트나 홈으로 이동 중
+                  itf.State.MOVING)         # MOVING: 동작 코드가 FAIL 포인트나 홈으로 이동 중
 BUSY_STATES = (itf.State.RUNNING, itf.State.PAUSE_REQUEST, itf.State.PAUSED, itf.State.MOVING)
 CONTROL_COMMANDS = (itf.CommandName.START, itf.CommandName.PAUSE, itf.CommandName.RESUME,
                     itf.CommandName.MOVE_TO_POINT)
