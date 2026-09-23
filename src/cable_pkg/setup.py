@@ -40,8 +40,9 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'inspection_judgment = cable_pkg.sequence.inspection.seq_06_inspection_judgment_node:main',
-            'inspection_sequence = cable_pkg.sequence.inspection.seq_00_inspection_run:main',
+            'main_sequence = cable_pkg.sequence.seq_00_main_work.run:main',
+            'inspection_judgment = cable_pkg.sequence.seq_06_inspection_judgment.node:main',
+            'inspection_sequence = cable_pkg.sequence.inspection.run:main',
             'manual_check = cable_pkg.diagnostics.manual_check:main',
         ],
     },

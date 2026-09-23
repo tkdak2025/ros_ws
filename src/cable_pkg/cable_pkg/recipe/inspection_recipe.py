@@ -236,6 +236,30 @@ class OperatingInspectionRecipe:
     execution_order: list[str]
     points: dict[str, OperatingInspectionPoint]
 
+    def add_point(self, point: OperatingInspectionPoint) -> None:
+        """새 Point를 등록하고 실행목록 끝에 추가한다. 기존 Point는 덮어쓰지 않는다."""
+        from copy import deepcopy
+
+        self.validate()
+        point.validate()
+        if not point.point_id.strip():
+            raise ValueError("새 검사포인트의 point_id가 필요합니다.")
+        if point.point_id in self.points:
+            raise ValueError(f"이미 등록된 검사포인트입니다: {point.point_id}")
+        self.points[point.point_id] = deepcopy(point)
+        self.execution_order.append(point.point_id)
+
+    def save_json(self, path: str | Path) -> None:
+        """Point와 실행 순서를 함께 저장한다. 실행 중 Job Snapshot에는 영향을 주지 않는다."""
+        self.validate()
+        target = Path(path)
+        temporary = target.with_suffix(target.suffix + ".tmp")
+        temporary.write_text(
+            json.dumps(asdict(self), ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
+        temporary.replace(target)
+
     def validate(self) -> None:
         if self.coordinate_frame != "BASE":
             raise ValueError("현재 운영 Recipe는 BASE 좌표계만 지원합니다.")

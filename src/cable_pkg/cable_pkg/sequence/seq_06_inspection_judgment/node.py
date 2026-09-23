@@ -1,4 +1,8 @@
-"""#06 판정을 Robot Motion과 분리해 실행하는 ROS2 Worker 노드."""
+"""#06 Inspection Judgment: 로봇 모션과 별도 Worker에서 검사 결과를 판정한다.
+1. 수신한 측정 요청을 Queue에 저장한다.
+2. Worker가 종료 사유·힘·변위·폭을 판정한다.
+3. PASS/FAIL/SYSTEM_ERROR와 사유를 터미널에 표시하고 결과 토픽으로 발행한다.
+4. JudgmentClient가 확정 결과를 받아 Point별 판정 대기를 해제한다."""
 
 import json
 import math
@@ -47,6 +51,17 @@ class Judgment:
     reason_code: str = ""
 
 
+# 기능: 종료 사유·최대 힘·실제 변위·최소 폭으로 PASS/FAIL/SYSTEM_ERROR를 판정한다.
+#     termination: Pull 종료 사유를 나타내는 PullTermination.
+#     peak_force_n: Pull 중 측정한 최대 힘(N).
+#     displacement_mm: Pull 시작부터 정지까지의 실제 이동량(mm).
+#     required_force_n: 레시피에 정한 기준 Pull 힘(N).
+#     normal_displacement_limit_mm: 정상으로 허용하는 최대 Pull 변위(mm). 기본 5 mm.
+#     soft_width_mm: Soft 단계 종료 시 실측 폭(mm). None이면 데이터 누락으로 처리한다.
+#     pull_width_mm: Pull 중 최소 실측 폭(mm). 16 mm 미만이면 파지 실패로 판정한다.
+#
+#     ------------------------------------------------------------
+#     반환: 제품 결과, 처리 상태, 판정 사유를 담은 Judgment.
 def judge_pull(
     *,
     termination: PullTermination,
@@ -57,7 +72,6 @@ def judge_pull(
     soft_width_mm: float | None = None,
     pull_width_mm: float | None = None,
 ) -> Judgment:
-    """종료 사유·힘·변위 및 Pull 최소 폭으로 검사와 파지 실패를 판정한다."""
     def system_error(reason):
         return Judgment(JudgmentStatus.ERROR, SequenceStatus.INCOMPLETE,
                         InspectionResult.SYSTEM_ERROR, reason, "SYSTEM_ERROR")
@@ -99,24 +113,39 @@ def judge_pull(
 class JudgmentClient:
     """#06 요청을 발행하고 비동기 판정 완료를 추적한다."""
 
+    # 기능: 기존 ROS 노드에 판정 요청/결과 통신과 대기 목록을 만든다.
+    #     node: 판정 요청 발행과 결과 수신에 사용할 기존 ROS 노드.
     def __init__(self, node: Node):
         self.node = node
         self.publisher = node.create_publisher(String, TOPIC_JUDGMENT_REQUEST, 50)
         self.pending: set[tuple[int, str]] = set()
         self.results: dict[str, dict] = {}
-        node.create_subscription(InspectionResultMessage, TOPIC_RESULT, self._receive_result, 50)
+        self.subscription = node.create_subscription(InspectionResultMessage, TOPIC_RESULT, self._receive_result, 50)
+        self.error_publisher = node.create_publisher(InspectionResultMessage, TOPIC_RESULT, 50)
 
+
+
+    # 기능: 요청을 대기 목록에 넣고 측정 데이터를 JSON으로 발행한다.
+    #     request: 포인트 식별자와 측정·판정 조건을 담은 JudgmentRequest.
     def submit(self, request: JudgmentRequest) -> None:
         self.pending.add((request.run_id, request.point_id))
         self.publisher.publish(String(data=json.dumps(request.to_dict())))
 
+
+
+    # 기능: 판정 요청을 받을 #06 노드가 발견될 때까지 기다린다. 만료 시 예외를 발생시킨다.
+    #     timeout_s: 판정 노드 발견 또는 결과 수신의 대기 제한(s).
     def wait_for_subscriber(self, timeout_s: float = 5.0) -> None:
         deadline = time.monotonic() + timeout_s
         while self.publisher.get_subscription_count() == 0:
             if time.monotonic() >= deadline:
                 raise RuntimeError("Inspection Judgment 노드가 실행 중이지 않습니다.")
-            time.sleep(0.05)
+            rclpy.spin_once(self.node, timeout_sec=0.05)
 
+
+
+    # 기능: 이번 실행의 확정된 판정만 받아 대기 목록에서 제거한다.
+    #     message: 수신한 cable_interfaces/msg/InspectionResult.
     def _receive_result(self, message: InspectionResultMessage) -> None:
         try:
             result = dict(message_to_ordereddict(message))
@@ -130,8 +159,31 @@ class JudgmentClient:
         self.results[key[1]] = result
         self.pending.remove(key)
 
+
+
+    # 기능: 복귀 실패 등의 오류를 로컬 결과와 결과 토픽에 동일하게 남긴다.
+    #     message: 로컬에 확정할 SYSTEM_ERROR InspectionResult 메시지.
+    def record_error(self, message):
+        self.pending.discard((message.run_id, message.point_id))
+        self.results[message.point_id] = dict(message_to_ordereddict(message))
+        self.error_publisher.publish(message)
+
+
+
+    # 기능: 판정 통신에 사용한 Publisher와 Subscription을 해제한다.
+    def close(self):
+        self.node.destroy_subscription(self.subscription)
+        self.node.destroy_publisher(self.publisher)
+        self.node.destroy_publisher(self.error_publisher)
+
+
+
+    # 기능: 등록한 모든 Point의 판정 완료를 기다린다. 만료 시 TimeoutError를 발생시킨다.
+    #     timeout_s: 판정 노드 발견 또는 결과 수신의 대기 제한(s).
+    #
+    #     ------------------------------------------------------------
+    #     반환: point_id별 확정 판정 dict의 복사본.
     def wait_for_all(self, timeout_s: float = 10.0) -> dict[str, dict]:
-        """모션 종료 후 등록된 모든 Point 판정이 올 때까지만 기다린다."""
         deadline = time.monotonic() + timeout_s
         while self.pending:
             rclpy.spin_once(self.node, timeout_sec=0.05)
@@ -144,6 +196,7 @@ class JudgmentClient:
 class InspectionJudgmentNode(Node):
     """ROS Callback은 등록만 하고 Worker Thread가 판정을 수행한다."""
 
+    # 기능: 요청 Queue와 ROS 통신을 준비하고 판정 Worker를 시작한다.
     def __init__(self):
         super().__init__("inspection_judgment_node")
         self.tasks: queue.Queue[JudgmentRequest | None] = queue.Queue()
@@ -158,6 +211,10 @@ class InspectionJudgmentNode(Node):
         self.worker.start()
         print("[Inspection Judgment] 검사 데이터 대기 중 — PASS / FAIL / SYSTEM_ERROR", flush=True)
 
+
+
+    # 기능: 요청을 검증해 Queue에 넣고, 식별 가능한 잘못된 요청은 오류 결과로 발행한다.
+    #     message: JudgmentRequest JSON을 담은 std_msgs/String.
     def _receive(self, message: String) -> None:
         raw = None
         try:
@@ -177,33 +234,17 @@ class InspectionJudgmentNode(Node):
                     "reason_code": "SYSTEM_ERROR", "reason": f"잘못된 판정 요청: {error}",
                 }))
 
+
+
+    # 기능: Queue 요청 → 판정 → 터미널 출력 → 결과 발행 순서로 반복한다.
     def _work(self) -> None:
         while True:
             request = self.tasks.get()
             try:
                 if request is None:
                     return
-                judgment = judge_pull(
-                    termination=request.termination_reason,
-                    peak_force_n=request.peak_pull_force_n,
-                    displacement_mm=request.pull_displacement_mm,
-                    required_force_n=request.required_force_n,
-                    normal_displacement_limit_mm=request.normal_displacement_limit_mm,
-                    soft_width_mm=request.soft_width_mm,
-                    pull_width_mm=request.pull_width_mm,
-                )
-                # 모션 노드와 별개로, 이 판정 노드를 실행한 터미널에 결과를 표시한다.
-                print(
-                    f"\n[{judgment.result.value}] {request.point_id} | Run {request.run_id}\n"
-                    f"  종료 조건: {request.termination_reason.value}\n"
-                    f"  최대 Pull 힘: {request.peak_pull_force_n} N"
-                    f" / 기준: {request.required_force_n} N\n"
-                    f"  실제 Pull 변위: {request.pull_displacement_mm} mm"
-                    f" / 허용: {request.normal_displacement_limit_mm} mm 이하\n"
-                    f"  Soft 기준 폭: {request.soft_width_mm} mm / Pull 최소 폭: {request.pull_width_mm} mm\n"
-                    f"  판정 사유: {request.error_reason or judgment.reason}",
-                    flush=True,
-                )
+                judgment = self.judge_request(request)
+                self.display_result(request, judgment)
                 self.result_pub.publish(self._result_message(request, judgment))
             except Exception as error:
                 self._publish_log(
@@ -212,6 +253,14 @@ class InspectionJudgmentNode(Node):
             finally:
                 self.tasks.task_done()
 
+
+
+    # 기능: 요청 정보와 판정을 커스텀 결과 메시지로 채운다. 유효하지 않은 수치는 0으로 보낸다.
+    #     request: 포인트 식별자와 측정·판정 조건을 담은 JudgmentRequest.
+    #     judgment: PASS/FAIL/SYSTEM_ERROR와 사유를 담은 Judgment.
+    #
+    #     ------------------------------------------------------------
+    #     반환: cable_interfaces/msg/InspectionResult 메시지.
     @staticmethod
     def _result_message(request: JudgmentRequest, judgment: Judgment) -> InspectionResultMessage:
         def numeric(value):
@@ -247,6 +296,11 @@ class InspectionJudgmentNode(Node):
             "termination_reason": request.termination_reason.value,
         })
 
+
+
+    # 기능: 로그를 터미널과 ROS 로그 토픽에 전달한다.
+    #     level: 로그 수준(INFO/WARN/ERROR).
+    #     text: 터미널과 로그 토픽에 전달할 문자열.
     def _publish_log(self, level: str, text: str) -> None:
         print(f"[{level}] {text}", flush=True)
         self.log_pub.publish(String(data=json.dumps(
@@ -254,11 +308,55 @@ class InspectionJudgmentNode(Node):
             ensure_ascii=False,
         )))
 
+
+
+    # 기능: 종료 신호를 Queue에 넣고 남은 요청 처리를 마친 Worker를 기다린다.
     def close(self) -> None:
         self.tasks.put(None)
         self.worker.join()
 
 
+
+    # 기능: 요청 객체의 측정값과 기준값을 순수 판정 함수에 전달한다.
+    #     request: 포인트 식별자와 측정·판정 조건을 담은 JudgmentRequest.
+    #
+    #     ------------------------------------------------------------
+    #     반환: judge_pull()이 반환한 Judgment.
+    @staticmethod
+    def judge_request(request):
+        return judge_pull(
+            termination=request.termination_reason,
+            peak_force_n=request.peak_pull_force_n,
+            displacement_mm=request.pull_displacement_mm,
+            required_force_n=request.required_force_n,
+            normal_displacement_limit_mm=request.normal_displacement_limit_mm,
+            soft_width_mm=request.soft_width_mm,
+            pull_width_mm=request.pull_width_mm,
+        )
+
+
+
+    # 기능: 포인트 판정과 힘·변위·폭·사유를 터미널에 표시한다.
+    #     request: 포인트 식별자와 측정·판정 조건을 담은 JudgmentRequest.
+    #     judgment: PASS/FAIL/SYSTEM_ERROR와 사유를 담은 Judgment.
+    @staticmethod
+    def display_result(request, judgment):
+        # 모션 노드와 별개로, 이 판정 노드를 실행한 터미널에 결과를 표시한다.
+        print(
+            f"\n[{judgment.result.value}] {request.point_id} | Run {request.run_id}\n"
+            f"  종료 조건: {request.termination_reason.value}\n"
+            f"  최대 Pull 힘: {request.peak_pull_force_n} N"
+            f" / 기준: {request.required_force_n} N\n"
+            f"  실제 Pull 변위: {request.pull_displacement_mm} mm"
+            f" / 허용: {request.normal_displacement_limit_mm} mm 이하\n"
+            f"  Soft 기준 폭: {request.soft_width_mm} mm / Pull 최소 폭: {request.pull_width_mm} mm\n"
+            f"  판정 사유: {request.error_reason or judgment.reason}",
+            flush=True,
+        )
+
+
+# 기능: 판정 노드를 실행하고 종료 시 Worker와 ROS 자원을 정리한다.
+#     args: ROS 초기화에 전달할 명령행 인자. None이면 기본 인자를 사용한다.
 def main(args=None) -> None:
     if rclpy is None:
         raise RuntimeError("ROS2 환경을 source한 뒤 실행하세요.")

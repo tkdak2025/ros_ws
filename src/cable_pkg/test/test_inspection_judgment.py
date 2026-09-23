@@ -1,6 +1,6 @@
 """#06 검사 판정 규칙을 검증한다."""
 
-from cable_pkg.sequence.inspection.seq_06_inspection_judgment_node import judge_pull
+from cable_pkg.sequence.seq_06_inspection_judgment.node import judge_pull
 from cable_pkg.data_models.sequence_models import (
     InspectionResult, JudgmentStatus, PullTermination, SequenceStatus,
 )
@@ -48,13 +48,15 @@ def test_worker_publishes_queued_results_and_client_tracks_only_terminal_results
     import threading
     from types import SimpleNamespace
     from cable_pkg.data_models.inspection_models import JudgmentRequest
-    from cable_pkg.sequence.inspection import seq_06_inspection_judgment_node as module
+    from cable_pkg.sequence.seq_06_inspection_judgment import node as module
 
     monkeypatch.setattr(module, "String", SimpleNamespace)
     published = queue.Queue()
     worker_node = SimpleNamespace(
         tasks=queue.Queue(),
         result_pub=SimpleNamespace(publish=published.put),
+        judge_request=module.InspectionJudgmentNode.judge_request,
+        display_result=module.InspectionJudgmentNode.display_result,
         _result_message=module.InspectionJudgmentNode._result_message,
         _publish_log=lambda *args: None,
     )
@@ -127,7 +129,7 @@ def test_v03_policy(termination, force, displacement, expected):
 def test_identifiable_invalid_request_returns_system_error(monkeypatch):
     import json
     from types import SimpleNamespace
-    from cable_pkg.sequence.inspection import seq_06_inspection_judgment_node as module
+    from cable_pkg.sequence.seq_06_inspection_judgment import node as module
     monkeypatch.setattr(module, 'String', SimpleNamespace)
     published = []
     node = SimpleNamespace(tasks=__import__('queue').Queue(),
@@ -148,7 +150,7 @@ def test_identifiable_invalid_request_returns_system_error(monkeypatch):
 ])
 def test_custom_result_serialization(termination, force, distance, expected):
     from cable_pkg.data_models.inspection_models import JudgmentRequest
-    from cable_pkg.sequence.inspection import seq_06_inspection_judgment_node as module
+    from cable_pkg.sequence.seq_06_inspection_judgment import node as module
     from rclpy.serialization import serialize_message, deserialize_message
     request = JudgmentRequest(
         run_id=21, recipe_id="LAN", recipe_version="1", point_id="LAN_L2",

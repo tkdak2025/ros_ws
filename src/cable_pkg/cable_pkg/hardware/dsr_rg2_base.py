@@ -172,7 +172,17 @@ class GripPullRobot:
             self._check_robot_mode()
         limit = self.SERVICE_TIMEOUT_S if timeout is None else timeout
         future = client.call_async(request)
-        rclpy.spin_until_future_complete(self.node, future, timeout_sec=limit)
+        deadline = time.monotonic() + limit
+        while not future.done() and time.monotonic() < deadline:
+            # 전체 Job 실행 시에만 STOP/통신 만료 감시를 주입한다.
+            poll = getattr(self, "control_poll", None)
+            if poll is not None:
+                try:
+                    poll()
+                except Exception:
+                    future.cancel()
+                    raise
+            rclpy.spin_once(self.node, timeout_sec=0.02)
         if not future.done():
             future.cancel()
             raise TimeoutError(f"서비스 응답 시간 초과: {client.srv_name}")

@@ -18,9 +18,9 @@ Doosan M0609 + OnRobot RG2 로 케이블·커넥터 체결 상태를 접촉식 P
 
 ```text
 cable_pkg/
-├─ sequence/       # seq_NN 실제 운전 시퀀스와 상태 전이
-│  ├─ common/      # 전체 작업, HMI 연결, 초기화, Home Return
-│  └─ inspection/  # InspectionSequence와 실행·판정 코드
+├─ sequence/       # 문서 #00~#07과 같은 번호의 폴더로 관리
+│  ├─ seq_00_main_work/ ~ seq_07_work_finish/  # 단계별 클래스·노드
+│  └─ inspection/  # InspectionSequence: #03→#04→#05 연결, 검사 단독 실행
 ├─ data_models/    # Job, Point, 단계 결과용 dataclass와 Enum
 ├─ interfaces/     # 시퀀스와 Robot·Gripper·HMI·Recipe 구현 사이의 Protocol
 ├─ hardware/       # DSR M0609·OnRobot RG2 실제 장비 어댑터와 측정
@@ -33,7 +33,9 @@ cable_pkg/
 구조 관리 원칙:
 
 - 프로젝트에서 동작하는 시퀀스 코드는 모두 `sequence/`에 둔다.
-- 시퀀스 파일명은 문서 번호에 맞춰 `seq_NN_*.py` 형식을 사용한다.
+- 시퀀스 폴더명은 문서 번호에 맞춰 `seq_NN_이름/` 형식을 사용한다.
+- 폴더 안에서 동작 클래스는 `sequence.py`, ROS 노드는 `node.py`, 실행부는 `run.py`로 구분한다.
+- 전체 흐름은 `SequenceController.run()`, 포인트별 검사 흐름은 `InspectionSequence.run_point()`에서 확인한다.
 - dataclass와 Enum 같은 데이터 구조는 `data_models/`에서 관리한다.
 - 외부 장비와 시스템의 기능 경계는 `interfaces/`에서 관리한다.
 - 실제 ROS 서비스 호출과 센서 측정은 `hardware/`에서 관리한다.
@@ -95,6 +97,9 @@ ros2 launch cable_hmi hmi.launch.py
 ros2 launch cable_hmi hmi_monitor.launch.py
 
 # 3) 실제 검사 시퀀스 - Inspection Recipe의 활성 Point를 순서대로 실행
+# 별도 터미널에서 판정 노드를 먼저 실행
+ros2 run cable_pkg inspection_judgment
+# 다른 터미널에서 검사 모션 실행
 ros2 run cable_pkg inspection_sequence
 ```
 

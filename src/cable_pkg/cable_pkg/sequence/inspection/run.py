@@ -1,4 +1,7 @@
-"""운영 Inspection Recipe로 실제 #03~#05 Point Cycle을 실행한다."""
+"""검사 단독 실행부: 전체 Job 대신 Inspection 구간을 실행한다.
+1. 레시피와 실행 조건을 읽고 사용자 시작 확인을 받는다.
+2. 장비·판정 클라이언트를 준비하고 활성 Point를 순서대로 검사한다.
+3. 판정 완료를 기다린 뒤 측정·판정·종료 상태를 파일로 저장한다."""
 
 import argparse
 import json
@@ -15,6 +18,10 @@ from cable_pkg.data_models.sequence_models import (
 )
 
 
+# 기능: 설치된 cable_pkg의 기본 LAN 레시피 경로를 찾는다.
+#
+#     ------------------------------------------------------------
+#     반환: 기본 레시피 파일의 Path.
 def _default_recipe_path() -> Path:
     from ament_index_python.packages import get_package_share_directory
 
@@ -22,8 +29,14 @@ def _default_recipe_path() -> Path:
     return share / "recipe" / "inspection" / "lan_inspection_recipe.json"
 
 
+# 기능: 현재 포인트의 검사/건너뛰기 선택을 숫자로 받는다.
+#     index: 현재 활성 포인트 순번. 1부터 시작한다.
+#     total: 검사 대상 활성 포인트 수.
+#     point: 현재 검사포인트 레시피. Pose(mm/deg), Grip 폭(mm)·힘(N), 이동 조건을 담는다.
+#
+#     ------------------------------------------------------------
+#     반환: 검사 선택이면 True, 건너뛰기면 False.
 def _select_point(index, total, point) -> bool:
-    """Recipe 순서대로 현재 포인트만 실행 여부를 확인한다."""
     while True:
         print(f"\n[{index}/{total}] {point.point_id} 검사를 진행하시겠습니까?")
         print("1. 검사")
@@ -34,6 +47,9 @@ def _select_point(index, total, point) -> bool:
         print("1 또는 2를 입력하세요.")
 
 
+# 기능: 측정/판정 데이터를 UTF-8 JSON 파일로 저장한다.
+#     path: 저장할 JSON 파일 경로.
+#     value: JSON으로 기록할 값.
 def _save_json(path: Path, value) -> None:
     path.write_text(
         json.dumps(value, ensure_ascii=False, indent=2, default=str),
@@ -41,8 +57,13 @@ def _save_json(path: Path, value) -> None:
     )
 
 
+# 기능: Point 모션 결과에 비동기 판정 결과를 합친다.
+#     motion_results: point_id별 검사 모션·측정 결과.
+#     judgment_results: point_id별 비동기 판정 결과.
+#
+#     ------------------------------------------------------------
+#     반환: point_id별 최종 InspectionPointResult를 담은 dict.
 def _complete_results(motion_results, judgment_results):
-    """비동기 #06 결과를 Point 종합 결과에 반영한다."""
     completed = {}
     for point_id, motion in motion_results.items():
         judgment = judgment_results[point_id]
@@ -57,6 +78,11 @@ def _complete_results(motion_results, judgment_results):
     return completed
 
 
+# 기능: 레시피를 읽고 검사 모션·비동기 판정을 실행한 뒤 결과를 저장한다.
+#     argv: 명령행 인자 목록. None이면 실행 시 전달된 인자를 읽는다.
+#
+#     ------------------------------------------------------------
+#     반환: 성공 0, 입력 오류 2, 검사 오류 1, 사용자 중단 130.
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="CCCIS 실제 검사 시퀀스")
     parser.add_argument("--recipe", type=Path, default=None)
@@ -88,8 +114,8 @@ def main(argv=None) -> int:
 
     import rclpy
     from cable_pkg.hardware.inspection_robot import HardwareRobot, RobotRuntimeConfig
-    from cable_pkg.sequence.inspection.seq_00_inspection import InspectionSequence
-    from cable_pkg.sequence.inspection.seq_06_inspection_judgment_node import (
+    from cable_pkg.sequence.inspection.inspection import InspectionSequence
+    from cable_pkg.sequence.seq_06_inspection_judgment.node import (
         JudgmentClient,
     )
 

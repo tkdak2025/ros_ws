@@ -114,6 +114,9 @@ class HardwareRobot(GripPullRobot):
         started = time.monotonic()
         # 이전 폭을 새 실측값처럼 사용하지 않는다.
         while self.width_received_at is None or self.width_received_at < started:
+            poll = getattr(self, "control_poll", None)
+            if poll is not None:
+                poll()
             rclpy.spin_once(self.node, timeout_sec=0.01)
             if time.monotonic() - started > self.config.gripper_timeout_s:
                 raise TimeoutError("새 그리퍼 폭 피드백이 없습니다.")

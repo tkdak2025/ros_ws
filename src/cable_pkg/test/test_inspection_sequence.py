@@ -6,8 +6,8 @@ from cable_pkg.data_models.sequence_models import (
     InspectionResult,
     JudgmentStatus,
 )
-from cable_pkg.sequence.inspection.seq_00_inspection import InspectionSequence
-from cable_pkg.sequence.inspection.seq_00_inspection_run import _complete_results
+from cable_pkg.sequence.inspection.inspection import InspectionSequence
+from cable_pkg.sequence.inspection.run import _complete_results
 
 
 class HardwareDouble:
@@ -128,7 +128,7 @@ def test_recipe_iterates_point_transition_adaptive_pull_and_return():
 
 def test_motion_error_stops_and_submits_system_error_request():
     import pytest
-    from cable_pkg.sequence.inspection.seq_06_inspection_judgment_node import judge_pull
+    from cable_pkg.sequence.seq_06_inspection_judgment.node import judge_pull
     class BrokenHardware(HardwareDouble):
         def move_joint(self, pose, allow_incomplete=False):
             raise RuntimeError('motion service failed')

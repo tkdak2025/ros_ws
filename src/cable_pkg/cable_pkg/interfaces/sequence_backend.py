@@ -32,10 +32,6 @@ class SequenceBackend(Protocol):
 
     def move_safe_route_home(self) -> SequenceResult: ...
 
-    def request_pause_safe(self, context: JobContext) -> SequenceResult: ...
-
-    def resume_from(self, context: JobContext) -> SequenceResult: ...
-
     def request_motion_stop(self) -> SequenceResult: ...
 
 
@@ -51,6 +47,8 @@ class InspectionHardware(Protocol):
     phase: str
 
     def configure_point(self, point: Any) -> None: ...
+
+    def wait_gripper_idle(self) -> dict: ...
 
     def move_joint(self, pose: Any, allow_incomplete: bool = False) -> dict: ...
 
@@ -74,7 +72,7 @@ class InspectionHardware(Protocol):
 
 
 class UnimplementedPointExecutor:
-    """미확정 Point 시퀀스가 실행되는 것을 명시적으로 차단한다."""
+    """이전 Controller 시험 코드 호환용. 운영 Main Work에서는 사용하지 않는다."""
 
     def execute(self, context: JobContext) -> SequenceResult:
         """Point Transition 상세설계 미확정을 오류 결과로 반환한다."""

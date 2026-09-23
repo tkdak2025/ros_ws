@@ -1,0 +1,16 @@
+{
+  "coordinate_frame": "BASE",
+  "home_pose": {"task": null, "joint": null},
+  "work_Access_safe_pose": {"task": null, "joint": null},
+  "work_area": null,
+  "allowed_workspace": null,
+  "safe_home_route": [],
+  "tool_approach_axis": null,
+  "max_escape_distance_mm": 30.0,
+  "escape_clearance_mm": 1.0,
+  "relax_width_mm": 25.0,
+  "relax_force_n": 10.0,
+  "heartbeat_timeout_s": 2.0,
+  "communication_recovery_timeout_s": 30.0,
+  "judgment_timeout_s": 10.0
+}
