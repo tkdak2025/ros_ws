@@ -9,6 +9,7 @@
 
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
+  <depend>cable_interfaces</depend>
   <depend>std_srvs</depend>
   <depend>sensor_msgs</depend>
   <!-- robot_monitor_node 만 사용. 메시지 정의일 뿐이며 HMI 화면 프로세스는 두산 코드를 import 하지 않는다. -->

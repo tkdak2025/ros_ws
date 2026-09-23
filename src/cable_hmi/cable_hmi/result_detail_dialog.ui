@@ -727,7 +727,7 @@ QLabel[role="panelTitle"] { background: #168DB5; color: #FFFFFF; font-size: 14px
                <item row="6" column="0" alignment="Qt::AlignTop">
          <widget class="QLabel" name="gripChangeKey">
           <property name="text">
-           <string>파지 폭 변화</string>
+           <string>Pull 폭 변화</string>
           </property>
           <property name="role" stdset="0">
            <string notr="true">key</string>

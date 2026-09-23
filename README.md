@@ -8,6 +8,7 @@ Doosan M0609 + OnRobot RG2 로 케이블·커넥터 체결 상태를 접촉식 P
 |---|---|
 | [`src/cable_hmi/`](src/cable_hmi/) | **PyQt5 HMI.** 화면, ROS 통신, 실제 로봇 값 모니터 노드, 가상 검사 노드(mock), 진행률 보고 부품. 자세한 설명은 [패키지 README](src/cable_hmi/README.md) |
 | [`src/cable_pkg/`](src/cable_pkg/) | **로봇 동작 패키지.** Recipe 기반 검사 시퀀스, 설정, 안전 판단 및 검증 모듈 |
+| [`src/cable_interfaces/`](src/cable_interfaces/) | **팀 공용 ROS 메시지.** `msg/InspectionResult.msg` — 판정 노드가 HMI로 보내는 Point 검사 결과 |
 | [`docs/`](docs/) | 문서 (md) |
 | [`measurement_results/`](measurement_results/) | 위치 오차 및 Grip/Pull 실험 원본 CSV·JSON |
 | [`tools/ccc_inspection/`](tools/ccc_inspection/) | 초기 검증·수동 확인용 보조 스크립트 |
@@ -63,7 +64,9 @@ cable_pkg/
 
 - HMI 는 **publish/subscribe 만** 한다. 블로킹 호출이 있는 `DSR_ROBOT2` 를 import 하지 않으므로 로봇 쪽이 멈춰도 화면과 STOP 버튼은 얼지 않는다.
 - HMI 는 받은 `status` 의 렌더러다. 버튼을 눌러도 화면을 스스로 바꾸지 않고, 돌아온 상태로만 표시와 버튼 활성화를 갱신한다.
-- 통신 규격은 `src/cable_hmi/cable_hmi/interface.py` **한 파일**에 있다 (현재 `std_msgs/String` + JSON). 팀 공용 메시지가 확정되면 이 파일만 고친다.
+- 통신 규격은 `src/cable_hmi/cable_hmi/interface.py` **한 파일**에 있다.
+  - 검사 결과: `cable_interfaces/msg/InspectionResult` (`cable_inspection/judgment_result`)
+  - 나머지(status · progress · log · command): `std_msgs/String` + JSON
 - 화면 배치·스타일은 `main_window.ui` (Qt Designer 로 편집), 동작은 `main_window.py`.
 
 "상태를 보내는 노드" 는 상황에 따라 하나를 띄운다.
@@ -94,9 +97,12 @@ ros2 launch cable_hmi hmi.launch.py
 # 2) 실제 로봇 값 모니터링 - 다른 터미널에 두산 드라이버(sodreal 또는 sodvir)가 떠 있어야 한다
 ros2 launch cable_hmi hmi_monitor.launch.py
 
-# 3) 실제 검사 시퀀스 - Inspection Recipe의 활성 Point를 순서대로 실행
-ros2 run cable_pkg inspection_sequence
+# 3) 실제 검사 - 판정 노드를 먼저 띄운 뒤 시퀀스를 실행한다 (터미널 2개)
+ros2 run cable_pkg inspection_judgment     # 판정 전담. 로봇을 쓰지 않는다
+ros2 run cable_pkg inspection_sequence     # Recipe의 활성 Point를 순서대로 실행
 ```
+
+`inspection_sequence`는 판정 노드가 떠 있지 않으면 5초 뒤 오류로 멈춘다(로봇을 움직이기 전에 걸린다).
 
 1)과 2)를 동시에 띄우지 말 것 — 둘 다 `status` 를 publish 해서 값이 섞인다.
 
@@ -104,8 +110,42 @@ ros2 run cable_pkg inspection_sequence
 
 HMI 의 STOP 은 소프트웨어 정지 요청(`move_stop`)일 뿐이다. 물리 비상정지 스위치와 TP 가 최종 권한이다.
 
+## 진행 현황 (2026-09-23 기준)
+
+| 구간 | 상태 |
+|---|---|
+| #03 Point Transition · #04 Adaptive Grip · #05 Pull Inspection | **동작함** — 실물에서 힘·변위·그리퍼 폭까지 측정 |
+| #06 Judgment | **동작함** — `inspection_judgment` 노드가 PASS / FAIL / SYSTEM_ERROR 생성 |
+| 판정 결과 → HMI | **연결됨** — `cable_interfaces/msg/InspectionResult` |
+| 로봇 상태 → HMI | **연결됨** — `robot_monitor_node`가 드라이버에서 직접 읽음 |
+| 진행 상황 → HMI | **없음** — 동작코드가 `cable_inspection/progress`를 보내지 않는다 |
+| #00 Main · #01 Initialize · #02 Home Return · Common #01 | 코드는 있으나 `SequenceBackend` 구현체가 없어 미동작 |
+| #07 Work Finish | 미구현 |
+
+검사를 돌리면 **결과 표와 로봇 상태는 채워지지만** 진행률·현재 단계·검사 조건 칸은 비어 있다.
+동작코드가 `ProgressReporter`로 진행 상황을 보내면 채워진다.
+
+확정된 판정 기준
+
+| 항목 | 값 |
+|---|---|
+| 기준 Pull 힘 | 15 N (도달 시 Pull 정지) |
+| 허용 변위 | 5 mm 이하 → PASS, 초과 → FAIL |
+| Pull 최대 거리 | 25 mm (도달 시 FAIL) |
+| 파지 실패 | Pull 중 실측 폭 16 mm 미만 → FAIL (`FAIL_GRIP_WIDTH`) |
+| 결과 코드 | PASS / FAIL / SYSTEM_ERROR (MISSING은 09/22 폐지) |
+
+남은 일과 담당자 요청 사항은
+[`docs/ccc_inspection/tracking/`](docs/ccc_inspection/tracking/)에 정리한다.
+
 ## 작업 기록
 
 - 09/17 11:30 `cable_pkg` 생성, rclpy · dsr_common2 의존성 추가
 - 09/18 `cable_hmi` 패키지 생성
 - 09/19 ~ 09/20 `cable_hmi` 구현: PyQt HMI(.ui), mock 검사 노드, 실제 로봇 모니터 노드, Tool/TCP 자동 설정, 속도 설정, Home 이동, 진행률 보고, 에러 팝업 / `docs/` 정리
+- 09/21 실물 Grip/Pull 시험. 정상·파지불량 샘플 측정. 기준 Pull 힘 **15 N** 확정
+- 09/22 통합 시퀀스 문서(#00~#07, Common #01) 반영. `cable_pkg`에 검사 시퀀스·판정 규칙 작성.
+  **MISSING 결과 폐지** — Grip Slip은 FAIL로 처리 (PR #7)
+- 09/23 결과 전달을 **팀 공용 메시지로 확정** (PR #8): `cable_interfaces` 신설,
+  판정을 별도 노드(`inspection_judgment`)로 분리, 파지 실패 기준 **Pull 최소 폭 16 mm** 확정.
+  HMI를 그 형식에 맞춤

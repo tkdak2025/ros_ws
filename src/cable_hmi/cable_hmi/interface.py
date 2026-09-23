@@ -15,13 +15,16 @@ from dataclasses import asdict, dataclass, field, fields, is_dataclass
 import json
 from typing import Any, Dict, List
 
+from cable_interfaces.msg import InspectionResult as InspectionResultMsg
 from std_msgs.msg import Empty, String
 
 # --------------------------------------------------------------------------
 # 토픽 (상대 이름 - launch 에서 namespace 를 주면 그대로 따라간다)
 # --------------------------------------------------------------------------
 TOPIC_STATUS = 'cable_inspection/status'          # 검사 노드 -> HMI, 10 Hz 권장
-TOPIC_RESULT = 'cable_inspection/result'          # 검사 노드 -> HMI, Point 1개 완료마다
+# 검사 노드 -> HMI, Point 1개 판정마다. #06 판정 노드(cable_pkg inspection_judgment)가 보낸다.
+# 2026-09-23 이전에는 'cable_inspection/result' 에 String+JSON 이었다.
+TOPIC_RESULT = 'cable_inspection/judgment_result'
 TOPIC_LOG = 'cable_inspection/log'                # 검사 노드 -> HMI, 시스템 로그
 TOPIC_COMMAND = 'cable_inspection/command'        # HMI -> 검사 노드
 TOPIC_HEARTBEAT = 'cable_inspection/hmi_heartbeat'  # HMI -> 검사 노드, 2 Hz
@@ -33,7 +36,7 @@ TOPIC_TOOL_FORCE = 'cable_inspection/tool_force'  # Float64MultiArray [Fx Fy Fz 
 TOPIC_TCP_POSE = 'cable_inspection/tcp_pose'      # Float64MultiArray [x y z rx ry rz]
 
 STATUS_MSG_TYPE = String
-RESULT_MSG_TYPE = String
+RESULT_MSG_TYPE = InspectionResultMsg      # cable_interfaces/msg/InspectionResult
 LOG_MSG_TYPE = String
 COMMAND_MSG_TYPE = String
 HEARTBEAT_MSG_TYPE = Empty
@@ -93,6 +96,9 @@ class ResultCode:
 
     PASS = 'PASS'
     FAIL = 'FAIL'
+    # 제품 결과가 아니다. 판정 노드가 측정값·기준값을 신뢰할 수 없을 때 보낸다.
+    # 화면에서는 INCOMPLETE 와 같은 부류로 묶어 회색으로 둔다.
+    SYSTEM_ERROR = 'SYSTEM_ERROR'
     # 제품 결과가 아니다. 유효한 판정을 만들지 못한 Point (#06 6.4: TIMEOUT 등).
     # 이 Point 가 있으면 #07 Work Finish 가 Job 종료를 승인하지 않는다.
     INCOMPLETE = 'INCOMPLETE'
@@ -107,7 +113,7 @@ class ResultCode:
         """결과 코드를 PASS / FAIL / INCOMPLETE 세 부류로 묶는다."""
         if code == ResultCode.PASS:
             return 'PASS'
-        if code in ('', ResultCode.INCOMPLETE):
+        if code in ('', ResultCode.INCOMPLETE, ResultCode.SYSTEM_ERROR):
             return 'INCOMPLETE'
         return 'FAIL'
 
@@ -125,7 +131,10 @@ class ReasonCode:
     PASS_FORCE_DISPLACEMENT_OK = 'PASS_FORCE_DISPLACEMENT_OK'   # 기준 힘 도달 + 변위 한계 이내
     FAIL_DISPLACEMENT_LIMIT = 'FAIL_DISPLACEMENT_LIMIT'         # 변위 한계(5 mm) 초과
     FAIL_MAX_DISTANCE = 'FAIL_MAX_DISTANCE'                     # 미끄러짐 없이 최대 거리(25 mm)까지 이동
-    FAIL_GRIP_SLIP = 'FAIL_GRIP_SLIP'                     # 파지 미끄러짐 - 검사 무효
+    FAIL_GRIP_WIDTH = 'FAIL_GRIP_WIDTH'   # Pull 중 실측 폭이 기준(16 mm) 미만 - 파지 실패
+    FAIL_GRIP_SLIP = 'FAIL_GRIP_SLIP'     # 옛 코드. FAIL_GRIP_WIDTH 로 바뀌었다
+    # 제품 결과가 아니다. 접두사가 PASS_/FAIL_ 이 아니라서 result_of() 가 INCOMPLETE 를 준다.
+    SYSTEM_ERROR = 'SYSTEM_ERROR'
     INCOMPLETE_NOT_IMPLEMENTED = 'INCOMPLETE_NOT_IMPLEMENTED'         # 검사 동작 미구현 (개발 중 전용)
 
     # 통합문서(2026-09-22) 이전 코드. 새 결과에는 쓰지 않고, 지난 기록을 읽을 때만 쓴다.
@@ -134,13 +143,15 @@ class ReasonCode:
     INCOMPLETE_ABNORMAL_TERMINATION = 'INCOMPLETE_ABNORMAL_TERMINATION'
 
     ALL = (PASS_FORCE_DISPLACEMENT_OK, FAIL_DISPLACEMENT_LIMIT, FAIL_MAX_DISTANCE,
-           FAIL_GRIP_SLIP, INCOMPLETE_NOT_IMPLEMENTED)
+           FAIL_GRIP_WIDTH, SYSTEM_ERROR, INCOMPLETE_NOT_IMPLEMENTED)
 
     LABELS = {
         PASS_FORCE_DISPLACEMENT_OK: '기준 힘 도달, 변위 허용 범위 이내',
         FAIL_DISPLACEMENT_LIMIT: '변위 허용 한계 초과',
         FAIL_MAX_DISTANCE: '미끄러짐 없이 Pull 최대 거리까지 이동',
-        FAIL_GRIP_SLIP: '파지 미끄러짐으로 불량',
+        FAIL_GRIP_WIDTH: 'Pull 중 실측 폭이 기준 미만 - 파지 실패',
+        SYSTEM_ERROR: '측정값 또는 기준값을 신뢰할 수 없음',
+        FAIL_GRIP_SLIP: '파지 미끄러짐으로 불량 (옛 코드)',
         INCOMPLETE_NOT_IMPLEMENTED: '검사 동작 미구현',
         FAIL_FORCE_REQUIREMENT: '기준 힘에 도달하지 못함 (옛 코드)',
         INCOMPLETE_INVALID_DATA: '검사 데이터 누락 또는 비정상 (옛 코드)',
@@ -172,12 +183,13 @@ class TerminationReason:
     MAX_DISTANCE = 'MAX_DISTANCE'    # Pull 최대 거리(25 mm)까지 이동
     TIMEOUT = 'TIMEOUT'              # 제한 시간 초과. 제품 결과로 바꾸지 않는다 (#06 6.4)
     MOTION_ERROR = 'MOTION_ERROR'    # 모션 오류
+    INVALID_DATA = 'INVALID_DATA'    # 판정 요청 자체가 잘못됨 (판정 노드가 붙인다)
 
     _PREFIXES = ('PULL_', 'ENTRY_')
 
     LABELS = {
         FORCE_LIMIT: '기준 힘 도달', MAX_DISTANCE: '최대 거리 도달',
-        TIMEOUT: '시간 초과', MOTION_ERROR: '모션 오류',
+        TIMEOUT: '시간 초과', MOTION_ERROR: '모션 오류', INVALID_DATA: '잘못된 판정 요청',
     }
 
     @staticmethod
@@ -279,6 +291,29 @@ class JudgmentStatus:
     ERROR = 'ERROR'            # 판정을 만들 수 없음 -> Job 종료 보류 (#07)
 
     LABELS = {PENDING: '판정 대기', COMPLETED: '판정 완료', ERROR: '판정 오류'}
+
+
+class SequenceStatus:
+    """
+    Point 하나의 시퀀스 처리 상태 (#06 판정 노드가 결과에 함께 싣는다).
+
+    제품 판정(ResultCode)과 다른 축이다: 제품이 FAIL 이어도 시퀀스는 SUCCESS 일 수 있다.
+    INCOMPLETE 는 #07 Work Finish 가 종료를 승인할지 판단할 때 쓴다.
+    """
+
+    NONE = ''
+    IDLE = 'IDLE'
+    RUNNING = 'RUNNING'
+    SUCCESS = 'SUCCESS'
+    FAIL = 'FAIL'
+    INCOMPLETE = 'INCOMPLETE'
+
+    LABELS = {IDLE: '대기', RUNNING: '수행 중', SUCCESS: '정상 처리',
+              FAIL: '처리 실패', INCOMPLETE: '미완료'}
+
+    @staticmethod
+    def label(code: str) -> str:
+        return SequenceStatus.LABELS.get(code, '')
 
 
 class ProductResult:
@@ -421,6 +456,7 @@ class PointResult:
     result: str = ''             # ResultCode: PASS / FAIL / INCOMPLETE(제품 결과 아님)
     reason_code: str = ''        # ReasonCode: 상세 원인 (결과와 분리, #06)
     judgment_status: str = ''    # JudgmentStatus: PENDING / COMPLETED / ERROR
+    sequence_status: str = ''    # SequenceStatus: 시퀀스 처리 상태 (제품 판정과 다른 축)
     # 판정 입력(#06 9장)과 그때 쓴 조건을 짝지어 싣는다:
     #   max_force_n ↔ required_pull_force_n (합격 기준) / pull_force_limit_n (정지 상한)
     #   displacement_mm ↔ displacement_limit_mm
@@ -437,10 +473,14 @@ class PointResult:
     pull_max_distance_mm: float = 0.0  # 조건: Pull 최대 거리 (25 mm)
     # TerminationReason: FORCE_LIMIT / MAX_DISTANCE / TIMEOUT / MOTION_ERROR
     termination_reason: str = ''
-    # 측정: Hard Grip 직후 RG2 실제 폭 (#04 grip_width_hard). 지시한 파지 폭(grip_width_mm)과
-    # 다르다 - 실측 예: 지시 16.0 mm 에 실제 18.4 mm. Pull 중 폭 변화의 기준값이다.
+    # 2026-09-23 판정 노드가 보내는 그리퍼 폭. 절대 폭으로 파지 실패를 가린다.
+    soft_width_mm: float = 0.0          # 측정: Soft 종료 기준 폭
+    pull_width_mm: float = 0.0          # 측정: Pull 전체(정지 대기 포함) 최소 실측 폭
+    width_delta_mm: float = 0.0         # pull_width_mm - soft_width_mm (부호 있음, 기록용)
+    grip_failure_width_mm: float = 0.0  # 조건: 이 폭 미만이면 파지 실패 (현재 16.0)
+    # 옛 필드. 폭 변화량으로 미끄러짐을 보던 때의 값이라 새 결과에는 오지 않는다.
     grip_width_hard_mm: float = 0.0
-    grip_width_change_mm: float = 0.0  # Hard Grip 뒤 Pull 중 RG2 폭 변화 (미끄러짐 보조 판별)
+    grip_width_change_mm: float = 0.0
     reason: str = ''             # 판정 사유 / 미수행 사유 (사람이 읽는 문장)
     action: str = ''             # 처리 내용
     force_data_id: str = ''      # 원본 Force 데이터(CSV 등) 식별자
@@ -531,14 +571,43 @@ def decode_status(msg: String) -> SystemStatus:
     return _decode(SystemStatus, msg)
 
 
-def encode_result(result: PointResult) -> String:
-    """결과(PointResult)를 ROS 메시지로 바꾼다."""
-    return _encode(result)
+# 결과만 팀 공용 메시지(cable_interfaces/msg/InspectionResult)를 쓴다. 이름이 같은 필드만
+# 주고받고, 메시지에 없는 HMI 필드(cable_id, product_id, action ...)는 기본값으로 남는다.
+# JSON 과 달리 메시지는 타입을 강제하므로 넣기 전에 dataclass 타입으로 맞춘다.
+_RESULT_FIELDS = tuple(f for f in fields(PointResult)
+                       if f.name in InspectionResultMsg.get_fields_and_field_types())
 
 
-def decode_result(msg: String) -> PointResult:
+def encode_result(result: PointResult) -> InspectionResultMsg:
+    """결과(PointResult)를 ROS 메시지로 바꾼다. 값이 맞지 않으면 ValueError."""
+    msg = InspectionResultMsg()
+    for f in _RESULT_FIELDS:
+        value = getattr(result, f.name)
+        try:
+            if f.type == List[float]:
+                value = [float(v) for v in value]
+            elif f.type is bool:
+                value = bool(value)
+            elif f.type in (int, float, str):
+                value = f.type(value)
+            setattr(msg, f.name, value)
+        except (AttributeError, TypeError, ValueError) as e:
+            raise ValueError(f'{f.name} 값을 메시지에 넣을 수 없습니다: {value!r} ({e})') from None
+    return msg
+
+
+def decode_result(msg: InspectionResultMsg) -> PointResult:
     """ROS 메시지 -> PointResult. 형식이 틀리면 ValueError."""
-    return _decode(PointResult, msg)
+    result = PointResult()
+    try:
+        for f in _RESULT_FIELDS:
+            value = getattr(msg, f.name)
+            # float64[] 는 array.array 로 온다. 화면과 DB 는 list 를 기대한다.
+            setattr(result, f.name, [float(v) for v in value]
+                    if f.type == List[float] else value)
+    except (AttributeError, TypeError) as e:
+        raise ValueError(f'결과 메시지 형식이 다릅니다: {e}') from None
+    return result
 
 
 def encode_log(entry: LogEntry) -> String:

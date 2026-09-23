@@ -16,7 +16,7 @@
 선택 컬럼은 없어도 된다(해당 값은 기본값). point_order 가 있으면 그 순서로 정렬한다.
 
 pull_force_limit_n 은 Pull 을 멈추는 힘(안전 상한)이다. 합격 기준이 아니다. 합격 기준 힘은
-required_pull_force_n 이다 (Concept #06: LAN 20 N / USB 12 N, 허용 변위 5 mm). 예전 뷰에서 쓰던
+required_pull_force_n 이다 (#06: 기준 15 N, 허용 변위 5 mm - 2026-09-22 확정). 예전 뷰에서 쓰던
 이름 pull_force_n 도 아직 읽는다(뷰를 고치기 전까지).
 
 DB 파일이 없거나 뷰가 아직 없는 것은 정상적인 상황이다. 그때는 RecipeDbError 를 던지고,

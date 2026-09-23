@@ -11,8 +11,10 @@ ended_at 이 비어 있는 행은 끝나는 것을 보지 못한 검사다(저�
 
   - 쓰기(save)는 result_recorder_node 만 한다. HMI 화면 프로세스는 공용 DB 에 쓰지 않는다.
   - 읽기(latest_by_point)는 '통합 조회' 탭이 백그라운드 스레드에서 한다. 읽기 전용으로 연다.
-  - 예외: export_run() 은 HMI 의 '결과 파일 저장' 버튼이 부른다. 공용 DB 가 아니라 새 파일을
-    만들기만 하므로 다른 프로세스와 부딪히지 않는다.
+  - 예외: export_run() / export_all() 은 HMI 의 '결과 파일 저장' 버튼이 부른다. 공용 DB 가
+    아니라 새 파일을 만들기만 하므로 다른 프로세스와 부딪히지 않는다.
+      export_run() - '검사' 탭. 지금 화면에 있는 검사 1회분.
+      export_all() - '통합 조회' 탭. DB 에 쌓인 전체.
 
 Qt 에 의존하지 않는다.
 """
@@ -242,3 +244,73 @@ def export_run(directory, results: List[itf.PointResult],
     except OSError as e:
         raise ResultDbError(f'CSV 를 쓸 수 없습니다: {csv_path} ({e})') from None
     return db_path, csv_path
+
+
+def export_all(directory, source) -> Tuple[Path, Path, int]:
+    """
+    공용 DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db, .csv)에 담는다. (db 경로, csv 경로, 건수).
+
+    export_run() 이 화면에 있는 검사 1회만 담는 것과 달리, 여기서는 inspection_result 전체
+    (모든 run, 모든 Point)와 inspection_run 요약을 그대로 옮긴다. 화면의 Recipe 필터나
+    검색어는 적용하지 않는다 - '지금 DB 에 무엇이 있는가' 를 그대로 내보내는 것이 목적이다.
+
+    원본은 읽기 전용으로만 열고 늘 새 파일을 만든다. 저장 노드(result_recorder_node)가
+    돌고 있어도 부딪히지 않는다.
+    """
+    source = Path(source).expanduser()
+    if not source.is_file():
+        raise ResultDbError(f'DB 파일이 없습니다: {source}')
+    try:
+        connection = sqlite3.connect(f'file:{source}?mode=ro', uri=True, timeout=TIMEOUT_SEC)
+    except sqlite3.Error as e:
+        raise ResultDbError(f'DB 를 열 수 없습니다: {source} ({e})') from None
+    connection.row_factory = sqlite3.Row
+    try:
+        try:
+            rows = connection.execute(
+                f'SELECT * FROM {TABLE} ORDER BY run_id, stamp, saved_at').fetchall()
+        except sqlite3.OperationalError as e:
+            if 'no such table' in str(e):
+                raise ResultDbError('저장된 검사 결과가 없습니다.') from None
+            raise ResultDbError(f'결과 조회 실패: {e}') from None
+        try:
+            runs = connection.execute(f'SELECT * FROM {RUN_TABLE} ORDER BY run_id').fetchall()
+        except sqlite3.OperationalError:
+            runs = []                       # 예전 DB 에는 요약 테이블이 없을 수 있다
+    except sqlite3.Error as e:
+        raise ResultDbError(f'결과 조회 실패: {e}') from None
+    finally:
+        connection.close()
+    if not rows:
+        raise ResultDbError('저장된 검사 결과가 없습니다.')
+
+    directory = Path(directory).expanduser()
+    name = f'all_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+    db_path, csv_path = directory / f'{name}.db', directory / f'{name}.csv'
+
+    # 원본에 없는 열은 건너뛴다(예전에 만든 DB 에는 뒤에 늘어난 필드가 없을 수 있다).
+    columns = [c for c in _COLUMNS if c in rows[0].keys()]
+    statements = [(_CREATE, ()), (_CREATE_RUN, ())]
+    statements += [
+        (f'INSERT OR REPLACE INTO {TABLE} ({", ".join(columns)}) '
+         f'VALUES ({", ".join("?" for _ in columns)})',
+         tuple(row[c] for c in columns))
+        for row in rows]
+    if runs:
+        run_columns = list(runs[0].keys())
+        statements += [
+            (f'INSERT OR REPLACE INTO {RUN_TABLE} ({", ".join(run_columns)}) '
+             f'VALUES ({", ".join("?" for _ in run_columns)})',
+             tuple(row[c] for c in run_columns))
+            for row in runs]
+    ResultDb(db_path)._write(statements)
+
+    try:
+        with csv_path.open('w', encoding='utf-8-sig', newline='') as handle:
+            writer = csv.writer(handle)
+            writer.writerow(columns)
+            for row in rows:
+                writer.writerow([row[c] for c in columns])
+    except OSError as e:
+        raise ResultDbError(f'CSV 를 쓸 수 없습니다: {csv_path} ({e})') from None
+    return db_path, csv_path, len(rows)
