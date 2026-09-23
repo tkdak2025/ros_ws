@@ -1,0 +1,7 @@
+string request_id
+InspectionRecipe recipe
+---
+bool accepted
+string code
+string message
+int64 run_id

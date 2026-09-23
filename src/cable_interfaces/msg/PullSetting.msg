@@ -1,0 +1,5 @@
+float64 force_limit_n
+float64 max_distance_mm
+float64 timeout_s
+float64 speed_mm_s
+float64 normal_displacement_limit_mm

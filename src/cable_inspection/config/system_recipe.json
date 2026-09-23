@@ -1,0 +1,22 @@
+{
+  "coordinate_frame": "BASE",
+  "joint_speed_deg_s": 10.0,
+  "home_pose": {"task": [0.41, 5.77, 1242.38, 89.92, -0.03, -89.92], "joint": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]},
+  "work_Access_safe_pose": {"task": [532.25, 34.8, 497.08, 2.23, 117.34, -2.48], "joint": [4.12, -15.08, 86.39, -2.35, 46.06, 0.0]},
+  "work_area": {
+    "x_min_mm": 93.29,
+    "x_max_mm": 924.84,
+    "y_min_mm": -654.63,
+    "y_max_mm": 265.79,
+    "z_min_mm": 60.0,
+    "z_max_mm": 683.77
+  },
+  "tool_approach_axis": null,
+  "max_escape_distance_mm": 30.0,
+  "escape_clearance_mm": 1.0,
+  "relax_width_mm": 25.0,
+  "relax_force_n": 10.0,
+  "heartbeat_timeout_s": 2.0,
+  "communication_recovery_timeout_s": 30.0,
+  "judgment_timeout_s": 10.0
+}

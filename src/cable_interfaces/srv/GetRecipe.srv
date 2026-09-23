@@ -1,0 +1,7 @@
+string recipe_id
+# Empty means latest saved version.
+string recipe_version
+---
+bool success
+string message
+InspectionRecipe recipe

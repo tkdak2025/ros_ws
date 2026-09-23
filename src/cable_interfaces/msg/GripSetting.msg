@@ -1,0 +1,5 @@
+float64 soft_close_width_mm
+float64 soft_open_width_mm
+float64 hard_width_mm
+float64 soft_force_n
+float64 hard_force_n

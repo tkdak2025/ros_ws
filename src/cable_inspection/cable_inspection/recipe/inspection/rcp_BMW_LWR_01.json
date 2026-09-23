@@ -1,0 +1,137 @@
+{
+  "recipe_id": "rcp_BMW_LWR_01",
+  "recipe_version": "1.0.0",
+  "coordinate_frame": "BASE",
+  "connector_type": "WIRING_HARNESS",
+  "execution_order": [
+    "HARNESS_01",
+    "HARNESS_02",
+    "HARNESS_03"
+  ],
+  "points": {
+    "HARNESS_01": {
+      "point_id": "HARNESS_01",
+      "point_name": "와이어링 하네스 검사 1",
+      "enabled": true,
+      "ready_pose": {
+        "task": [548.130, 183.700, 319.910, 0.0, 180.0, 0.0],
+        "joint": [17.93, 42.57, 12.40, -180.03, -125.03, -162.07]
+      },
+      "entry_pose": {
+        "task": [589.950, 186.610, 98.980, 20.0, 180.0, 20.0],
+        "joint": [16.99, 37.99, 56.83, -180.02, -85.17, -163.00]
+      },
+      "entry_setting": {
+        "max_distance_mm": 5.0,
+        "force_guard_n": 5.0,
+        "timeout_s": 10.0
+      },
+      "grip_setting": {
+        "soft_close_width_mm": 24.0,
+        "soft_open_width_mm": 27.0,
+        "hard_width_mm": 21.0,
+        "soft_force_n": 10.0,
+        "hard_force_n": 20.0
+      },
+      "pull_setting": {
+        "force_limit_n": 15.0,
+        "max_distance_mm": 25.0,
+        "timeout_s": 10.0,
+        "speed_mm_s": 10.0,
+        "normal_displacement_limit_mm": 5.0
+      }
+    },
+    "HARNESS_02": {
+      "point_id": "HARNESS_02",
+      "point_name": "와이어링 하네스 검사 2",
+      "enabled": true,
+      "ready_pose": {
+        "task": [548.130, 183.700, 319.910, 0.0, 180.0, 0.0],
+        "joint": [17.93, 42.57, 12.40, -180.03, -125.03, -162.07]
+      },
+      "entry_pose": {
+        "task": [550.100, 188.790, 105.900, 30.0, 180.0, 30.0],
+        "joint": [18.34, 31.98, 65.62, -180.02, -82.39, -161.65]
+      },
+      "entry_setting": {
+        "max_distance_mm": 5.0,
+        "force_guard_n": 5.0,
+        "timeout_s": 10.0
+      },
+      "grip_setting": {
+        "soft_close_width_mm": 23.0,
+        "soft_open_width_mm": 26.0,
+        "hard_width_mm": 20.0,
+        "soft_force_n": 10.0,
+        "hard_force_n": 20.0
+      },
+      "pull_setting": {
+        "force_limit_n": 15.0,
+        "max_distance_mm": 25.0,
+        "timeout_s": 10.0,
+        "speed_mm_s": 10.0,
+        "normal_displacement_limit_mm": 5.0
+      }
+    },
+    "HARNESS_03": {
+      "point_id": "HARNESS_03",
+      "point_name": "와이어링 하네스 검사 3",
+      "enabled": true,
+      "ready_pose": {
+        "task": [
+          124.15,
+          -314.55,
+          499.44,
+          90.0,
+          -150.0,
+          180.0
+        ],
+        "joint": [
+          -52.23,
+          -10.96,
+          58.99,
+          -198.65,
+          -106.57,
+          -151.64
+        ]
+      },
+      "entry_pose": {
+        "task": [
+          239.38,
+          -416.25,
+          405.97,
+          87.49,
+          -156.62,
+          176.65
+        ],
+        "joint": [
+          -50.33,
+          6.77,
+          56.59,
+          -195.65,
+          -98.55,
+          -145.98
+        ]
+      },
+      "entry_setting": {
+        "max_distance_mm": 5.0,
+        "force_guard_n": 5.0,
+        "timeout_s": 10.0
+      },
+      "grip_setting": {
+        "soft_close_width_mm": 23.0,
+        "soft_open_width_mm": 26.0,
+        "hard_width_mm": 20.0,
+        "soft_force_n": 10.0,
+        "hard_force_n": 20.0
+      },
+      "pull_setting": {
+        "force_limit_n": 15.0,
+        "max_distance_mm": 25.0,
+        "timeout_s": 10.0,
+        "speed_mm_s": 10.0,
+        "normal_displacement_limit_mm": 5.0
+      }
+    }
+  }
+}
