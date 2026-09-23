@@ -1,0 +1,3 @@
+float64 max_distance_mm
+float64 force_guard_n
+float64 timeout_s

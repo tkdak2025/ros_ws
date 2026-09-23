@@ -1,0 +1,8 @@
+string point_id
+string point_name
+bool enabled
+InspectionPose ready_pose
+InspectionPose entry_pose
+EntrySetting entry_setting
+GripSetting grip_setting
+PullSetting pull_setting

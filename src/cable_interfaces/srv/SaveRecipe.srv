@@ -1,0 +1,4 @@
+InspectionRecipe recipe
+---
+bool success
+string message
