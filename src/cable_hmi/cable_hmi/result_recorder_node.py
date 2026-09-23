@@ -49,6 +49,12 @@ class ResultRecorderNode(Node):
             itf.RESULT_MSG_TYPE, itf.TOPIC_RESULT, self._on_result, itf.QOS_DEPTH)
         self.create_subscription(
             itf.STATUS_MSG_TYPE, itf.TOPIC_STATUS, self._on_status, itf.QOS_DEPTH)
+        # 상태 분리 계약: 검사 PC 의 Main 은 status 대신 work_status 를 보낸다. 작업 필드 이름이
+        # 같아서 같은 방법으로 읽는다(모르는 키는 버린다). 대기 중에는 바뀔 때만 오지만 여기서
+        # 쓰는 것은 검사의 시작과 끝, 즉 바뀌는 순간이라 그것으로 충분하다(문서 4장 6).
+        self.create_subscription(
+            itf.WORK_STATUS_MSG_TYPE, itf.TOPIC_WORK_STATUS, self._on_status,
+            itf.WORK_STATUS_QOS)
         if self._db is None:
             self.get_logger().warning('result_db 가 지정되지 않음 - 결과를 저장하지 않습니다.')
         else:

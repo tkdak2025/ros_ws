@@ -100,15 +100,22 @@ def _fill_result(labels, result):
     if result.max_force_n == 0.0 and result.displacement_mm == 0.0:
         labels['대표 측정값'].setText('— (유효 검사 미완료)')
     else:
+        # 첫 줄은 힘·변위, 둘째 줄은 그리퍼 폭. 칸 높이는 .ui 에서 두 줄로 잡아 두었다
+        # (wordWrap 만으로는 레이아웃이 높이를 늘려 주지 않아 둘째 줄이 잘린다).
         measured = f'Pull Max {result.max_force_n:.1f} N  ·  변위 {result.displacement_mm:.1f} mm'
-        # Pull 전체에서 가장 좁았던 실측 폭. 이 값이 기준 미만이면 파지 실패(FAIL)다.
+        # 폭은 판정 노드가 보낸 값을 이름 그대로 보인다 (Soft 기준 폭을 Hard 폭으로 바꿔 부르지 않는다).
+        # Soft 기준 폭 = Pull 폭 변화의 기준, Pull 최소 폭 = 기준 미만이면 파지 실패(FAIL).
+        widths = []
+        if result.soft_width_mm > 0:
+            widths.append(f'Soft 기준 폭 {result.soft_width_mm:.1f} mm')
         if result.pull_width_mm > 0:
-            measured += f'  ·  Pull 최소 폭 {result.pull_width_mm:.1f} mm'
-            if result.grip_failure_width_mm > 0:
-                measured += f' (실패 기준 {result.grip_failure_width_mm:g} mm)'
+            limit = (f' (실패 기준 {result.grip_failure_width_mm:g} mm)'
+                     if result.grip_failure_width_mm > 0 else '')
+            widths.append(f'Pull 최소 폭 {result.pull_width_mm:.1f} mm{limit}')
         elif result.grip_width_hard_mm > 0:
-            # 옛 기록: Hard Grip 직후 실측 폭
-            measured += f'  ·  파지 폭(실측) {result.grip_width_hard_mm:.1f} mm'
+            widths.append(f'파지 폭(실측) {result.grip_width_hard_mm:.1f} mm')   # 옛 기록
+        if widths:
+            measured += '\n' + '  ·  '.join(widths)
         labels['대표 측정값'].setText(measured)
     term = result.termination_reason
     term_text = itf.TerminationReason.label(term)
@@ -225,24 +232,21 @@ class LookupDetailDialog(_UiDialog):
         self._badge.setStyleSheet(chip_style(category) + 'font-size: 18px;')
         self._point.setText(row.point_id)
         self._name.setText(row.point_name or '-')
-        cable_type = f' ({row.cable_type})' if row.cable_type else ''
-        self._cable.setText(f'{row.cable_id}{cable_type}' if row.in_db else '-')
+        self._cable.setText(row.cable_type or '-')   # cable_id 는 레시피·결과 어디에도 없다
 
         _fill_result(self._info, row.result)
-        if row.in_db:
-            _fill_criteria(self._criteria, row.max_displacement_mm, row.pull_force_limit_n,
-                           row.repeat_count, row.grip_width_mm, row.required_pull_force_n,
-                           row.result.width_delta_mm if row.result else None)
-        else:
-            for label in self._criteria.values():
-                label.setText('— (DB 에 없는 포인트)')
+        # 레시피 Point 는 지금 레시피 파일의 조건, 레시피에 없는 결과는 결과에 실려 온 조건이다.
+        # Pull 정지 상한은 기준 힘과 같은 값(force_limit_n)이라 따로 두지 않는다.
+        _fill_criteria(self._criteria, row.max_displacement_mm, 0.0, 0, row.grip_width_mm,
+                       row.required_pull_force_n,
+                       row.result.width_delta_mm if row.result else None,
+                       row.pull_max_distance_mm)
+        # 레시피의 위치는 Entry 자세(검사 위치)다.
+        _fill_pose(self._pose, row.task, row.joint, '— (좌표 없음)')
 
-        _fill_pose(self._pose, row.task if row.in_json else [], row.joint if row.in_json else [],
-                   f'— ({row.position})')
-
-        self._product.setText(row.product_id or '-')
+        self._product.setText((row.result.product_id if row.result else '') or '-')
         self._force_id.setText((row.result.force_data_id if row.result else '') or '-')
-        marks = [('DB', row.in_db), ('JSON', row.in_json)]
+        marks = [('레시피', row.in_recipe), ('검사 결과', row.result is not None)]
         self._source.setText('   '.join(f'{"●" if on else "○"} {name}' for name, on in marks))
         self._source.setStyleSheet(
-            f'color: {OK_COLOR if row.in_db and row.in_json else MUTED_COLOR};')
+            f'color: {OK_COLOR if row.in_recipe and row.result else MUTED_COLOR};')

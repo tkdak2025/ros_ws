@@ -13,9 +13,12 @@ dataclass 와 encode_*/decode_* 함수만 사용하고, 토픽 이름·메시지
 
 from dataclasses import asdict, dataclass, field, fields, is_dataclass
 import json
-from typing import Any, Dict, List
+import math
+from typing import Any, Dict, List, Optional
 
 from cable_interfaces.msg import InspectionResult as InspectionResultMsg
+from cable_interfaces.srv import StartInspection
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Empty, String
 
 # --------------------------------------------------------------------------
@@ -47,6 +50,74 @@ QOS_DEPTH = 50
 # status 가 이 시간(s) 이상 안 오면 HMI 는 'ROS2 통신 끊김' 으로 표시한다.
 STATUS_TIMEOUT_SEC = 1.5
 HEARTBEAT_PERIOD_SEC = 0.5
+
+# --------------------------------------------------------------------------
+# 상태 분리 계약 (2026-09-23, 검사 PC 문서 'HMI 로봇상태 / 작업상태 분리 인터페이스')
+#
+# 검사 시퀀스(Main)는 위의 status 를 더 이상 보내지 않고 둘로 나눠 보낸다.
+#   robot_status : 로봇 상태 전용 노드. 실시간 장비 값. 늘 10 Hz.
+#   work_status  : Main. 실행 상태·진행·검사 조건·Pull 측정값.
+#                  작업 중 10 Hz, 대기 중에는 바뀔 때와 SYNC 를 받았을 때만 보낸다.
+# HMI 는 둘을 합쳐 SystemStatus 하나로 그린다 (merge_split_status). mock 과 robot_monitor_node 는
+# 예전 status 하나를 그대로 보내므로 둘 다 받는다.
+# --------------------------------------------------------------------------
+TOPIC_ROBOT_STATUS = 'cable_inspection/robot_status'
+TOPIC_WORK_STATUS = 'cable_inspection/work_status'
+ROBOT_STATUS_MSG_TYPE = String
+WORK_STATUS_MSG_TYPE = String
+ROBOT_STATUS_QOS_DEPTH = 10
+# work_status 는 TRANSIENT_LOCAL 로 받는다 - HMI 를 늦게 켜도 Main 의 마지막 상태를 바로 받는다.
+WORK_STATUS_QOS = QoSProfile(depth=1, history=HistoryPolicy.KEEP_LAST,
+                             reliability=ReliabilityPolicy.RELIABLE,
+                             durability=DurabilityPolicy.TRANSIENT_LOCAL)
+# robot_status 가 이보다 오래 안 오면 장비 값을 모두 버린다(문서: 데이터 만료 2 s).
+ROBOT_STATUS_STALE_SEC = 2.0
+# 대기 중 Main 은 조용하므로 HMI 가 SYNC 를 보내 살아 있는지 확인한다(검사 PC 콘솔과 같은 1 s).
+WORK_SYNC_PERIOD_SEC = 1.0
+# SYNC 응답을 두 번 넘게 놓치면 Main 과 끊긴 것으로 본다.
+WORK_STATUS_STALE_SEC = 3.0
+
+# --------------------------------------------------------------------------
+# 검사 시작 서비스 (2026-09-23, PR #9 cable_inspection)
+#
+# hmi 모드의 Main 은 JSON START 를 거절하고, 이 서비스로 검사 레시피 전체를 받는다.
+# 레시피 원본은 HMI 쪽이 갖고 있다 (inspection_recipe.py 가 JSON 을 읽어 메시지로 만든다).
+# accepted 는 '접수' 일 뿐이다. 실제 진행과 결과는 work_status / log / judgment_result 로 본다.
+# --------------------------------------------------------------------------
+SERVICE_START = 'cable_inspection/start'
+START_SRV_TYPE = StartInspection
+# 응답이 이보다 늦으면 경고만 한다. 자동으로 다시 보내지 않는다(문서 3장).
+START_TIMEOUT_SEC = 5.0
+# inspection_recipe_dir 파라미터가 비었을 때 읽는 곳: 같은 저장소의 검사 레시피 폴더.
+DEFAULT_INSPECTION_RECIPE_DIR = '~/ros_ws/src/cable_inspection/cable_inspection/recipe/inspection'
+
+
+# 파지 실패 기준(확정 사양, 2026-09-22 PR #8): Pull 중 실측 폭이 이보다 작으면 FAIL_GRIP_WIDTH.
+# 판정 노드가 고정값으로 쓰고 레시피·상태에는 실려 오지 않아 HMI 도 같은 값을 둔다(표시용).
+GRIP_FAILURE_WIDTH_MM = 16.0
+
+
+class StartCode:
+    """StartInspection 응답의 code (cable_inspection/sequence/main_node.py)."""
+
+    ACCEPTED = 'ACCEPTED'
+    ALREADY_ACCEPTED = 'ALREADY_ACCEPTED'
+    LABELS = {
+        ACCEPTED: '접수',
+        ALREADY_ACCEPTED: '이미 접수한 요청',
+        'INVALID_REQUEST_ID': '요청 ID 오류',
+        'INVALID_RECIPE': '레시피 오류',
+        'REQUEST_ID_CONFLICT': '같은 요청 ID 에 다른 레시피',
+        'CONTROL_MODE_MISMATCH': '검사 PC 가 HMI 모드가 아님',
+        'HEARTBEAT_MISSING': 'HMI Heartbeat 미수신',
+        'BUSY': '진행 중인 작업 있음',
+        'NOT_READY': '시작 가능 상태(SYSTEM_READY) 아님',
+        'NO_ENABLED_POINTS': '활성 검사포인트 없음',
+    }
+
+    @classmethod
+    def label(cls, code: str) -> str:
+        return cls.LABELS.get(code, code)
 
 
 class State:
@@ -316,6 +387,54 @@ class SequenceStatus:
         return SequenceStatus.LABELS.get(code, '')
 
 
+class Step:
+    """
+    현재 단계(work_status.current_step)의 화면 이름. 값은 검사 PC 가 보낸 코드 그대로다.
+
+    Main 은 '방금 끝낸 완료점' 이름을 보낸다(cable_inspection main_node.checkpoint).
+    예: HARD_GRIP_DONE 이면 파지를 마치고 Pull 을 하는 중이다. 표에 없는 코드는 그대로 보인다.
+    """
+
+    LABELS = {
+        'WORK_INITIALIZE': '작업 초기화',
+        'INITIALIZE_DONE': '초기화 완료',
+        'HOME_REACHED': 'Home 도착',
+        'WORK_ACCESS_REACHED': '작업 진입 위치 도착',
+        'POINT_START': 'Point 시작',
+        'READY_REACHED': '준비 위치 도착',
+        'ENTRY_REACHED': '진입 완료',
+        'HARD_GRIP_DONE': '파지 완료',
+        'POINT_READY_RETURNED': '준비 위치 복귀',
+        'WORK_ACCESS_FINISH': '작업 진입 위치 복귀',
+        'WORK_FINISH': '작업 종료 확인',
+        'WORK_FINISH_WAIT': '판정 대기',
+        'WORK_FINISH_RETRY': '종료 재확인',
+    }
+
+    @classmethod
+    def label(cls, code: str) -> str:
+        return cls.LABELS.get(code, code)
+
+
+class ControlMode:
+    """
+    status.control_mode - 어떤 노드가 status 를 보내는가, 그 노드가 HMI 명령을 받는가.
+
+    검사 시퀀스(Main)만 이 값을 채운다. 비어 있으면 모니터·mock 노드다.
+    Main 은 STOP / START / PAUSE / RESUME / Home / SELECT_RECIPE / SYNC 만 받고
+    MOVE_TO_POINT, SET_SPEED, ESTOP, ESTOP_RESET 은 받지 않는다.
+    """
+
+    NONE = ''              # 모니터·mock 노드 (모든 명령을 받는다)
+    HMI = 'hmi'            # Main, HMI 명령을 받는다
+    TERMINAL = 'terminal'  # Main, 터미널 콘솔로 운전 중 - HMI 명령은 버린다
+
+    @staticmethod
+    def is_main(mode: str) -> bool:
+        """검사 시퀀스(Main)가 보낸 상태인가."""
+        return mode in (ControlMode.HMI, ControlMode.TERMINAL)
+
+
 class ProductResult:
     """
     제품 단위 최종 판정. 판정 미완료가 남으면 PASS 가 될 수 없다.
@@ -360,6 +479,11 @@ class CommandName:
     START = 'START'                  # args: recipe_id
     PAUSE = 'PAUSE'
     RESUME = 'RESUME'
+    # 작업 정지. 빨간 버튼이 보낸다. 검사 시퀀스(Main)는 Job 을 끝내고 Context 를 버린다 -
+    # 자동 Home 은 없고, Home 이동으로 복구한 뒤 새로 START 한다 (#00 8장).
+    # 하드웨어 비상정지가 아니다. 물리 비상정지 스위치와 TP 가 최종 권한이다.
+    STOP = 'STOP'
+    # 옛 명령. 모니터·mock 노드는 아직 받지만 검사 시퀀스(Main)는 받지 않는다 (2026-09-23).
     ESTOP = 'ESTOP'
     ESTOP_RESET = 'ESTOP_RESET'
     MOVE_HOME = 'MOVE_HOME'
@@ -377,7 +501,7 @@ class ToolInfo:
     name: str = ''
     weight_kg: float = 0.0
     tcp: str = ''
-    force_zero_done: bool = False
+    force_zero_done: Optional[bool] = False   # None = 알 수 없음 (상태 분리 계약은 보내지 않는다)
 
 
 @dataclass
@@ -416,6 +540,10 @@ class SystemStatus:
     criteria: Criteria = field(default_factory=Criteria)
 
     available_recipes: List[str] = field(default_factory=list)
+    # 검사 시퀀스(Main)만 보내는 값 (2026-09-23 HMI_ROS2_연동 5장). 모니터·mock 노드는 비워 둔다.
+    control_mode: str = ''          # ControlMode. 'hmi' 여야 Main 이 HMI 명령을 받는다
+    control_connected: bool = False  # Main 이 HMI heartbeat 를 받고 있는가
+    selected_recipe_id: str = ''     # Main 에서 현재 선택된 Recipe
     run_id: int = 0
     recipe_id: str = ''
     recipe_version: str = ''
@@ -439,6 +567,11 @@ class SystemStatus:
     servo: str = Servo.NONE                # 서보 전원 ON / OFF
     displacement_mm: float = 0.0
     progress_percent: int = 0
+    # 아래는 상태 분리 계약에서 합친 값일 때만 쓴다 (merge_split_status).
+    # 합친 값에서는 모르는 수치를 0.0 이 아니라 None 으로 둔다 - 화면은 '—' 로 그린다.
+    raw_force_n: Optional[float] = None   # robot_status.force_norm_n. 원시 힘 크기, Pull 정지 기준이 아님
+    split_contract: bool = False          # robot_status + work_status 를 합친 값인가
+    work_fresh: bool = True               # 작업상태(Main)가 최근에 왔는가. 예전 status 는 늘 True
 
 
 @dataclass
@@ -537,6 +670,18 @@ class Command:
     args: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class StartAnswer:
+    """검사 시작 서비스의 응답. 서비스 호출 자체가 실패하면 error 에 이유가 들어간다."""
+
+    request_id: str = ''
+    accepted: bool = False
+    code: str = ''               # StartCode
+    message: str = ''
+    run_id: int = 0
+    error: str = ''
+
+
 def _from_dict(cls, data: Dict[str, Any]):
     """모르는 키는 버리고 빠진 키는 기본값으로 두어 dataclass 를 만든다."""
     if not isinstance(data, dict):
@@ -569,6 +714,67 @@ def encode_status(status: SystemStatus) -> String:
 def decode_status(msg: String) -> SystemStatus:
     """ROS 메시지 -> SystemStatus. 형식이 틀리면 ValueError."""
     return _decode(SystemStatus, msg)
+
+
+def decode_json_object(msg: String) -> Dict[str, Any]:
+    """robot_status / work_status 의 JSON 객체. 형식이 틀리면 ValueError."""
+    data = json.loads(msg.data)
+    if not isinstance(data, dict):
+        raise ValueError('JSON object 가 아님')
+    return data
+
+
+def _number(value) -> Optional[float]:
+    """유한한 숫자면 float, 아니면(null, 문자열, NaN) None. 0.0 으로 바꾸지 않는다."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if math.isfinite(value) else None
+
+
+def _pose(value) -> List[float]:
+    """좌표 6개면 list, 아니면(null, 개수 틀림) 빈 list - 화면은 빈 list 를 '—' 로 그린다."""
+    if not isinstance(value, list) or len(value) != 6:
+        return []
+    numbers = [_number(v) for v in value]
+    return [] if None in numbers else numbers
+
+
+def merge_split_status(robot: Optional[Dict[str, Any]], work: Optional[Dict[str, Any]],
+                       robot_fresh: bool, work_fresh: bool) -> SystemStatus:
+    """
+    robot_status 와 work_status 를 화면이 그리는 SystemStatus 하나로 합친다.
+
+    - 실행 상태·진행·레시피·검사 조건은 work_status, 장비 값은 robot_status 에서 온다.
+    - 모르는 수치는 None, 모르는 좌표는 [] 로 둔다(문서: null 을 0 으로 바꾸지 않는다).
+    - robot_fresh=False 면 robot_status 가 끊긴 것이다 - 장비 값을 모두 버리고 연결 끊김으로 둔다.
+    - 현재 힘·변위는 work_status.measurement 가 valid 일 때만 쓴다. 그 값이 Pull 을 멈출지
+      비교하는 힘이다. robot_status.force_norm_n 은 원시 힘이라 raw_force_n 에 따로 둔다.
+    - work 가 아직 없으면 상태를 모른다. work_fresh=False 이므로 화면은 연결 전으로 그린다.
+    """
+    status = _from_dict(SystemStatus, work) if work else SystemStatus()
+    status.split_contract = True
+    status.work_fresh = work_fresh
+
+    measurement = work.get('measurement') if work else None
+    valid = isinstance(measurement, dict) and measurement.get('valid') is True
+    status.force_n = _number(measurement.get('pull_force_n')) if valid else None
+    status.displacement_mm = _number(measurement.get('pull_displacement_mm')) if valid else None
+
+    r = robot if (robot and robot_fresh) else {}
+    status.robot_connected = r.get('robot_connected') is True
+    status.gripper_connected = r.get('gripper_connected') is True
+    status.task = _pose(r.get('task'))
+    status.joint = _pose(r.get('joint'))
+    status.gripper_width_mm = _number(r.get('gripper_width_mm'))
+    status.raw_force_n = _number(r.get('force_norm_n'))
+    status.robot_motion = str(r.get('robot_motion') or '')
+    status.servo = str(r.get('servo') or '')
+    tool = r.get('tool') if isinstance(r.get('tool'), dict) else {}
+    name, tcp = str(tool.get('name') or ''), str(tool.get('tcp') or '')
+    # 무게와 Force Zero 는 이 계약이 보내지 않는다 - 모름으로 둔다.
+    status.tool = ToolInfo(configured=bool(name and tcp), name=name, tcp=tcp,
+                           weight_kg=0.0, force_zero_done=None)
+    return status
 
 
 # 결과만 팀 공용 메시지(cable_interfaces/msg/InspectionResult)를 쓴다. 이름이 같은 필드만

@@ -457,7 +457,7 @@ class ProgressReporter:
         except (ValueError, TypeError):
             return
         run_state = self._state.run_state
-        if cmd.name == itf.CommandName.ESTOP:
+        if cmd.name in (itf.CommandName.STOP, itf.CommandName.ESTOP):
             self._stop.set()
         elif cmd.name in (itf.CommandName.START, itf.CommandName.MOVE_TO_POINT,
                           itf.CommandName.MOVE_HOME):

@@ -208,6 +208,7 @@ class MockInspectionNode(Node):
             Cmd.START: self._cmd_start,
             Cmd.PAUSE: self._cmd_pause,
             Cmd.RESUME: self._cmd_resume,
+            Cmd.STOP: self._cmd_estop,
             Cmd.ESTOP: self._cmd_estop,
             Cmd.ESTOP_RESET: self._cmd_estop_reset,
             Cmd.MOVE_HOME: self._cmd_move_home,

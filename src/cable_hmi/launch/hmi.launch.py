@@ -38,6 +38,11 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'recipe_dir',
             default_value=os.path.expanduser('~/ros_ws/recipe_prototype/recipe/examples')),
+        # 검사 PC(Main, hmi 모드)에 검사 시작 서비스로 보낼 레시피 v0.1 폴더. 비우면 저장소의
+        # cable_inspection/recipe/inspection 을 읽는다 (interface.DEFAULT_INSPECTION_RECIPE_DIR).
+        DeclareLaunchArgument('inspection_recipe_dir', default_value=''),
+        DeclareLaunchArgument('tool_weight_kg', default_value='1.47',
+                              description='TP 에 등록한 Tool 무게 (화면 표시용)'),
         Node(
             package='cable_hmi', executable='mock_inspection_node', namespace=namespace,
             output='screen', condition=IfCondition(mock),
@@ -53,5 +58,9 @@ def generate_launch_description():
                  'recipe_db': ParameterValue(recipe_db, value_type=str),
                  'recipe_dir': ParameterValue(
                      LaunchConfiguration('recipe_dir'), value_type=str),
+                 'inspection_recipe_dir': ParameterValue(
+                     LaunchConfiguration('inspection_recipe_dir'), value_type=str),
+                 'tool_weight_kg': ParameterValue(
+                     LaunchConfiguration('tool_weight_kg'), value_type=str),
              }]),
     ])

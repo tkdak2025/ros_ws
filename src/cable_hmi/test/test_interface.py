@@ -91,3 +91,72 @@ def test_grip_width_failure_is_fail():
     assert itf.ReasonCode.result_of(itf.ReasonCode.FAIL_GRIP_WIDTH) == 'FAIL'
     assert itf.ReasonCode.LABELS[itf.ReasonCode.FAIL_GRIP_WIDTH]
     assert itf.TerminationReason.label('INVALID_DATA') == '잘못된 판정 요청'
+
+
+def test_status_keeps_main_sequence_fields():
+    """검사 시퀀스(Main)가 보내는 제어 모드 필드를 버리지 않는다 (HMI_ROS2_연동 5장)."""
+    msg = String(data='{"state": "IDLE", "run_state": "SYSTEM_READY", "control_mode": "hmi", '
+                      '"control_connected": true, "selected_recipe_id": "rcp_BMW_LWR_01", '
+                      '"job_summary": {}}')
+    status = itf.decode_status(msg)
+    assert status.control_mode == itf.ControlMode.HMI
+    assert status.control_connected is True
+    assert status.selected_recipe_id == 'rcp_BMW_LWR_01'
+
+
+def test_control_mode_tells_main_from_monitor():
+    assert itf.ControlMode.is_main(itf.ControlMode.HMI)
+    assert itf.ControlMode.is_main(itf.ControlMode.TERMINAL)
+    assert not itf.ControlMode.is_main(itf.ControlMode.NONE)      # 모니터·mock 노드
+    assert itf.CommandName.STOP == 'STOP'
+
+
+# ------------------------------------------------ 상태 분리 계약 (robot_status + work_status)
+ROBOT = {'robot_connected': True, 'gripper_connected': True,
+         'task': [548.1, 183.7, 319.9, 0.0, 180.0, 0.0],
+         'joint': [17.9, 42.6, 12.4, -180.0, -125.0, -162.1],
+         'force_norm_n': 4.4, 'gripper_width_mm': 26.2, 'robot_motion': 'STANDBY', 'servo': 'ON',
+         'tool': {'name': 'ToolWeight', 'tcp': 'GripperDA_v1'}}
+WORK = {'state': 'RUNNING', 'run_state': 'RUNNING', 'control_mode': 'hmi', 'run_id': 7,
+        'available_recipes': ['rcp_BMW_LWR_01'], 'current_point': 'HARNESS_02',
+        'criteria': {'required_pull_force_n': 15.0, 'max_displacement_mm': 5.0},
+        'measurement': {'valid': True, 'pull_force_n': 11.2, 'pull_displacement_mm': 2.1}}
+
+
+def test_merge_takes_work_fields_and_robot_values():
+    s = itf.merge_split_status(ROBOT, WORK, robot_fresh=True, work_fresh=True)
+    assert (s.state, s.run_id, s.current_point) == ('RUNNING', 7, 'HARNESS_02')
+    assert s.criteria.required_pull_force_n == 15.0
+    assert (s.force_n, s.displacement_mm) == (11.2, 2.1)    # Pull 정지 기준 힘 = measurement
+    assert s.raw_force_n == 4.4                              # 원시 힘은 따로
+    assert s.task[0] == 548.1 and len(s.joint) == 6
+    assert (s.gripper_width_mm, s.robot_motion, s.servo) == (26.2, 'STANDBY', 'ON')
+    assert s.tool.configured and s.tool.force_zero_done is None
+    assert s.split_contract and s.work_fresh
+
+
+def test_merge_keeps_unknown_as_none_not_zero():
+    """문서: null·만료 값을 0 으로 바꾸지 않는다."""
+    robot = dict(ROBOT, task=None, gripper_width_mm=None, force_norm_n=float('nan'))
+    work = dict(WORK, measurement={'valid': False, 'pull_force_n': 11.2})
+    s = itf.merge_split_status(robot, work, robot_fresh=True, work_fresh=True)
+    assert s.task == [] and s.gripper_width_mm is None and s.raw_force_n is None
+    assert s.force_n is None and s.displacement_mm is None   # valid=false 면 버린다
+
+
+def test_merge_expires_stale_robot_status():
+    s = itf.merge_split_status(ROBOT, WORK, robot_fresh=False, work_fresh=True)
+    assert not s.robot_connected and not s.gripper_connected
+    assert s.task == [] and s.gripper_width_mm is None
+    assert s.state == 'RUNNING'                              # 작업상태는 그대로
+
+
+def test_merge_without_work_is_not_linked():
+    """작업상태를 아직 못 받았으면 화면은 연결 전으로 그린다(검사 시작을 열지 않는다)."""
+    s = itf.merge_split_status(ROBOT, None, robot_fresh=True, work_fresh=False)
+    assert not s.work_fresh and s.robot_connected
+
+
+def test_old_status_is_not_split():
+    s = itf.decode_status(String(data='{"state": "MONITOR", "force_n": 3.0}'))
+    assert not s.split_contract and s.work_fresh and s.force_n == 3.0

@@ -1,18 +1,21 @@
 """
-'통합 조회' 탭: 레시피 DB 와 레시피 JSON 의 내용을 한 표에서 검색한다.
+'통합 조회' 탭: 검사 레시피(v0.1 JSON)의 Point 와 DB 에 저장된 검사 결과를 한 표에서 검색한다.
 
-이 탭은 검사 결과가 아니라 '지금 DB·파일에 들어 있는 내용' 을 보여 준다. 그래서 HMI 의
-다른 부분과 달리 DB 를 직접 읽는다. 대신 다음을 지킨다.
+이 탭은 '지금 레시피 파일과 결과 DB 에 들어 있는 내용' 을 보여 준다. 그래서 HMI 의
+다른 부분과 달리 파일·DB 를 직접 읽는다. 대신 다음을 지킨다.
   - 읽기 전용이다. 값을 고치는 기능은 없다.
   - 조회는 별도 스레드에서 한다. DB 가 잠겨 있어도 화면과 STOP 버튼이 멈추지 않는다.
-  - 검사에 쓰는 기준은 여전히 노드가 보낸 값(status / result)이다. 이 탭의 값은 검사에
-    아무 영향을 주지 않는다.
+  - 검사에 쓰는 기준은 여전히 검사 시작 때 보낸 레시피와 노드가 보낸 값이다. 이 탭의 값은
+    검사에 아무 영향을 주지 않는다.
 
-포인트 1개가 1행이다. DB(케이블·판정 기준)와 JSON(위치)을 recipe_id + point_id 로 맞춰
-한쪽에만 있는 포인트와 티칭 안 된 포인트를 색으로 표시한다. 같은 DB 에 저장된 검사 결과
-(result_db.py, result_recorder_node 가 씀)에서 포인트별 가장 최근 결과와 검사 시간도 함께 보여 준다.
-표에는 '현재 검사 결과' 표와 같은 열만 둔다(검사 시간 / Point / 케이블 / 종류 / 결과 / 상세).
+포인트 1개가 1행이다. 레시피는 검사 시작에 쓰는 것과 같은 폴더(inspection_recipe_dir)에서 읽고,
+결과 DB(result_db.py, result_recorder_node 가 씀)에서 포인트별 가장 최근 결과를 recipe_id +
+point_id 로 붙인다. 레시피에 없는 결과(레시피를 지우거나 이름을 바꾼 경우)도 버리지 않고 따로 보여 준다.
+표에는 '현재 검사 결과' 표와 같은 열만 둔다(검사 시간 / Point / 종류 / 결과 / 상세).
 판정 기준, 좌표 같은 나머지는 행을 누르면 뜨는 상세 팝업에 있다.
+
+2026-09-23 이전에는 레시피 DB 뷰(v_recipe_point)와 프로토타입 JSON 을 읽었다. 새 레시피가
+v0.1 JSON 으로 바뀌어 그 둘은 이 탭에서 더 읽지 않는다.
 
 '결과 파일 저장' 은 DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db + .csv)로 내보낸다.
 '검사' 탭의 같은 이름 버튼이 이번 검사 1회분만 담는 것과 다르다. 화면 필터는 적용하지 않고,
@@ -31,23 +34,17 @@ from PyQt5.QtWidgets import (
     QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
+from . import inspection_recipe
 from . import interface as itf
-from . import recipe_catalog
-from . import recipe_db
 from . import result_db
 from .detail_dialog import LookupDetailDialog
 from .style import RESULT_COLORS
 
 ALL_RECIPES = '전체'
 
-POSITION_TAUGHT = '티칭됨'
-POSITION_UNTAUGHT = '미티칭'          # JSON 좌표가 전부 0 (자리표시자)
-POSITION_NONE = '위치 없음'           # 레시피 JSON 에 이 포인트가 없음
-POSITION_UNKNOWN = '—'                # 레시피 폴더를 읽지 못함
-
 # '현재 검사 결과' 표(main_window.RESULT_HEADERS)와 같은 열 + 맨 앞의 Recipe.
-# 나머지 정보(판정 기준, 좌표, 위치 상태 ...)는 상세 팝업에 있다.
-COLUMNS = ('Recipe', '검사 시간', 'Point', '케이블', '종류', '결과', '상세')
+# 나머지 정보(판정 기준, 좌표 ...)는 상세 팝업에 있다.
+COLUMNS = ('Recipe', '검사 시간', 'Point', '종류', '결과', '상세')
 COLUMN_TIPS = {'검사 시간': 'DB 에 저장된 가장 최근 검사의 시각 (월-일 시:분)',
                '결과': 'DB 에 저장된 가장 최근 검사 결과', '상세': '누르면 상세 팝업'}
 FIXED_WIDTHS = {'Recipe': 150, '검사 시간': 110, '종류': 90, '결과': 180, '상세': 50}
@@ -61,128 +58,106 @@ class LookupRow:
     recipe_id: str
     point_id: str
     recipe_version: str = ''
-    product_id: str = ''
     point_name: str = ''
-    cable_id: str = ''
-    cable_type: str = ''
+    cable_type: str = ''        # 레시피의 connector_type (결과의 cable_type 과 같은 값)
+    enabled: bool = True        # False 면 검사 때 건너뛰는 Point
+    # 검사 조건. 레시피 Point 는 pull_setting / grip_setting 에서, 레시피에 없는 결과는 결과에서.
     max_displacement_mm: float = 0.0
-    pull_force_limit_n: float = 0.0
-    repeat_count: int = 0
     required_pull_force_n: float = 0.0
-    grip_width_mm: float = 0.0
-    in_db: bool = True
-    position: str = POSITION_UNKNOWN
-    in_json: bool = False
-    task: List[float] = field(default_factory=list)     # [mm x3, deg x3] (BASE, ZYZ)
-    joint: List[float] = field(default_factory=list)    # [deg x6]
+    pull_max_distance_mm: float = 0.0
+    grip_width_mm: float = 0.0  # grip_setting.hard_width_mm (지시 폭)
+    in_recipe: bool = True      # False = 결과만 있고 지금 레시피 파일에는 없는 Point
+    task: List[float] = field(default_factory=list)     # entry_pose [mm x3, deg x3] (BASE, ZYZ)
+    joint: List[float] = field(default_factory=list)    # entry_pose [deg x6]
     result: Optional[itf.PointResult] = None            # DB 에 저장된 가장 최근 검사 결과
 
-    @property
-    def taught(self) -> bool:
-        """레시피 JSON 에 실제로 티칭된 좌표가 있는가."""
-        return self.position == POSITION_TAUGHT
-
     def flag(self) -> Tuple[str, str]:
-        """눈에 띄게 표시할 문제: (색 부류 'FAIL'/'MISSING'/'', 설명)."""
-        if not self.in_db:
-            return 'FAIL', 'DB 에 없는 포인트 (레시피 JSON 에만 있음)'
-        if self.position in (POSITION_UNTAUGHT, POSITION_NONE):
-            return 'MISSING', f'위치: {self.position}'
+        """눈에 띄게 표시할 것: (행 색 부류 'INCOMPLETE'/'', 설명)."""
+        if not self.in_recipe:
+            return 'INCOMPLETE', '레시피에 없는 Point (결과만 남아 있음)'
+        if not self.enabled:
+            return 'INCOMPLETE', '검사 제외 (enabled=false)'
         return '', ''
 
     @property
     def badge(self) -> Tuple[str, str]:
         """상세 팝업의 배지: (문구, 색 부류)."""
-        category, _note = self.flag()
-        if not self.in_db:
-            return 'DB 없음', category
-        return self.position, category or ('PASS' if self.taught else '')
+        if not self.in_recipe:
+            return '레시피 없음', 'INCOMPLETE'
+        if not self.enabled:
+            return '검사 제외', 'INCOMPLETE'
+        if self.result is None:
+            return '검사 전', ''
+        category = itf.ResultCode.category(self.result.result)
+        return self.result.result, category
 
     def matches(self, recipe_id: str, text: str) -> bool:
         """Recipe 필터와 검색어(대소문자 무시, 부분 일치)에 맞는가."""
         if recipe_id != ALL_RECIPES and self.recipe_id != recipe_id:
             return False
         words = text.lower().split()
-        haystack = ' '.join((self.recipe_id, self.point_id, self.point_name, self.cable_id,
-                             self.cable_type, self.product_id, self.position,
+        haystack = ' '.join((self.recipe_id, self.point_id, self.point_name, self.cable_type,
                              self.result.result if self.result else '')).lower()
         return all(word in haystack for word in words)
 
 
+def _recipe_rows(info: inspection_recipe.RecipeFile) -> List[LookupRow]:
+    """레시피 파일 1개의 Point 들 (실행 순서대로)."""
+    data = info.data
+    rows = []
+    for point_id in data['execution_order']:
+        p = data['points'][point_id]
+        pull, grip, entry = p['pull_setting'], p['grip_setting'], p['entry_pose']
+        rows.append(LookupRow(
+            info.recipe_id, point_id, info.recipe_version, p.get('point_name', ''),
+            data['connector_type'], p['enabled'],
+            max_displacement_mm=pull['normal_displacement_limit_mm'],
+            # Main 과 같은 뜻: force_limit_n 에 도달하면 멈추고 그 힘이 합격 기준이다.
+            required_pull_force_n=pull['force_limit_n'],
+            pull_max_distance_mm=pull['max_distance_mm'],
+            grip_width_mm=grip['hard_width_mm'],
+            task=list(entry['task']), joint=list(entry['joint'])))
+    return rows
+
+
+def _orphan_row(result: itf.PointResult) -> LookupRow:
+    """레시피에 없는 결과 1건. 조건과 위치는 결과에 실려 온 값을 쓴다."""
+    return LookupRow(
+        result.recipe_id, result.point_id, result.recipe_version, result.point_name,
+        result.cable_type, max_displacement_mm=result.displacement_limit_mm,
+        required_pull_force_n=result.required_pull_force_n,
+        pull_max_distance_mm=result.pull_max_distance_mm, grip_width_mm=result.grip_width_mm,
+        in_recipe=False, task=list(result.task), joint=list(result.joint), result=result)
+
+
 def load_rows(db_path: str, recipe_dir: str) -> Tuple[List[LookupRow], List[str]]:
     """
-    DB(레시피 + 검사 결과)와 레시피 폴더를 읽어 (행 목록, 알림 목록) 을 돌려준다.
+    레시피 폴더와 결과 DB 를 읽어 (행 목록, 알림 목록) 을 돌려준다.
 
     Qt 와 무관한 순수 함수다(백그라운드 스레드에서 부른다). 한쪽을 못 읽어도 다른 쪽은 보여 준다.
     """
     notes: List[str] = []
     rows: List[LookupRow] = []
 
-    json_recipes = {}
     if recipe_dir:
-        json_recipes, problems = recipe_catalog.scan(recipe_dir)
+        recipes, problems = inspection_recipe.scan(recipe_dir)
         notes += [f'레시피 파일: {p}' for p in problems]
+        for info in recipes.values():
+            rows += _recipe_rows(info)
     else:
-        notes.append('레시피 폴더가 지정되지 않음 - 위치 대조 생략')
+        notes.append('레시피 폴더가 지정되지 않음')
 
-    def json_point(recipe_id, point_id):
-        info = json_recipes.get(recipe_id)
-        return next((p for p in info.points if p.point_id == point_id), None) if info else None
-
-    def position_of(recipe_id, point_id):
-        if not recipe_dir:
-            return POSITION_UNKNOWN
-        point = json_point(recipe_id, point_id)
-        if point is None:
-            return POSITION_NONE
-        return POSITION_TAUGHT if point.taught else POSITION_UNTAUGHT
-
-    def name_of(recipe_id, point_id, db_name):
-        # 포인트 이름은 DB 와 JSON 어느 쪽에 있어도 된다. DB 에 없으면 JSON 의 이름을 쓴다.
-        point = json_point(recipe_id, point_id)
-        return db_name or (point.point_name if point else '')
-
-    db_points = set()
-    if db_path:
-        try:
-            db = recipe_db.RecipeDb(db_path)
-            for recipe_id in db.list_recipes():
-                info = db.load_recipe(recipe_id)
-                for p in info.points.values():
-                    db_points.add((recipe_id, p.point_id))
-                    point = json_point(recipe_id, p.point_id)
-                    rows.append(LookupRow(
-                        recipe_id, p.point_id, info.recipe_version, info.product_id,
-                        name_of(recipe_id, p.point_id, p.point_name),
-                        p.cable_id, p.cable_type, p.max_displacement_mm,
-                        p.pull_force_limit_n, p.repeat_count, p.grip_width_mm,
-                        required_pull_force_n=p.required_pull_force_n,
-                        in_db=True, position=position_of(recipe_id, p.point_id),
-                        in_json=point is not None,
-                        task=list(point.task) if point else [],
-                        joint=list(point.joint) if point else []))
-        except recipe_db.RecipeDbError as e:
-            notes.append(f'DB: {e}')
-    else:
+    if not db_path:
         notes.append('DB 경로가 지정되지 않음 (launch 인자 recipe_db)')
-
-    # 레시피 JSON 에는 있는데 DB 에 없는 포인트도 보여 준다.
-    for recipe_id, info in json_recipes.items():
-        for point in info.points:
-            if (recipe_id, point.point_id) not in db_points:
-                rows.append(LookupRow(
-                    recipe_id, point.point_id, info.recipe_version, point_name=point.point_name,
-                    in_db=False,
-                    position=POSITION_TAUGHT if point.taught else POSITION_UNTAUGHT,
-                    in_json=True, task=list(point.task), joint=list(point.joint)))
-
-    if db_path:                 # 검사 결과는 같은 DB 파일의 다른 테이블에 있다
-        try:
-            latest = result_db.ResultDb(db_path).latest_by_point()
-            for row in rows:
-                row.result = latest.get((row.recipe_id, row.point_id))
-        except result_db.ResultDbError as e:
-            notes.append(f'검사 결과: {e}')
+        return rows, notes
+    try:
+        latest = result_db.ResultDb(db_path).latest_by_point()
+    except result_db.ResultDbError as e:
+        notes.append(f'검사 결과: {e}')
+        return rows, notes
+    for row in rows:
+        row.result = latest.pop((row.recipe_id, row.point_id), None)
+    rows += [_orphan_row(result) for result in latest.values()]
     return rows, notes
 
 
@@ -251,7 +226,7 @@ class LookupTab(QWidget):
         self.recipe_filter.addItem(ALL_RECIPES)
         bar.addWidget(self.recipe_filter)
         self.search = QLineEdit(
-            placeholderText='검색: Point · 이름 · 케이블 · 종류 · 결과 (띄어 쓰면 모두 포함)')
+            placeholderText='검색: Point · 이름 · 종류 · 결과 (띄어 쓰면 모두 포함)')
         self.search.setClearButtonEnabled(True)
         bar.addWidget(self.search, 1)
         self.reload_btn = QPushButton('조회', objectName='lookupReloadBtn')
@@ -417,13 +392,11 @@ class LookupTab(QWidget):
         cells = (row.recipe_id,
                  result.stamp[5:16].replace('T', ' ') if result else dash,
                  row.point_id,
-                 (row.cable_id or dash) if row.in_db else 'DB 없음',
                  row.cable_type or dash,
                  result.result if result else dash,
                  '›')
         tip = ' · '.join(t for t in (f'{row.recipe_id} / {row.point_id} {row.point_name}'.strip(),
                                      f'버전 {row.recipe_version}' if row.recipe_version else '',
-                                     f'제품 {row.product_id}' if row.product_id else '',
                                      note) if t)
         for col, value in enumerate(cells):
             item = QTableWidgetItem()
@@ -455,16 +428,16 @@ class LookupTab(QWidget):
         self._detail.raise_()
 
     def _update_summary(self, shown):
-        missing = sum(1 for row in shown if not row.in_db)
-        untaught = sum(1 for row in shown if row.position in (POSITION_UNTAUGHT, POSITION_NONE))
-        parts = [f'현재 DB 내용 {len(shown)}건 / 전체 {len(self._rows)}건']
+        orphan = sum(1 for row in shown if not row.in_recipe)
+        disabled = sum(1 for row in shown if row.in_recipe and not row.enabled)
+        parts = [f'표시 {len(shown)}건 / 전체 {len(self._rows)}건']
         inspected = sum(1 for row in shown if row.result)
         if inspected:
             parts.append(f'검사 결과 있음 {inspected}건')
-        if missing:
-            parts.append(f'DB 에 없는 포인트 {missing}건')
-        if untaught:
-            parts.append(f'위치 미티칭·없음 {untaught}건')
+        if disabled:
+            parts.append(f'검사 제외 {disabled}건')
+        if orphan:
+            parts.append(f'레시피에 없는 결과 {orphan}건')
         parts.append(f'조회 {self._loaded_at}')
         parts += self._notes
         self.summary.setText('  ·  '.join(parts))

@@ -541,7 +541,7 @@ class RobotMonitorNode(Node):
             # 있으므로 다시 알려 준다.
             self._announce_recipes()
             return
-        if cmd.name == itf.CommandName.ESTOP:
+        if cmd.name in (itf.CommandName.STOP, itf.CommandName.ESTOP):
             self._stop_robot()
             return
         if cmd.name == itf.CommandName.SELECT_RECIPE:

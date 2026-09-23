@@ -201,26 +201,6 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
               </property>
              </widget>
             </item>
-            <item row="3" column="0">
-             <widget class="QLabel" name="toolForceZeroKey">
-              <property name="text">
-               <string>Force Zero</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>key</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="1">
-             <widget class="QLabel" name="toolForceZero">
-              <property name="text">
-               <string>—</string>
-              </property>
-              <property name="role" stdset="0">
-               <string>value</string>
-              </property>
-             </widget>
-            </item>
             <item row="1" column="1">
              <widget class="QLabel" name="toolWeight">
               <property name="text">
@@ -752,7 +732,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
             </size>
            </property>
            <property name="toolTip">
-            <string>비상정지 - 상태와 무관하게 항상 누를 수 있습니다</string>
+            <string>작업 정지(STOP) - 상태와 무관하게 항상 누를 수 있습니다. 하드웨어 비상정지가 아닙니다: 물리 비상정지 스위치와 TP 가 최종 권한입니다.</string>
            </property>
            <property name="text">
             <string>STOP</string>
@@ -767,7 +747,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
            <item>
             <widget class="QLabel" name="estopTitle">
              <property name="text">
-              <string>비상정지</string>
+              <string>작업 정지</string>
              </property>
              <property name="role" stdset="0">
               <string>groupTitle</string>
@@ -1179,167 +1159,6 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
               <number>0</number>
              </property>
              <item>
-              <widget class="QFrame" name="criteriaPanel">
-               <property name="role" stdset="0">
-                <string>subPanel</string>
-               </property>
-               <layout class="QVBoxLayout" name="layout29">
-                <property name="leftMargin">
-                 <number>12</number>
-                </property>
-                <property name="topMargin">
-                 <number>8</number>
-                </property>
-                <property name="rightMargin">
-                 <number>12</number>
-                </property>
-                <property name="bottomMargin">
-                 <number>8</number>
-                </property>
-                <item>
-                 <widget class="QLabel" name="criteriaPanelTitle">
-                  <property name="text">
-                   <string>검사 조건</string>
-                  </property>
-                  <property name="role" stdset="0">
-                   <string>groupTitle</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <layout class="QGridLayout" name="layout30" columnstretch="0,1">
-                  <property name="horizontalSpacing">
-                   <number>8</number>
-                  </property>
-                  <property name="verticalSpacing">
-                   <number>2</number>
-                  </property>
-                  <item row="0" column="0">
-                   <widget class="QLabel" name="critDisplacementKey">
-                    <property name="text">
-                     <string>허용 변위</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>key</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="0" column="1">
-                   <widget class="QLabel" name="critDisplacement">
-                    <property name="text">
-                     <string>—</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>value</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="1" column="0">
-                   <widget class="QLabel" name="critRequiredKey">
-                    <property name="text">
-                     <string>기준 Pull 힘</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>key</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="1" column="1">
-                   <widget class="QLabel" name="critRequired">
-                    <property name="text">
-                     <string>—</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>value</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="2" column="0">
-                   <widget class="QLabel" name="critForceKey">
-                    <property name="text">
-                     <string>Pull 정지 상한</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>key</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="2" column="1">
-                   <widget class="QLabel" name="critForce">
-                    <property name="text">
-                     <string>—</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>value</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="3" column="0">
-                   <widget class="QLabel" name="critMaxDistanceKey">
-                    <property name="text">
-                     <string>Pull 최대 거리</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>key</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="3" column="1">
-                   <widget class="QLabel" name="critMaxDistance">
-                    <property name="text">
-                     <string>—</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>value</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="4" column="0">
-                   <widget class="QLabel" name="critRepeatKey">
-                    <property name="text">
-                     <string>Push / Pull 반복</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>key</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="4" column="1">
-                   <widget class="QLabel" name="critRepeat">
-                    <property name="text">
-                     <string>—</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>value</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="5" column="0">
-                   <widget class="QLabel" name="critGripKey">
-                    <property name="text">
-                     <string>Grip 폭</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>key</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="5" column="1">
-                   <widget class="QLabel" name="critGrip">
-                    <property name="text">
-                     <string>—</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>value</string>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </item>
-               </layout>
-              </widget>
-             </item>
-             <item>
               <widget class="QFrame" name="pointPanel">
                <property name="role" stdset="0">
                 <string>subPanel</string>
@@ -1356,6 +1175,19 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                  </widget>
                 </item>
                 <item>
+                 <widget class="QLabel" name="pointRule">
+                  <property name="text">
+                   <string>—</string>
+                  </property>
+                  <property name="wordWrap">
+                   <bool>true</bool>
+                  </property>
+                  <property name="role" stdset="0">
+                   <string>key</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
                  <layout class="QGridLayout" name="layout9" columnstretch="0,1">
                   <property name="horizontalSpacing">
                    <number>8</number>
@@ -1364,46 +1196,6 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                    <number>7</number>
                   </property>
                   <item row="0" column="0">
-                   <widget class="QLabel" name="pointPositionKey">
-                    <property name="text">
-                     <string>현재 위치</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>key</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="0" column="1">
-                   <widget class="QLabel" name="pointPosition">
-                    <property name="text">
-                     <string>—</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>value</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="1" column="0">
-                   <widget class="QLabel" name="pointStepKey">
-                    <property name="text">
-                     <string>현재 단계</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>key</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="1" column="1">
-                   <widget class="QLabel" name="pointStep">
-                    <property name="text">
-                     <string>—</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>value</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="2" column="0">
                    <widget class="QLabel" name="pointSpeedKey">
                     <property name="text">
                      <string>속도 설정</string>
@@ -1413,7 +1205,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                     </property>
                    </widget>
                   </item>
-                  <item row="2" column="1">
+                  <item row="0" column="1">
                    <widget class="QLabel" name="pointSpeed">
                     <property name="text">
                      <string>—</string>
@@ -1423,7 +1215,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                     </property>
                    </widget>
                   </item>
-                  <item row="3" column="0">
+                  <item row="1" column="0">
                    <widget class="QLabel" name="pointGripperKey">
                     <property name="text">
                      <string>그리퍼 폭</string>
@@ -1433,7 +1225,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                     </property>
                    </widget>
                   </item>
-                  <item row="3" column="1">
+                  <item row="1" column="1">
                    <widget class="QLabel" name="pointGripper">
                     <property name="text">
                      <string>—</string>
@@ -1443,17 +1235,45 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                     </property>
                    </widget>
                   </item>
-                  <item row="4" column="0">
+            <item row="2" column="0" colspan="2">
+             <widget class="QProgressBar" name="gripGauge">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>7</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>7</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>그리퍼 실측 폭과 파지 실패 기준</string>
+              </property>
+              <property name="maximum">
+               <number>1000</number>
+              </property>
+              <property name="value">
+               <number>0</number>
+              </property>
+              <property name="textVisible">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+                  <item row="3" column="0">
                    <widget class="QLabel" name="pointForceKey">
                     <property name="text">
-                     <string>현재 힘 값</string>
+                     <string>힘</string>
                     </property>
                     <property name="role" stdset="0">
                      <string>key</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="4" column="1">
+                  <item row="3" column="1">
                    <widget class="QLabel" name="pointForce">
                     <property name="text">
                      <string>—</string>
@@ -1463,7 +1283,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                     </property>
                    </widget>
                   </item>
-            <item row="5" column="0" colspan="2">
+            <item row="4" column="0" colspan="2">
              <widget class="QProgressBar" name="forceGauge">
               <property name="minimumSize">
                <size>
@@ -1491,17 +1311,17 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
               </property>
              </widget>
             </item>
-                  <item row="6" column="0">
+                  <item row="5" column="0">
                    <widget class="QLabel" name="pointDisplacementKey">
                     <property name="text">
-                     <string>현재 변위</string>
+                     <string>변위</string>
                     </property>
                     <property name="role" stdset="0">
                      <string>key</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="6" column="1">
+                  <item row="5" column="1">
                    <widget class="QLabel" name="pointDisplacement">
                     <property name="text">
                      <string>—</string>
@@ -1511,7 +1331,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                     </property>
                    </widget>
                   </item>
-            <item row="7" column="0" colspan="2">
+            <item row="6" column="0" colspan="2">
              <widget class="QProgressBar" name="dispGauge">
               <property name="minimumSize">
                <size>
@@ -1539,7 +1359,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
               </property>
              </widget>
             </item>
-                  <item row="8" column="0">
+                  <item row="7" column="0">
                    <widget class="QLabel" name="pointJudgementKey">
                     <property name="text">
                      <string>현재 판정</string>
@@ -1549,7 +1369,7 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                     </property>
                    </widget>
                   </item>
-                  <item row="8" column="1">
+                  <item row="7" column="1">
                    <widget class="QLabel" name="pointJudgement">
                     <property name="text">
                      <string>—</string>
