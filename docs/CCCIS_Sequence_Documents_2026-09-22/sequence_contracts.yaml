@@ -3,6 +3,7 @@ scope:
   job_unit: one_recipe_execution
   scheduler: false
   external_triggers_via_hmi: true
+  start_transport: StartInspection_service_full_recipe
 
 states:
   system: [SYSTEM_READY, RUNNING, PAUSED, STOPPED, ERROR]
@@ -19,7 +20,7 @@ parameters:
   pull:
     max_distance_mm: 25.0
     timeout_sec: 10.0
-    speed_mm_s: TBD
+    speed_mm_s: recipe
     required_force_n:
       LAN: 15.0
       USB: 12.0
@@ -43,3 +44,17 @@ point_runtime_fields:
   - result
   - reason
   - log_saved
+
+# 2026-09-23 confirmed contracts
+home_return:
+  inside: [open_25mm_and_verify_idle, reverse_current_tool_z_30mm_target_verified, work_access, configured_home_route]
+  outside: [configured_home_route]
+  current_route: direct_zero_joint_home
+  home_joint_tolerance_deg: 0.1
+point_transition:
+  ready: movej
+  entry: movel_target_reached_required
+completion:
+  allowed_results: [PASS, FAIL]
+  judgment_status: COMPLETED
+  reject_system_error_or_incomplete: true

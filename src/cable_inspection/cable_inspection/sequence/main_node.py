@@ -7,6 +7,7 @@ ROS callback과 장비 Worker의 spin 분리는 유지한다.
 """
 
 import json
+import math
 import threading
 import time
 import rclpy
@@ -368,9 +369,10 @@ class SequenceController:
     def run(self, recipe_id, run_id=None):
         if self.state != SystemState.SYSTEM_READY or self.context is not None:
             return SequenceResult(False, "START_NOT_ALLOWED", "SYSTEM_READY에서만 시작할 수 있습니다.")
-        stream, previous_stream = self.prepare_job(run_id)
+        stream, previous_stream = None, self.backend.stream
         motion_started = False
         try:
+            stream, previous_stream = self.prepare_job(run_id)
             # #01 초기화 → #02 Home → 공통 진입 위치
             recipe = self.initialize_job(recipe_id)
             motion_started = True
@@ -382,16 +384,41 @@ class SequenceController:
 
             # #07 결과 완료 확인 → #02 Home → 다음 START 대기
             self.move_work_access("WORK_ACCESS_FINISH")
-            finish = self.wait_for_completion()
-            self.last_summary = finish.data
+            self.wait_for_completion()
             self._require(self.home_return())
-            return self.complete_job()
+            result = self.complete_job()
         except JobStopped as error:
-            return self.stop_job(error)
+            result = self.stop_job(error)
         except Exception as error:
-            return self.fail_job(error, motion_started)
+            result = self.fail_job(error, motion_started)
         finally:
-            self.close_recording(stream, previous_stream)
+            try:
+                self.close_recording(stream, previous_stream)
+            except Exception as error:
+                # 기록 완료가 확인되지 않으면 정상 완료로 보고하지 않는다.
+                self.last_error = f"기록 정리 실패: {error}"
+                self.state = SystemState.ERROR
+                self.context = None
+                result = SequenceResult(False, "RECORDING_ERROR", self.last_error)
+        if self.output is not None:
+            try:
+                ended = self.now().isoformat()
+                self.last_summary = {**self.last_summary, "run_id": self.run_id,
+                    "recipe_id": recipe_id, "end_time": ended,
+                    "job_status": "COMPLETED" if result.success else self.state.value,
+                    "completed": result.success, "code": result.code,
+                    "message": result.message}
+                self.save("job_summary.json", self.last_summary)
+                status_path = self.output / "status.json"
+                previous_status = json.loads(status_path.read_text()) if status_path.exists() else {}
+                self.save("status.json", {**previous_status, "completed": result.success,
+                    "state": self.state.value, "run_id": self.run_id,
+                    "end_time": ended, "code": result.code, "error": self.last_error})
+            except Exception as error:
+                self.last_error = f"최종 작업 기록 실패: {error}"
+                self.state = SystemState.ERROR
+                result = SequenceResult(False, "RECORDING_ERROR", self.last_error)
+        return result
 
 
     # 기능: 새 Job 상태, 실행 폴더, 측정 스트림과 판정 클라이언트를 준비한다.
@@ -405,13 +432,21 @@ class SequenceController:
         self.last_error = ""
         self.last_summary = {}
         self.motion_results = {}
+        self.judgment = None
+        self.output = None
         self.state = SystemState.RUNNING
         self.run_id = run_id if run_id is not None else time.time_ns() // 1000
-        self.output = self.results_dir / self.now().strftime("%Y%m%d_%H%M%S_%f")
-        self.output.mkdir(parents=True, exist_ok=False)
+        output = self.results_dir / self.now().strftime("%Y%m%d_%H%M%S_%f")
+        output.mkdir(parents=True, exist_ok=False)
+        self.output = output
         stream = (self.output / "samples.jsonl").open("w", encoding="utf-8")
         previous_stream, self.backend.stream = self.backend.stream, stream
-        self.judgment = JudgmentClient(self.backend.node)
+        try:
+            self.judgment = JudgmentClient(self.backend.node)
+        except Exception:
+            stream.close()
+            self.backend.stream = previous_stream
+            raise
         return stream, previous_stream
 
 
@@ -503,7 +538,6 @@ class SequenceController:
     #     반환: Job 완료와 결과 집계를 담은 SequenceResult.
     def complete_job(self):
         self.context.state = SequenceStatus.SUCCESS
-        self.save("status.json", {"completed": True, "state": "SYSTEM_READY", "run_id": self.run_id})
         self.context = None
         self.state = SystemState.SYSTEM_READY
         return SequenceResult(True, "JOB_COMPLETE", "Home 도달 후 대기합니다.", self.last_summary)
@@ -518,9 +552,7 @@ class SequenceController:
         self._abort_motion()
         self.state = SystemState.STOPPED if self.stop_reason == "STOP" else SystemState.ERROR
         self.last_error = str(error)
-        self.save("status.json", {"completed": False, "state": self.state.value,
-            "error": self.last_error, "phase": self.backend.phase,
-            "context": asdict(self.context) if self.context else None})
+        self.save_failure_status()
         self.context = None  # STOP은 Resume 불가. 기록만 보존한다.
         return SequenceResult(False, self.stop_reason, self.last_error)
 
@@ -536,11 +568,22 @@ class SequenceController:
             self._abort_motion()
         self.last_error = f"{type(error).__name__}: {error}"
         self.state = SystemState.ERROR if motion_started else SystemState.SYSTEM_READY
-        self.save("status.json", {"completed": False, "state": self.state.value,
-            "error": self.last_error, "phase": self.backend.phase,
-            "context": asdict(self.context) if self.context else None})
+        self.save_failure_status()
         self.context = None
         return SequenceResult(False, "JOB_ERROR" if motion_started else "INIT_FAIL", self.last_error)
+
+
+    def save_failure_status(self):
+        """기록 장치가 실패해도 오류 상태와 Context 정리를 완료한다."""
+        if self.output is None:
+            return
+        try:
+            self.save("status.json", {"completed": False, "state": self.state.value,
+                "error": self.last_error, "phase": self.backend.phase,
+                "context": asdict(self.context) if self.context else None})
+        except Exception as error:
+            self.last_error += f"; 오류 기록 실패: {error}"
+            self.state = SystemState.ERROR
 
 
     # 기능: 판정 기록을 저장하고 이번 Job의 클라이언트·스트림을 정리한다.
@@ -548,11 +591,18 @@ class SequenceController:
     #     previous_stream: Job 시작 전 장비에 연결되어 있던 기록 스트림.
     def close_recording(self, stream, previous_stream):
         try:
-            self.save("judgment_results.json", self.judgment.results)
+            if self.judgment is not None:
+                self.save("judgment_results.json", self.judgment.results)
         finally:
-            self.judgment.close()
-            stream.close()
-            self.backend.stream = previous_stream
+            try:
+                if self.judgment is not None:
+                    self.judgment.close()
+            finally:
+                try:
+                    if stream is not None:
+                        stream.close()
+                finally:
+                    self.backend.stream = previous_stream
 
 
     # 기능: 현재 지역 시간과 시간대를 읽는다.
@@ -603,7 +653,12 @@ class SequenceController:
         if was_paused:
             self.state = SystemState.PAUSED
             self.notify("INFO", f"PAUSED: {step}")
+        next_operability_check = 0.0
         while self.pause_requested.is_set():
+            # PAUSED 중에도 장비 오류를 상위 ERROR 처리로 전달한다.
+            if time.monotonic() >= next_operability_check:
+                self._require(self.backend.check_robot_operability())
+                next_operability_check = time.monotonic() + 1.0
             self.pump()
             self.collect_results()
         self.poll_control()
@@ -677,6 +732,8 @@ class SequenceController:
     #     request: 포인트 식별자와 측정·판정 조건을 담은 JudgmentRequest.
     def submit_judgment(self, request):
         self.context.pending_judgments.add(request.point_id)
+        # 경로와 point_id로 해당 실행의 원시 샘플을 찾을 수 있게 한다.
+        request = replace(request, force_data_id=str((self.output / "samples.jsonl").resolve()))
         self.judgment.submit(request)
 
 
@@ -691,6 +748,8 @@ class SequenceController:
             runtime.result = InspectionResult(result["result"])
             runtime.judgment_status = JudgmentStatus(result["judgment_status"])
             runtime.reason = result["reason"]
+            if result["sequence_status"] != SequenceStatus.SUCCESS.value:
+                runtime.pull_status = SequenceStatus(result["sequence_status"])
             self.context.pending_judgments.discard(point_id)
             if point_id in self.motion_results:
                 self.motion_results[point_id] = replace(self.motion_results[point_id],
@@ -718,6 +777,7 @@ class SequenceController:
             required_force_n=point.pull_setting["force_limit_n"],
             normal_displacement_limit_mm=point.pull_setting["normal_displacement_limit_mm"],
             entry_task=point.entry_pose.task, entry_joint=point.entry_pose.joint,
+            force_data_id=str((self.output / "samples.jsonl").resolve()),
             error_reason=f"{type(error).__name__}: {error}",
         )
         from cable_inspection.sequence.judgment_node import InspectionJudgmentNode, judge_pull
@@ -806,12 +866,12 @@ class SequenceController:
             return operability
 
         tcp = self.backend.current_tcp()
-        if len(tcp) < 3:
+        if len(tcp) != 6 or not all(math.isfinite(value) for value in tcp):
             return SequenceResult(False, "INVALID_TCP", "현재 TCP 값이 잘못되었습니다.")
 
         if self.backend.tcp_is_in_work_area(tcp):
             result = self.return_from_work_area()
-            route = "WORK_ACCESS_HOME"
+            route = "WORK_AREA_ESCAPE"
         else:
             result = self.return_from_outside()
             route = "SAFE_ROUTE_HOME"
@@ -827,15 +887,24 @@ class SequenceController:
 
 
     def return_from_work_area(self):
-        result = self.backend.move_work_access_safe_pose()
-        if not result.success:
-            return result
-        self.checkpoint("WORK_ACCESS_REACHED")
+        # 케이블 파지 여부를 추정하지 않고 이완 → 역방향 탈출을 수행한다.
+        steps = (
+            ("GRIP_RELAXED", self.backend.relax_grip),
+            ("SAFE_ESCAPE_DONE", lambda: self.backend.safe_escape(
+                self.backend.system["max_escape_distance_mm"])),
+            ("WORK_ACCESS_REACHED", self.backend.move_work_access_safe_pose),
+        )
+        for checkpoint, action in steps:
+            self.poll_control()
+            result = action()
+            if not result.success:
+                return result
+            self.checkpoint(checkpoint)
         return self.return_from_outside()
 
 
     def return_from_outside(self):
-        result = self.backend.move_home_pose()
+        result = self.backend.move_safe_route_home()
         if result.success:
             self.checkpoint("HOME_REACHED")
         return result
@@ -871,7 +940,9 @@ class SequenceController:
         summary = {**result.data, "job_id": context.job_id, "recipe_id": context.recipe_id,
                    "point_total": len(context.enabled_point_ids),
                    "start_time": context.start_time.isoformat(),
-                   "end_time": context.end_time.isoformat(), "job_status": "INSPECTION_COMPLETE"}
+                   "inspection_end_time": context.end_time.isoformat(),
+                   "job_status": "INSPECTION_COMPLETE"}
+        controller.last_summary = summary
         controller.save("job_summary.json", summary)
         controller.notify("INFO", f"JOB_COMPLETE: {summary['counts']}")
 
@@ -1056,7 +1127,9 @@ class InspectionSequence:
 
 
     def move_entry(self, point):
-        entry = self.hardware.move_joint(point.entry_pose, allow_incomplete=True)
+        entry = self.hardware.move_linear(point.entry_pose.task)
+        if entry.get("stop_reason") != "TARGET_REACHED":
+            raise RuntimeError("Entry 목표 자세 도달을 확인하지 못했습니다.")
         self.checkpoint("ENTRY_REACHED")
         return entry
 
@@ -1135,7 +1208,11 @@ def check_work_completion(context):
     for point_id in context.enabled_point_ids:
         point = context.point_runtime.get(point_id)
         if (point is None or point.motion_status != SequenceStatus.SUCCESS
-                or point.result not in set(InspectionResult) or not point.log_saved):
+                or point.adaptive_grip_status != SequenceStatus.SUCCESS
+                or point.pull_status != SequenceStatus.SUCCESS
+                or point.judgment_status != JudgmentStatus.COMPLETED
+                or point.result not in {InspectionResult.PASS, InspectionResult.FAIL}
+                or not point.log_saved):
             missing.append(point_id)
         else:
             counts[point.result] += 1

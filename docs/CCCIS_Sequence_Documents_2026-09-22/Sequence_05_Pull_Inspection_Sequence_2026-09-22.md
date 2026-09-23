@@ -1,3 +1,5 @@
+> 2026-09-23 설계·구현 정합성 갱신: [05 보류항목 반영 결과](../05_시퀀스_보류항목_반영결과_2026-09-23.md)를 함께 적용한다. 같은 이름의 기존 PDF는 갱신 전 보존본이다.
+
 # Sequence #05 - Pull Inspection Sequence
 
 **프로젝트:** CCCIS (Contact-based Cable Connection Inspection System)  
@@ -24,7 +26,7 @@ Hard Grip 상태에서 Point별 체결 반대방향으로 `movel` Pull을 수행
 
 - #04 Adaptive Grip 완료
 - Hard Grip 상태 유지
-- `grip_width_hard` 저장 완료
+- `soft_width_mm` 저장 완료
 - Point Recipe의 Pull 방향/Force Limit 유효
 
 ## 4. Sequence Flow
@@ -35,7 +37,7 @@ PULL_INSPECTION_START
     v
 Pull 기준 상태 저장
 - TCP start pose
-- grip_width_hard
+- soft_width_mm
 - start time
     |
     v
@@ -43,7 +45,7 @@ Pull movel 시작
 - Direction = opposite fastening direction
 - Speed = common parameter (5 or 10 mm/s, TBD)
 - Max Distance = 25 mm
-- Force Limit = LAN 20 N / USB 12 N
+- Force Limit = LAN 15 N / USB 12 N
 - Timeout = 10 s
     |
     v
@@ -88,14 +90,14 @@ PULL_INSPECTION_DONE -> Next #03 Point Transition
 
 | 항목 | 정의 |
 |---|---|
-| Required Pull Force | 정상 체결 여부를 시험하기 위해 도달해야 하는 Pull Force. LAN 20 N, USB 12 N |
+| Required Pull Force | 정상 체결 여부를 시험하기 위해 도달해야 하는 Pull Force. LAN 15 N, USB 12 N |
 | MAX_DISTANCE | Motion 보호 상한 25 mm. 정상 허용 이동량 5 mm와 별개 |
 | pull_displacement | Pull 시작 Pose 기준 Robot/TCP 이동량 |
-| grip_width_change | `grip_width_hard` 대비 Pull 중 RG2 Width 변화 대표값 |
+| grip_width_change | Soft 종료 실측 폭 대비 Pull 최소 실측 폭의 부호 있는 차이(기록용) |
 
 ## 6. 세부 동작 및 판단 조건
 
-- Force Limit: LAN 20 N, USB 12 N
+- Force Limit: LAN 15 N, USB 12 N
 - Max Distance: 25 mm
 - Timeout: 10 s
 - Pull Speed: 5 또는 10 mm/s 후보, 코드 검증 후 확정
@@ -122,7 +124,7 @@ PULL_INSPECTION_DONE -> Next #03 Point Transition
 
 - Robot/Tool/Safety Fault -> System Error
 - `TIMEOUT`은 제품 결과 코드가 아니라 Pull Sequence의 비정상/미완료 가능 상태다. Grip Slip 여부와 함께 #06 Work Monitoring에 전달하여 Job 완료 가능 여부를 판단한다.
-- Slip 자체는 #05에서 확정하지 않고 Width/Force/Displacement 데이터를 #06에 전달
+- 폭 자체는 #05에서 판정하지 않고 Soft 기준 폭, Pull 최소 폭, Force/Displacement를 #06에 전달
 
 ## 9. 상위·하위 Sequence Interface
 
@@ -136,3 +138,7 @@ PULL_INSPECTION_DONE -> Next #03 Point Transition
 - `termination_reason` Enum 권장: `FORCE_LIMIT`, `MAX_DISTANCE`, `TIMEOUT`, `MOTION_ERROR`
 - Motion Stop과 Judgment는 분리
 - 비동기 Judgment Queue 전송 실패는 Work Monitoring Error로 추적
+
+## 11. 2026-09-23 조건 확정
+
+LAN은 사용자 지시에 따라 15 N을 유지한다. USB 12 N과 WIRING_HARNESS 15 N은 별도 레시피 조건이다. 속도·힘·변위 기준은 전송된 레시피/snapshot을 사용하며 종류 문자열로 덮어쓰지 않는다. Entry/Pull 거리는 최대 25 mm, timeout은 최대 10 s로 검증한다. 5 mm는 판정 기준이며 모션 정지 조건이 아니다. 감속 정지 완료까지의 힘·폭 샘플을 포함한다.

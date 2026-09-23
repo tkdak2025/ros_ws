@@ -1,3 +1,4 @@
+# HMI가 요청 ID와 전체 레시피로 검사 시작을 요청하고 접수 여부·응답 코드·실행 ID를 받는 서비스다.
 string request_id
 InspectionRecipe recipe
 ---

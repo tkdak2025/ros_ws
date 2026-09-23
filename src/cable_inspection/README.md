@@ -202,7 +202,7 @@ cable_pkg 없이 실물 로봇을 구동하는 것이 독립화의 목표입니�
   실물 연결 실패 시 가상으로 자동 전환하지 않습니다.
 - 이번 목표는 정지 상태에서 수동 교시한 레시피의 실행입니다. 티칭 서비스는 후속 작업입니다.
   joint를 교시 기준으로 우선 기록하되, 현재는 같은 자세의 task도 필요합니다.
-  Ready/Entry 접근은 MoveJ, 검사 축은 Entry task의 자세각, 직선 복귀는 Entry task를 사용합니다.
+  Ready 접근은 MoveJ, Entry 접근은 도달 확인을 요구하는 MoveL, 검사 축은 Entry task의 자세각, 직선 복귀는 Entry task를 사용합니다.
   joint만 받는 레시피는 아직 지원하지 않습니다(FK 변환 후속 검토).
 - 케이블 관리 식별자는 상태 토픽 분리와 무관합니다. 현재 point_id는 검사 위치 식별자입니다.
   cable_id와 product_id는 아직 메시지에 없으며, 케이블/제품의 종류 식별과 개체 추적을 구분해
@@ -266,3 +266,11 @@ ROS InspectionRecipe.msg의 points는 **실행 순서대로 나열한 배열**�
 - 설치된 실행 항목은 main_sequence, inspection_judgment, robot_state_node, sequence_console, inspection_sequence, manual_check의 6개입니다.
 - HMI 관리 노드·관리 launch·DB 조회 서비스가 설치/기동되지 않는 것 확인.
 - 실제 로봇 이동 명령은 보내지 않았습니다.
+
+## 2026-09-23 설계 불일치 보완
+
+Home 내부 복귀는 25 mm Open 및 정지 확인 → 현재 Tool −Z로 30 mm 직선 후퇴·목표 도달 확인 → Work Access → 0도 Home이다. 외부에서는 기존 0도 Home 직접 복귀를 유지한다. `safe_home_route`에는 현재 Home 한 개만 설정하며, `home_joint_tolerance_deg`는 0.1도다. Open 실패·후퇴 미도달·모션 오류는 후속 이동을 차단한다. 별도 contact_area나 영역 경계 탈출 검사는 사용하지 않는다. `max_escape_distance_mm`은 호환성을 위해 이름을 유지하며 현재는 설정 후퇴거리(30 mm)다. 이전 escape_clearance_mm은 사용하지 않는다.
+
+Entry는 MoveL 목표 도달 확인 후 파지를 진행한다. SYSTEM_ERROR/판정 ERROR/동작 INCOMPLETE는 정상 Job 완료와 자동 최종 Home을 차단한다. Entry/Pull 최대거리는 25 mm, timeout은 10 s를 넘길 수 없다. LAN 15 N 및 후속 Soft/Pull 폭 판정은 유지한다. 상세 설계 개정·검증은 [05 반영 결과](../../docs/05_시퀀스_보류항목_반영결과_2026-09-23.md)를 따른다.
+
+전체 시퀀스 재대조와 Pause 중 오류 감시 보완은 [06 재대조 결과](../../docs/06_시퀀스_전체_재대조_결과_2026-09-23.md)를 따른다.

@@ -1,3 +1,4 @@
+# HMI 측 레시피 관리 서버에서 저장된 레시피의 요약 목록을 조회하기 위한 서비스다.
 ---
 bool success
 string message

@@ -43,7 +43,7 @@ class HardwareDouble:
 
     def move_linear(self, task):
         self.calls.append(("linear", task))
-        return {"task": task}
+        return {"task": task, "stop_reason": "TARGET_REACHED"}
 
 
 class Point:
@@ -115,7 +115,7 @@ def test_recipe_iterates_point_transition_adaptive_pull_and_return():
             ("configure", point_id),
             ("grip", 25.0, 10.0, True, False),
             ("joint", f"{point_id}_ready", False),
-            ("joint", f"{point_id}_entry", True),
+            ("linear", [point_id]),
             ("grip", 22.0, 10.0, False, False),
             ("relative", [0.0, -1.0, 0.0], 5.0, True, False),
             ("grip", 16.0, 20.0, False, True),

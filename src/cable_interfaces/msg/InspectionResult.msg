@@ -1,3 +1,4 @@
+# 포인트별 검사 판정, 사유, 실측값과 판정 당시 기준을 HMI 및 결과 저장 측에 전달한다.
 # Point 결과. Pull 중 실측 폭 16 mm 미만은 파지 실패다.
 string PASS=PASS
 string FAIL=FAIL

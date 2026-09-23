@@ -1,3 +1,5 @@
+> 2026-09-23 설계·구현 정합성 갱신: [05 보류항목 반영 결과](../05_시퀀스_보류항목_반영결과_2026-09-23.md)를 함께 적용한다. 같은 이름의 기존 PDF는 갱신 전 보존본이다.
+
 # Sequence #03 - Point Transition Sequence
 
 **프로젝트:** CCCIS (Contact-based Cable Connection Inspection System)  
@@ -86,3 +88,7 @@ POINT_TRANSITION_DONE
 - 첫 Point 여부는 `execution_index == 0`로 판단 가능
 - Pose frame과 Tool/TCP Configuration 일관성 검증
 - `movej()`와 `movel()` Wrapper에서 timeout/error 공통 처리
+
+## 11. 2026-09-23 도달 확인
+
+Entry는 MoveL 완료와 TARGET_REACHED가 확인되어야 Adaptive Grip을 시작한다. 미도달·시간초과·응답 오류에서 Soft/Hard/Pull을 진행하지 않는다.

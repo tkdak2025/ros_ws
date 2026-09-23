@@ -1,3 +1,5 @@
+> 2026-09-23 설계·구현 정합성 갱신: [05 보류항목 반영 결과](../05_시퀀스_보류항목_반영결과_2026-09-23.md)를 함께 적용한다. 같은 이름의 기존 PDF는 갱신 전 보존본이다.
+
 # Sequence #00 - Main Work Sequence
 
 **프로젝트:** CCCIS (Contact-based Cable Connection Inspection System)  
@@ -26,7 +28,7 @@ CCCIS의 Recipe 단위 1회 작업을 시작부터 종료까지 관리하는 최
 
 - System State = `SYSTEM_READY`
 - 실행 중인 Job 없음
-- HMI START Trigger 정상 수신
+- HMI StartInspection 서비스로 request_id와 전체 레시피 정상 수신
 - 선택된 Recipe 식별 가능
 
 ## 4. Sequence Flow
@@ -107,7 +109,7 @@ OPERATING STOP / SYSTEM_READY
 - Point Transition은 #06 Judgment 완료 여부와 HMI 결과 통신을 기다리지 않는다.
 - 마지막 Point의 Robot Motion이 끝나면 `work_Access_safe_pose`로 복귀한 후 #07에 진입한다.
 - #07이 모든 Point/Judgment/Logging 완료를 확인해야 Job을 종료할 수 있다.
-- 제품 검사 결과에 FAIL 또는 MISSING이 포함되어도 모든 Point가 정상적으로 처리되었다면 Work Finish 자체는 SUCCESS가 될 수 있다.
+- 제품 검사 결과에 FAIL이 있어도 모든 Point가 정상 처리되면 Work Finish는 SUCCESS일 수 있다. SYSTEM_ERROR 또는 판정 ERROR/동작 INCOMPLETE가 있으면 정상 종료와 자동 Home을 허용하지 않는다.
 
 ## 7. 정상 종료 조건
 

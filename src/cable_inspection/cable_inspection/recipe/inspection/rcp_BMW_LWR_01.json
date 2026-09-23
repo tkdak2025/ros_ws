@@ -28,8 +28,8 @@
       },
       "grip_setting": {
         "soft_close_width_mm": 24.0,
-        "soft_open_width_mm": 27.0,
-        "hard_width_mm": 21.0,
+        "soft_open_width_mm": 29.0,
+        "hard_width_mm": 19.0,
         "soft_force_n": 10.0,
         "hard_force_n": 20.0
       },
@@ -60,8 +60,8 @@
       },
       "grip_setting": {
         "soft_close_width_mm": 23.0,
-        "soft_open_width_mm": 26.0,
-        "hard_width_mm": 20.0,
+        "soft_open_width_mm": 28.0,
+        "hard_width_mm": 18.0,
         "soft_force_n": 10.0,
         "hard_force_n": 20.0
       },
@@ -120,8 +120,8 @@
       },
       "grip_setting": {
         "soft_close_width_mm": 23.0,
-        "soft_open_width_mm": 26.0,
-        "hard_width_mm": 20.0,
+        "soft_open_width_mm": 28.0,
+        "hard_width_mm": 18.0,
         "soft_force_n": 10.0,
         "hard_force_n": 20.0
       },

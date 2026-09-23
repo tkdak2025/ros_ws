@@ -1,3 +1,5 @@
+> 2026-09-23 설계·구현 정합성 갱신: [05 보류항목 반영 결과](../05_시퀀스_보류항목_반영결과_2026-09-23.md)를 함께 적용한다. 같은 이름의 기존 PDF는 갱신 전 보존본이다.
+
 # Sequence #07 - Work Finish Sequence
 
 **프로젝트:** CCCIS (Contact-based Cable Connection Inspection System)  
@@ -40,7 +42,7 @@ WORK_FINISH_CHECK
     +-- Execution List all executed ?
     +-- All enabled Points motion completed ?
     +-- pending_judgments == 0 ?
-    +-- Every Point has PASS/FAIL/MISSING ?
+    +-- Every Point has PASS/FAIL ?
     +-- No Point INCOMPLETE/ERROR ?
     +-- Result/Log saved ?
     +-- HMI communication available ?
@@ -78,7 +80,7 @@ Operating Stop / SYSTEM_READY
 |---|---|
 | Completion Gate | Job을 종료해도 되는지 확인하는 최종 상태 검증 |
 | pending_judgments | 비동기 #06 처리 중 아직 완료되지 않은 Point 수/목록 |
-| Job Summary | PASS/FAIL/MISSING 수량 및 Job 수행상태 요약 |
+| Job Summary | PASS/FAIL 수량 및 Job 수행상태 요약 |
 | NOT COMPLETE | 검사 결과가 나쁘다는 뜻이 아니라 Job 종료 조건이 충족되지 않은 상태 |
 
 ## 6. 세부 동작 및 판단 조건
@@ -88,7 +90,7 @@ Operating Stop / SYSTEM_READY
 1. Execution List 전체 순회 완료
 2. 모든 enabled Point Robot Motion 완료
 3. 모든 #06 Judgment 완료
-4. 모든 Point에 `PASS / FAIL / MISSING` 중 하나의 Result 존재
+4. 모든 Point에 `PASS / FAIL` 중 하나의 Result 존재
 5. Point Incomplete/Error 없음
 6. 검사 Result 및 필요한 Log 저장 완료
 7. HMI에 완료 상태를 전달할 수 있는 통신 상태
@@ -96,7 +98,7 @@ Operating Stop / SYSTEM_READY
 중요:
 
 - Point Result에 FAIL이 있어도 Work Finish는 SUCCESS 가능
-- Point Result에 MISSING이 있어도 Judgment 자체가 정상 완료되었다면 Work Finish는 SUCCESS 가능
+- SYSTEM_ERROR 결과는 오류 기록이며 제품 PASS/FAIL과 달리 정상 완료를 승인하지 않음
 - Judgment Pending, Result 누락, Sequence Error가 있으면 NOT COMPLETE
 
 ## 7. 정상 종료 조건
@@ -129,7 +131,7 @@ recipe_id
 point_total
 pass_count
 fail_count
-missing_count
+system_error_count
 start_time
 end_time
 job_status
@@ -141,3 +143,7 @@ job_status
 - #07 자체에서 Point Result를 재계산하지 않음
 - `work_Access_safe_pose`에서만 Completion 대기하도록 상태를 단순화
 - Completion 성공 후 내부 전이로 Home Return 수행; 별도 Scheduler/Next Job 자동실행 없음
+
+## 11. 2026-09-23 완료 게이트
+
+모든 포인트의 motion_status/adaptive_grip_status/pull_status가 SUCCESS이고 judgment_status=COMPLETED, result=PASS 또는 FAIL, log_saved=true여야 한다. SYSTEM_ERROR/ERROR/INCOMPLETE/PENDING은 Access에서 완료를 보류하며 자동 Home으로 진행하지 않는다. inspection_end_time은 검사 완료 시각, end_time은 최종 Home 성공 또는 실패/STOP 및 기록 정리 뒤 시각이다. STOP 당시 context는 최종 상태 파일에도 보존한다.
