@@ -34,6 +34,7 @@ class JudgmentStatus(str, Enum):
 class InspectionResult(str, Enum):
     PASS = "PASS"
     FAIL = "FAIL"
+    SYSTEM_ERROR = "SYSTEM_ERROR"
 
 
 class PullTermination(str, Enum):
@@ -41,6 +42,10 @@ class PullTermination(str, Enum):
     MAX_DISTANCE = "MAX_DISTANCE"
     TIMEOUT = "TIMEOUT"
     MOTION_ERROR = "MOTION_ERROR"
+    ROBOT_ERROR = "ROBOT_ERROR"
+    TOOL_ERROR = "TOOL_ERROR"
+    SAFETY_ERROR = "SAFETY_ERROR"
+    INVALID_DATA = "INVALID_DATA"
 
 
 @dataclass(frozen=True)
@@ -60,12 +65,10 @@ class PointRuntime:
     point_id: str
     motion_status: SequenceStatus = SequenceStatus.IDLE
     adaptive_grip_status: SequenceStatus = SequenceStatus.IDLE
-    grip_width_hard: float | None = None
     pull_status: SequenceStatus = SequenceStatus.IDLE
     peak_pull_force: float | None = None
     pull_displacement: float | None = None
     termination_reason: PullTermination | None = None
-    grip_width_change: float | None = None
     judgment_status: JudgmentStatus = JudgmentStatus.PENDING
     result: InspectionResult | None = None
     reason: str = ""

@@ -103,7 +103,7 @@ class HardwareRobot(GripPullRobot):
         if self._call(self.check_client, CheckMotion.Request()).status != 0:
             raise RuntimeError("로봇이 이미 움직이고 있습니다.")
         # 부모 함수는 서비스/그리퍼 제공자를 확인하고 RG2 힘을 40 N으로 동기화한다.
-        # 실제 Open 폭과 Soft 힘은 이후 V02의 grip()에서 적용한다.
+        # 실제 Open 폭과 Soft 힘은 Point Transition의 grip()에서 적용한다.
         self.wait_for_services()
         self.sample()
 
@@ -162,6 +162,8 @@ class HardwareRobot(GripPullRobot):
                 motion_displacement if self.measurement_kind == "PULL" else None),
             "pull_force_n": pull_force,
         }
+        if self.measurement_kind == "PULL":
+            self.pull_min_width_mm = min(getattr(self, "pull_min_width_mm", math.inf), width)
         self.stream.write(json.dumps(sample, ensure_ascii=False, allow_nan=False) + "\n")
         self.stream.flush()
         return sample
@@ -180,6 +182,17 @@ class HardwareRobot(GripPullRobot):
     # ------------------------------------------------------------------
     # 3. 그리퍼: 명령 적용 → Open 도달 확인 또는 Close 후 안정화 관찰
     # ------------------------------------------------------------------
+    def wait_gripper_idle(self):
+        """Soft Grip 동작 종료 후 기준 폭을 읽는다."""
+        deadline = time.monotonic() + self.config.gripper_timeout_s
+        while True:
+            measured = self.sample()
+            if not measured["gripper_busy"]:
+                return measured
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Soft Grip 동작 완료 확인 실패")
+            time.sleep(self.config.sample_period_s)
+
     def grip(self, width, force, opening=False, wait_for_completion=False):
         # width는 mm, force는 N. 실제 RG2 명령 변환은 부모 _set_gripper() 담당.
         self.sample()
@@ -199,7 +212,7 @@ class HardwareRobot(GripPullRobot):
             while True:
                 latest = self.sample()
                 saw_busy = saw_busy or latest["gripper_busy"]
-                if abs(latest["width_mm"] - width) <= self.config.width_tolerance_mm:
+                if not latest["gripper_busy"] and abs(latest["width_mm"] - width) <= self.config.width_tolerance_mm:
                     completion_reason = "TARGET_WIDTH_REACHED"
                     break
                 if saw_busy and not latest["gripper_busy"]:
@@ -280,7 +293,8 @@ class HardwareRobot(GripPullRobot):
         started = time.monotonic()
         peak = 0.0
         peak_pull_force = 0.0
-        peak_width_change = 0.0
+        if pull_guard:
+            self.pull_min_width_mm = math.inf
         stop_reason = None
         while True:
             latest = self.sample()
@@ -289,17 +303,11 @@ class HardwareRobot(GripPullRobot):
             peak = max(peak, delta)
             if pull_guard:
                 peak_pull_force = max(peak_pull_force, latest["pull_force_n"])
-                peak_width_change = max(
-                    peak_width_change, abs(latest["width_mm"] - before["width_mm"])
-                )
                 if latest["pull_force_n"] >= self.config.pull_force_limit_n:
                     self.controlled_stop()
                     self._wait_idle()
                     latest = self.sample()
                     peak_pull_force = max(peak_pull_force, latest["pull_force_n"])
-                    peak_width_change = max(
-                        peak_width_change, abs(latest["width_mm"] - before["width_mm"])
-                    )
                     stop_reason = "PULL_FORCE_LIMIT"
                     break
             if entry_guard and delta >= self.config.entry_force_limit_n:
@@ -348,10 +356,8 @@ class HardwareRobot(GripPullRobot):
         )
         result = {"stop_reason": stop_reason, "peak_force_delta_n": peak,
                 "peak_pull_force_n": peak_pull_force if pull_guard else None,
-                "grip_width_change_mm": peak_width_change if pull_guard else None,
+                "pull_width_mm": self.pull_min_width_mm if pull_guard else None,
                 "start_tcp": before["tcp"], "end_tcp": latest["tcp"],
-                "start_width_mm": before["width_mm"],
-                "end_width_mm": latest["width_mm"],
                 "displacement_mm": math.dist(before["tcp"][:3], latest["tcp"][:3]),
                 "entry_displacement_mm": (
                     motion_displacement if measurement_kind == "ENTRY" else None),

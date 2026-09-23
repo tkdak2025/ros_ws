@@ -81,3 +81,20 @@ def test_unimplemented_point_sequence_fails_without_invented_motion():
     assert not result.success
     assert result.code == "POINT_SEQUENCE_NOT_IMPLEMENTED"
     assert controller.state == SystemState.ERROR
+
+
+def test_complete_requires_results_and_counts_system_error():
+    from cable_pkg.data_models.sequence_models import PointRuntime, InspectionResult
+    backend = FakeBackend(inside=False)
+    controller = make_controller(backend)
+    controller.start('RECIPE_A')
+    calls_before = list(backend.calls)
+    assert controller.complete().code == 'JUDGMENT_PENDING'
+    assert backend.calls == calls_before
+    controller.context.point_runtime = {
+        'P01': PointRuntime('P01', result=InspectionResult.PASS),
+        'P02': PointRuntime('P02', result=InspectionResult.SYSTEM_ERROR),
+    }
+    result = controller.complete()
+    assert result.success
+    assert result.data['counts'] == {'PASS': 1, 'FAIL': 0, 'SYSTEM_ERROR': 1}

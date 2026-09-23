@@ -2,11 +2,17 @@
 
 import argparse
 import json
-from dataclasses import asdict
+import time
+from dataclasses import asdict, replace
 from datetime import datetime
 from pathlib import Path
 
 from cable_pkg.recipe import OperatingInspectionRecipe
+from cable_pkg.data_models.sequence_models import (
+    InspectionResult,
+    JudgmentStatus,
+    SequenceStatus,
+)
 
 
 def _default_recipe_path() -> Path:
@@ -33,6 +39,22 @@ def _save_json(path: Path, value) -> None:
         json.dumps(value, ensure_ascii=False, indent=2, default=str),
         encoding="utf-8",
     )
+
+
+def _complete_results(motion_results, judgment_results):
+    """비동기 #06 결과를 Point 종합 결과에 반영한다."""
+    completed = {}
+    for point_id, motion in motion_results.items():
+        judgment = judgment_results[point_id]
+        product_result = judgment.get("result")
+        completed[point_id] = replace(
+            motion,
+            judgment_status=JudgmentStatus(judgment["judgment_status"]),
+            sequence_status=SequenceStatus(judgment["sequence_status"]),
+            result=(InspectionResult(product_result) if product_result else None),
+            reason=str(judgment["reason"]),
+        )
+    return completed
 
 
 def main(argv=None) -> int:
@@ -67,19 +89,41 @@ def main(argv=None) -> int:
     import rclpy
     from cable_pkg.hardware.inspection_robot import HardwareRobot, RobotRuntimeConfig
     from cable_pkg.sequence.inspection.seq_00_inspection import InspectionSequence
+    from cable_pkg.sequence.inspection.seq_06_inspection_judgment_node import (
+        JudgmentClient,
+    )
 
     robot = None
+    judgment = None
     status = {"completed": False, "error": None, "executed_points": []}
     exit_code = 1
     try:
         rclpy.init(args=[])
         with (output / "samples.jsonl").open("w", encoding="utf-8") as stream:
             robot = HardwareRobot(RobotRuntimeConfig(), stream)
+            judgment = JudgmentClient(robot.node)
+            judgment.wait_for_subscriber()
             robot.connect()
-            results = InspectionSequence(robot, _select_point).run(recipe)
-            serializable = {point_id: asdict(result) for point_id, result in results.items()}
-            _save_json(output / "cycle_results.json", serializable)
+            results = InspectionSequence(
+                robot,
+                _select_point,
+                judgment.submit,
+                run_id=int(time.time()),
+            ).run(recipe)
+            # 판정 응답이 늦거나 실패해도 측정 결과는 먼저 보존한다.
             status["executed_points"] = list(results)
+            _save_json(output / "inspection_results.json", {
+                point_id: asdict(result) for point_id, result in results.items()
+            })
+            judgment_results = judgment.wait_for_all()
+            results = _complete_results(results, judgment_results)
+            serializable = {
+                point_id: asdict(result) for point_id, result in results.items()
+            }
+            _save_json(output / "inspection_results.json", serializable)
+            _save_json(output / "judgment_results.json", judgment_results)
+            status["executed_points"] = list(results)
+            status["judgment_completed_points"] = list(judgment_results)
             status["completed"] = True
             exit_code = 0
     except (KeyboardInterrupt, EOFError) as error:
@@ -94,6 +138,21 @@ def main(argv=None) -> int:
         if robot is not None:
             robot.safe_abort()
     finally:
+        if judgment is not None:
+            # 오류로 모션을 중단해도 이미 요청한 포인트의 판정은 파일에 보존한다.
+            try:
+                judgment.wait_for_all()
+            except Exception as error:
+                status["judgment_error"] = str(error)
+            _save_json(output / "judgment_results.json", judgment.results)
+            counts = {result.value: 0 for result in InspectionResult}
+            for result in judgment.results.values():
+                counts[result["result"]] += 1
+            _save_json(output / "job_summary.json", {
+                "counts": counts,
+                "pending_points": [point for _, point in sorted(judgment.pending)],
+                "all_requested_results_present": not judgment.pending,
+            })
         if robot is not None:
             robot.close()
         if rclpy.ok():
