@@ -1,0 +1,75 @@
+project: CCCIS
+scope:
+  job_unit: one_recipe_execution
+  scheduler: false
+  external_triggers_via_hmi: true
+  start_transport: StartInspection_service_full_recipe
+
+states:
+  system: [SYSTEM_READY, RUNNING, PAUSED, STOPPED, ERROR]
+  judgment: [PENDING, COMPLETED, ERROR]
+  inspection_result: [PASS, FAIL, SYSTEM_ERROR]
+  pull_termination: [FORCE_LIMIT, MAX_DISTANCE, TIMEOUT, MOTION_ERROR, ROBOT_ERROR, TOOL_ERROR, SAFETY_ERROR, INVALID_DATA]
+
+parameters:
+  max_escape_distance_mm: 30.0
+  adaptive_grip:
+    max_entry_distance_mm: 25.0
+    timeout_sec: recipe_positive
+    entry_force_guard_n: 5.0
+  pull:
+    max_distance_mm: recipe_positive
+    timeout_sec: recipe_positive
+    speed_mm_s: recipe
+    required_force_n:
+      LAN: 15.0
+      USB: 12.0
+  judgment:
+    displacement_limit_mm: 5.0
+
+hmi_triggers:
+  - START
+  - PAUSE
+  - RESUME
+  - STOP
+  - HOME_RETURN
+
+point_runtime_fields:
+  - point_id
+  - motion_status
+  - peak_pull_force
+  - pull_displacement
+  - termination_reason
+  - judgment_status
+  - result
+  - reason
+  - log_saved
+
+# 2026-09-23 confirmed contracts
+home_return:
+  inside: [open_25mm_and_verify_width, reverse_current_tool_z_30mm_target_verified, work_access, configured_home_route]
+  outside: [configured_home_route]
+  work_finish_verified_access: [verify_access_tcp, configured_home_route]
+  current_route: direct_zero_joint_home
+  home_joint_tolerance_deg: 0.1
+point_transition:
+  ready: movej
+  entry: movej_allow_incomplete
+completion:
+  final_position: work_access
+  automatic_home: false
+  allowed_results: [PASS, FAIL, SYSTEM_ERROR]
+  motion_status: SUCCESS
+  pending_judgments_empty: true
+  log_saved: true
+  all_points_iterated: true
+
+# 2026-09-25 START는 Home 경유 대신 Work Access를 확보한다.
+start:
+  allowed_states: [SYSTEM_READY, STOPPED, ERROR]
+  active_job_or_worker: reject
+  home_required: false
+  at_work_access: verify_and_continue
+  inside_work_area: [open_25mm_and_verify_width, reverse_current_tool_z_30mm_target_verified, work_access]
+  outside_work_area_including_home: [work_access]
+  inspection_gate: verified_work_access

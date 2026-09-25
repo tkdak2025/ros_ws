@@ -8,6 +8,7 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
+
 # 기능: 고정된 dsr01/M0609 구성으로 로봇과 RG2를 연결한다.
 def generate_launch_description():
     return LaunchDescription([
