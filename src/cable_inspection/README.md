@@ -174,10 +174,12 @@ python3 -m pytest -q src/cable_inspection/test --ignore=src/cable_inspection/tes
 cable_pkg/HMI가 설치되지 않은 독립 워크스페이스에서 실제 launch 통합시험:
 
 ```bash
-CCCIS_STANDALONE_TEST=1 ROS_DOMAIN_ID=232 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST python3 -m pytest -q src/cable_inspection/test/test_standalone_ros.py
+CCCIS_STANDALONE_TEST=1 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST python3 -m pytest -q src/cable_inspection/test/test_standalone_ros.py
 ```
 
-통합시험은 격리 Domain에서 검사 launch만 실행합니다.
+검사 진단 메뉴 2는 실행 중인 `m0609_rg2_bringup mode:=virtual`을 확인한 뒤 가상 전체 Job을 자동 실행합니다. `python3 src/cable_inspection/cable_inspection/diagnostics/check_inspection.py`에서 선택하거나 `--with-virtual`을 지정합니다. 현재 ROS 도메인을 유지하고 discovery만 LOCALHOST로 제한합니다.
+
+통합시험은 현재 ROS 도메인과 LOCALHOST에서 검사 launch를 실행합니다.
 Main·판정 ROS 노드와 읽기 전용 상태 노드의 기동, 대기 작업상태·상시 로봇상태, 잘못된 START 거절, 결과 Publisher와 설치된 실행 항목을 확인합니다.
 유효한 START/Home/STOP이나 실물 로봇 이동 명령은 보내지 않습니다.
 

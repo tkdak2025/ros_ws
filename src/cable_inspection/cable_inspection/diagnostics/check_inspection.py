@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """검사 체크리스트를 재현하고 정량 비교 결과를 Markdown으로 저장한다.
-기존 회귀 테스트와 가상 피드백 시험을 실행하며 실제 장비 명령은 보내지 않는다.
+기존 회귀 테스트와 가상 피드백 시험을 실행한다. 메뉴 2는 가상 장비에 모션 명령을 보낸다.
 운영 코드에서 이 파일을 참조하지 않으며 검사 패키지의 test/를 재사용한다.
 """
 
@@ -280,6 +280,7 @@ class InspectionCheck:
         self.tests = []
         self.metrics = []
         self.errors = []
+        self.virtual_result = None
 
 
 
@@ -406,8 +407,18 @@ class InspectionCheck:
 
 
 
+    # 기능: 실행 중인 가상 장비에 실제 검사 Main을 연결해 한 Job의 완료를 확인한다.
+    #     인자: 없음. 현재 ROS 도메인과 LOCALHOST discovery를 사용한다.
+    #     반환: 없음. 가상 결과와 검사 원본은 이번 출력 폴더에 저장한다.
+    def run_virtual(self):
+        from cable_inspection.diagnostics.check_virtual import VirtualInspectionCheck
+
+        self.virtual_result = VirtualInspectionCheck(self.output).run()
+
+
+
     # 기능: pytest를 자식 프로세스에서 실행하고 개별 결과·시간·실패 근거를 수집한다.
-    #     ros: True이면 격리 도메인의 기존 ROS 통합 시험만 실행한다.
+    #     ros: True이면 현재 ROS 도메인에서 LOCALHOST 통합 시험을 추가한다.
     #     반환: 없음. 시험 실패·수집 오류·시간 초과는 보고서와 종료 코드에 반영한다.
     def run_tests(self, ros=False):
         label = 'ros' if ros else 'offline'
@@ -421,12 +432,12 @@ class InspectionCheck:
         env['PYTHONPATH'] = str(PACKAGE)+os.pathsep+env.get('PYTHONPATH','')
 
         if ros:
-            # 실물 네트워크와 분리하고 HMI 패키지 없는 설치 환경을 재현한다.
+            # 현재 ROS 도메인을 유지하고 LOCALHOST에서 HMI 없는 설치 환경을 재현한다.
             for key in ['PYTHONPATH','AMENT_PREFIX_PATH','COLCON_PREFIX_PATH','CMAKE_PREFIX_PATH',
                         'LD_LIBRARY_PATH','ROS_DISCOVERY_SERVER','CYCLONEDDS_URI','FASTRTPS_DEFAULT_PROFILES_FILE']:
                 env.pop(key,None)
 
-            env.update(CCCIS_STANDALONE_TEST='1', ROS_DOMAIN_ID='232', ROS_AUTOMATIC_DISCOVERY_RANGE='LOCALHOST')
+            env.update(CCCIS_STANDALONE_TEST='1', ROS_AUTOMATIC_DISCOVERY_RANGE='LOCALHOST')
             setup = Path('/home/rokey/ws_cobot_pjt/ws_dsr/install/local_setup.bash')
 
             if not setup.exists():
@@ -503,7 +514,7 @@ class InspectionCheck:
         # 보고서 머리말·실행 요약과 수치 비교 표를 작성한다.
         lines = ['# 검사파트 재현·정량 검증 결과', '', f'- 실행 시각: {self.started}',
             f'- Python: `{sys.executable}`', f'- 검증 기준: 실행기 내부 CHECKLIST 정의 ({len(CHECKLIST)}개 항목)',
-            '- 환경: 실제 운영 코드를 가상 입력·모의 통신으로 실행. 실물 로봇 운전과 접촉 검증은 하지 않음.',
+            '- 환경: 합성 입력 회귀시험과 선택한 가상 에뮬레이터 Job을 실행. 실물 로봇 운전과 접촉 검증은 하지 않음.',
             f'- 코드 해시(SHA256): `{digest.hexdigest()}`', '', '## 실행 요약', '',
             '| 구분 | 통과 | 실패 | 미실행/건너뜀 |', '|---|---:|---:|---:|',
             f'| 자동 테스트 | {passed} | {failed} | {skipped} |',
@@ -564,12 +575,22 @@ class InspectionCheck:
         if not self.errors and not failed and not skipped and metric_pass == len(self.metrics):
             lines.append('실행한 자동 시험에서 오류·실패·건너뜀 없음.')
 
+        if self.virtual_result is not None:
+            result = self.virtual_result
+            lines += ['', '## 가상 에뮬레이터 전체 Job', '',
+                f"- 실행 ID: `{result['run_id']}`",
+                f"- 레시피: `{result['recipe_id']}` / 포인트 {result['point_total']}개",
+                f"- 판정 집계: `{json.dumps(result['counts'], ensure_ascii=False)}`",
+                f"- 실행 데이터: `{result['result_dir']}`",
+                '- 완료 기준: 검사 Main이 SYSTEM_READY로 복귀하고 job_summary.json에 INSPECTION_COMPLETE 기록.',
+                '- 제품 판정 PASS 개수는 가상 케이블 저항의 적합성 지표가 아니다.']
+
         # 자동 검증 밖의 확인 사항을 덧붙이고 파일을 저장한다.
         lines += ['', '## 적용 정책과 실물 확인 범위', '',
             '- 수동 HOME은 현재 Work Access 도달을 확인하면 직접 설정 Home 경로로 이동한다. Access 이외 작업영역 내부에서는 Open·후퇴·Access를 거친다.',
             '- Ready/Entry 접근 미도달은 후속 파지·접촉 이동을 차단한다. 접촉 Entry/Pull의 미도달 기록·판정 정책과 구분한다.',
             '- 실제 접근 방향·Open 25 mm·후퇴 30 mm·케이블 간섭·판정 임계값 적합성은 R01~R05 실물 확인 대상이다.',
-            '- ROS 시험을 생략했다면 `--with-ros`로 다시 실행한다. 기존 모의 통합시험은 도메인 232/LOCALHOST를 사용한다.']
+            '- 메뉴 2 또는 `--with-virtual`은 미리 실행한 virtual bringup을 확인하고 실제 가상 Job을 수행한다. 현재 ROS 도메인과 LOCALHOST만 사용한다.']
 
         report = self.output / 'report.md'
         report.write_text('\n'.join(lines)+'\n', encoding='utf-8')
@@ -579,7 +600,7 @@ class InspectionCheck:
 
 
 # 기능: 검증을 실행하고 MD 보고서 위치와 종료 코드를 반환한다.
-#     인자: --output 결과 폴더, --with-ros 격리 ROS 시험 추가.
+#     인자: --output 결과 폴더, --with-virtual 가상 Job, --with-ros 기존 모의 통합시험.
 #     반환: 모두 통과하면 0, 실패·미실행 자동 시험·환경 오류가 있으면 1.
 def main():
     parser = argparse.ArgumentParser(description='검사파트 재현·정량 검증 및 MD 보고서 생성')
@@ -587,8 +608,30 @@ def main():
         '--output', type=Path,
         default=WORKSPACE / 'results/checklist' / datetime.now().strftime('%Y%m%d_%H%M%S_%f'),
     )
-    parser.add_argument('--with-ros', action='store_true', help='도메인 232/LOCALHOST 모의 ROS 통합시험 추가')
+    parser.add_argument('--with-virtual', action='store_true', help='메뉴 없이 가상 에뮬레이터 Job 실행')
+    parser.add_argument('--with-ros', action='store_true', help='기존 모의 ROS 통합시험 추가')
     args = parser.parse_args()
+
+    # 터미널에서는 실행할 검증 범위를 고른다. 자동 실행은 입력을 기다리지 않는다.
+    include_virtual_test = args.with_virtual
+
+    if not include_virtual_test and not args.with_ros and sys.stdin.isatty():
+        print('검사파트 검증 범위를 선택하세요.')
+        print('1. 실물 장비 없는 회귀시험 + 정량 비교 (ROS 2 환경 필요)')
+        print('2. 위 검증 + 에뮬레이터 virtual 전체 Job (가상 bringup 실행 필요)')
+
+        while True:
+            try:
+                choice = input('선택 [1/2, 기본 1]: ').strip()
+
+            except EOFError:
+                choice = '1'
+
+            if choice in ('', '1', '2'):
+                include_virtual_test = choice == '2'
+                break
+
+            print('1 또는 2를 입력하세요.')
 
     # 실행 환경과 필수·선택 검증 단계를 준비한다.
     runner = InspectionCheck(args.output)
@@ -599,7 +642,10 @@ def main():
              ('오프라인 회귀', runner.run_tests, ())]
 
     if args.with_ros:
-        steps.append(('격리 ROS 통합', runner.run_tests, (True,)))
+        steps.append(('LOCALHOST ROS 통합', runner.run_tests, (True,)))
+
+    if include_virtual_test:
+        steps.append(('에뮬레이터 virtual Job', runner.run_virtual, ()))
 
     # 단계별 오류를 수집하면서 나머지 검증을 계속한다.
     for label, action, call_args in steps:
@@ -619,6 +665,11 @@ def main():
                and all(m['result']=='PASS' for m in runner.metrics))
 
     print(f"[{'PASS' if success else 'FAIL'}] 테스트 {len(runner.tests)}건 / 정량 비교 {len(runner.metrics)}건 / {time.monotonic()-started:.2f}s")
+
+    if runner.virtual_result is not None:
+        virtual = runner.virtual_result
+        print(f"[VIRTUAL] {virtual['recipe_id']} / {virtual['point_total']}포인트 / 판정 {virtual['counts']}")
+
     print(report)
 
     return 0 if success else 1

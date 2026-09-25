@@ -33,7 +33,6 @@ def test_standalone_launches_and_services(tmp_path):
 
     env = dict(os.environ)
     env.pop("ROS_DISCOVERY_SERVER", None)
-    env["ROS_DOMAIN_ID"] = "232"
     env["ROS_AUTOMATIC_DISCOVERY_RANGE"] = "LOCALHOST"
     env["ROS_LOG_DIR"] = str(tmp_path / "ros_logs")
     processes, logs = [], []
@@ -51,7 +50,7 @@ def test_standalone_launches_and_services(tmp_path):
                 start_new_session=True,
             ))
 
-        rclpy.init(domain_id=232)
+        rclpy.init()
         node = Node("standalone_test_client")
         statuses = {}
         qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE,
@@ -199,7 +198,7 @@ def test_recipe_node_preserves_component_storage():
 
 @pytest.mark.parametrize("mode", ["real", "virtual"])
 def test_devices_communicate_independently_with_simulated_ros_servers(mode):
-    """격리 ROS 도메인의 모의 서버만 사용한다. 실제 장비에는 연결하지 않는다."""
+    """현재 ROS 도메인에서 LOCALHOST 모의 서버를 사용한다. 실제 장비에는 연결하지 않는다."""
     import math
     import threading
     import rclpy
@@ -211,7 +210,7 @@ def test_devices_communicate_independently_with_simulated_ros_servers(mode):
     from cable_inspection.gripper_tool.node_gripper_tool import GripperToolNode
     from cable_inspection.robot.node_robot import RobotNode
 
-    rclpy.init(domain_id=232)
+    rclpy.init()
     servers = []
     gripper = robot = executor = thread = None
     done = threading.Event()
@@ -340,7 +339,7 @@ def test_inspection_receives_judgment_without_robot_ros_entities(tmp_path):
     from cable_inspection.sequence.main.node_main import MainSequenceNode
     from cable_inspection.sequence.inspection.node_inspection import InspectionJudgmentNode
 
-    rclpy.init(domain_id=232)
+    rclpy.init()
     node = hmi = judge = executor = None
 
     try:
@@ -441,7 +440,7 @@ def test_hmi_gateway_routes_requests_and_preserves_wire_contract(tmp_path, contr
     from cable_inspection.hmi.node_hmi import HmiNode
     from cable_inspection.sequence.main.data_models.system_state import SystemState
 
-    rclpy.init(domain_id=232)
+    rclpy.init()
     nodes, executor = [], None
     main = judge = None
 
@@ -594,7 +593,7 @@ def test_monitoring_and_shutdown_stop_continue_while_motion_response_is_pending(
     from cable_inspection.recipe.recipe import Recipe
     from cable_inspection.sequence.common.data_models.sequence_result import SequenceResult
 
-    rclpy.init(domain_id=232)
+    rclpy.init()
     entered, release, stopped, servers_done = (threading.Event() for _ in range(4))
     nodes = []
     executor = server_executor = thread = main = judge = None
