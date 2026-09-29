@@ -20,7 +20,7 @@ class M0609Robot:
     """RobotNode가 상속하는 M0609 통신 component. 다른 장비는 참조하지 않는다."""
 
     SERVICE_ROOT = "/dsr01/dsr_controller2"
-    SERVICE_TIMEOUT_S = 5.0
+    SERVICE_TIMEOUT_S = 30.0
     CONFIG_DIR = Path(get_package_share_directory("cable_inspection")) / "config"
 
 

@@ -40,7 +40,7 @@ def setup_route(location, failure=None):
 
 
 
-    def move_joint(pose):
+    def move_joint(pose, **kwargs):
         events.append(('access',pose.joint[:]))
 
         if failure == 'move':
@@ -119,13 +119,16 @@ def test_manual_home_command_selects_route_from_current_pose(mode, location, com
         main.backend.robot.get_tcp = lambda: [read_tcp()[0] + 1.0, *read_tcp()[1:]]
 
     main.backend.robot.read_joints = lambda: joints[:]
+    main.backend.robot.motion_status = lambda: 0
     move_joint = main.backend.move_joint
 
     # 기능: 기록용 관절 이동과 실제 관절 피드백을 함께 갱신한다.
     #     pose: 명령한 RobotPose. 반환: 없음.
-    def record_joint_move(pose):
+    def record_joint_move(pose, **kwargs):
         move_joint(pose)
         joints[:] = pose.joint
+        if location == 'drift':
+            main.backend.robot.get_tcp = read_tcp
 
     main.backend.move_joint = record_joint_move
     results = []
@@ -141,9 +144,8 @@ def test_manual_home_command_selects_route_from_current_pose(mode, location, com
 
     assert operation == 'HOME'
     assert result.success and main.state == SystemState.SYSTEM_READY
-    assert labels == (['home'] if location in {'access', 'home'} else ['open', 'escape', 'access', 'home'])
-    assert result.data['route'] == ('VERIFIED_ACCESS_HOME' if location == 'access' else
-                                    'SAFE_ROUTE_HOME' if location == 'home' else 'WORK_AREA_ESCAPE')
+    assert labels == ([] if location == 'home' else ['open', 'home'] if location == 'access' else ['open', 'access', 'home'])
+    assert result.data['route'] == ('ALREADY_HOME' if location == 'home' else 'MIDLOWER_ESCAPE_HOME')
     assert checkpoints[-1] == 'HOME_REACHED'
     assert joints == main.system['home_pose']['joint']
     main.check_devices.assert_called_once_with()

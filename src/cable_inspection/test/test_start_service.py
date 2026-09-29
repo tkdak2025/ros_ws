@@ -12,7 +12,7 @@ from cable_inspection.sequence.main.data_models.system_state import SystemState
 
 
 def setup():
-    recipe = Recipe.load_json(Path(__file__).parents[1]/"cable_inspection/recipe/inspection/rcp_BMW_HARNESS_LWR_RH_01.json")
+    recipe = Recipe.load_json(Path(__file__).parents[1]/"cable_inspection/recipe/inspection/rcp_01_BMW_HARNESS_LWR_RH.json")
     request = StartInspection.Request(request_id="request-1", recipe=RecipeNode.encode_message(recipe))
     main = NS(worker=None, operation="", selected_recipe="", closing=False,
         controller=NS(state=SystemState.SYSTEM_READY, context=None, backend=NS(),

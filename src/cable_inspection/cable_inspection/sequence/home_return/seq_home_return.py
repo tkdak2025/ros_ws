@@ -113,7 +113,7 @@ class HomeReturnSequence:
     def move_home_pose(self):
         backend = self.backend
         pose = RobotPose(**self.system["home_pose"])
-        backend.move_joint(pose)
+        backend.move_joint(pose, joint_tolerance_deg=self.system["home_joint_tolerance_deg"])
         tolerance = self.system["home_joint_tolerance_deg"]
 
         if any(abs(actual - target) > tolerance
@@ -135,41 +135,69 @@ class HomeReturnSequence:
 
 
 
-    # 기능: 현재 Access 도달 여부를 먼저 확인하고 작업영역에 따라 Home 경로를 선택한다.
-    #     인자: 없음. 장비의 현재 TCP와 시스템 설정을 사용한다.
-    #     반환: 선택 경로·시작 TCP와 Home 도달 결과를 담은 SequenceResult.
+    def pose_reached(self, pose, tcp):
+        """HOME MoveJ는 정지와 절대 관절각으로 확인한다. TCP는 영역 판별에 사용한다."""
+        return (self.backend.robot.motion_status() == 0
+                and all(abs(a - b) <= self.system["home_joint_tolerance_deg"]
+                        for a, b in zip(self.current_joints(), pose.joint)))
+
     def run(self) -> SequenceResult:
+        """HOME 전용: 현재 BASE TCP 영역의 경유점으로 MoveJ 후 Home 복귀."""
         self.backend.phase = "SEQ_02_HOME_RETURN"
-
-        # Main이 장비 준비·운전 가능 상태를 확인한 후 이 시퀀스를 호출한다.
+        self.poll_control()
         tcp = self.current_tcp()
-
         if len(tcp) != 6 or not all(math.isfinite(value) for value in tcp):
             return SequenceResult(False, "INVALID_TCP", "현재 TCP 값이 잘못되었습니다.")
 
-        # Access가 작업영역 내부여도 이미 도달했다면 중복 Open·후퇴를 생략한다.
-        if self.tcp_is_at_work_access(tcp):
-            result = self.return_via_home_route()
-            route = "VERIFIED_ACCESS_HOME"
+        home = RobotPose(**self.system["home_pose"])
+        if self.pose_reached(home, tcp):
+            self.checkpoint("HOME_REACHED")
+            return SequenceResult(True, "HOME_RETURN_OK", "이미 Home에 도달했습니다.",
+                                  {"route": "ALREADY_HOME", "start_tcp": tcp[:6]})
 
-        elif self.tcp_is_in_work_area(tcp):
-            result = self.return_from_work_area()
-            route = "WORK_AREA_ESCAPE"
+        region = None
+        # X=100 경계에서는 상부검사를 우선하며 전체 작업영역 밖은 허용하지 않는다.
+        if self.tcp_is_in_work_area(tcp):
+            for area, target, name in (
+                ("upper_work_area", "safe_escape_region_upper", "UPPER"),
+                ("lower_side_work_area", "safe_escape_region_midlower", "MIDLOWER"),
+            ):
+                if BoxBoundary(**self.system[area]).contains_inside(tcp[:3], 0):
+                    region = (target, name)
+                    break
+        if region is None:
+            return SequenceResult(False, "HOME_OUTSIDE_REGIONS",
+                                  "현재 TCP가 복귀 작업영역 밖입니다. 수동 복구가 필요합니다.",
+                                  {"start_tcp": tcp[:6]})
 
-        else:
-            result = self.return_via_home_route()
-            route = "SAFE_ROUTE_HOME"
-
+        target, name = region
+        pose = RobotPose(**self.system[target])
+        self.poll_control()
+        result = self.relax_grip()
         if not result.success:
             return result
-
-        return SequenceResult(
-            True,
-            "HOME_RETURN_OK",
-            "Home Return을 완료했습니다.",
-            {"route": route, "start_tcp": tcp[:6]},
-        )
-
+        self.checkpoint("GRIP_RELAXED")
+        self.poll_control()
+        print(f"[INFO] HOME_RETURN region={name} start_tcp={tcp} "
+              f"target={target} motion=MoveJ joint_deg={pose.joint}", flush=True)
+        if not self.pose_reached(pose, self.current_tcp()):
+            self.backend.move_joint(pose, joint_tolerance_deg=self.system["home_joint_tolerance_deg"])
+        if not self.pose_reached(pose, self.current_tcp()):
+            raise RuntimeError("영역별 Safe Escape 목표 도달 확인 실패")
+        actual_tcp = self.current_tcp()
+        print(f"[INFO] HOME_ESCAPE_REACHED target={target} actual_tcp={actual_tcp} "
+              f"stored_task_error_mm={math.dist(actual_tcp[:3], pose.task[:3]):.3f}", flush=True)
+        self.checkpoint("SAFE_ESCAPE_DONE")
+        self.poll_control()
+        print(f"[INFO] HOME_MOVE_REQUEST motion=MoveJ joint_deg={home.joint}", flush=True)
+        result = self.move_home_pose()
+        if not result.success:
+            return result
+        if not self.pose_reached(home, self.current_tcp()):
+            raise RuntimeError("Home 복귀 후 목표 자세 도달 확인 실패")
+        self.checkpoint("HOME_REACHED")
+        return SequenceResult(True, "HOME_RETURN_OK", "Home Return을 완료했습니다.",
+                              {"route": f"{name}_ESCAPE_HOME", "start_tcp": tcp[:6]})
 
 
     # 기능: 작업영역에서 그리퍼를 열고 현재 Tool 접근축 반대로 후퇴한다.

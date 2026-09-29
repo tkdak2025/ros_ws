@@ -1,0 +1,132 @@
+{
+  "recipe_id": "rcp_03_BMW_HARNESS_UPR_RH",
+  "recipe_version": "1.0.0",
+  "coordinate_frame": "BASE",
+  "connector_type": "WIRING_HARNESS_RJ45_LAN",
+  "execution_order": [
+    "HARNESS_03",
+    "LAN_MONITOR_ARM_01"
+  ],
+  "points": {
+    "HARNESS_03": {
+      "point_id": "HARNESS_03",
+      "point_name": "와이어링 하네스 검사 3",
+      "enabled": true,
+      "ready_pose": {
+        "task": [
+          124.15,
+          -314.55,
+          499.44,
+          90.0,
+          -150.0,
+          180.0
+        ],
+        "joint": [
+          -52.23,
+          -10.96,
+          58.99,
+          -198.65,
+          -106.57,
+          -151.64
+        ]
+      },
+      "entry_pose": {
+        "task": [
+          243.39,
+          -416.23,
+          405.99,
+          87.49,
+          -156.62,
+          176.65
+        ],
+        "joint": [
+          -49.86,
+          7.16,
+          56.14,
+          -195.8,
+          -98.72,
+          -145.59
+        ]
+      },
+      "entry_setting": {
+        "max_distance_mm": 5.0,
+        "force_guard_n": 5.0,
+        "timeout_s": 10.0
+      },
+      "grip_setting": {
+        "soft_close_width_mm": 23.0,
+        "soft_open_width_mm": 28.0,
+        "hard_width_mm": 18.0,
+        "soft_force_n": 10.0,
+        "hard_force_n": 20.0
+      },
+      "pull_setting": {
+        "force_limit_n": 15.0,
+        "max_distance_mm": 25.0,
+        "timeout_s": 10.0,
+        "speed_mm_s": 10.0,
+        "normal_displacement_limit_mm": 5.0
+      }
+    },
+    "LAN_MONITOR_ARM_01": {
+      "point_id": "LAN_MONITOR_ARM_01",
+      "point_name": "BMW 다른 측면 모니터암 LAN 검사",
+      "enabled": true,
+      "ready_pose": {
+        "task": [
+          -138.99,
+          155.74,
+          702.3,
+          9.05,
+          -1.05,
+          64.53
+        ],
+        "joint": [
+          -231.39,
+          -18.39,
+          132.47,
+          -1.0,
+          -113.56,
+          -55.43
+        ]
+      },
+      "entry_pose": {
+        "task": [
+          -307.12,
+          202.19,
+          780.28,
+          139.83,
+          -0.75,
+          -49.75
+        ],
+        "joint": [
+          -214.39,
+          2.33,
+          102.27,
+          -0.09,
+          -105.34,
+          -55.55
+        ]
+      },
+      "entry_setting": {
+        "max_distance_mm": 6.0,
+        "force_guard_n": 5.0,
+        "timeout_s": 10.0
+      },
+      "grip_setting": {
+        "soft_close_width_mm": 22.0,
+        "soft_open_width_mm": 27.0,
+        "hard_width_mm": 16.0,
+        "soft_force_n": 10.0,
+        "hard_force_n": 20.0
+      },
+      "pull_setting": {
+        "force_limit_n": 15.0,
+        "max_distance_mm": 25.0,
+        "timeout_s": 10.0,
+        "speed_mm_s": 10.0,
+        "normal_displacement_limit_mm": 5.0
+      }
+    }
+  }
+}

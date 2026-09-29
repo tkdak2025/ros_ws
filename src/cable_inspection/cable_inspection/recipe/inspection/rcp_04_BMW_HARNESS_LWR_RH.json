@@ -1,0 +1,254 @@
+{
+  "recipe_id": "rcp_04_BMW_HARNESS_LWR_RH",
+  "recipe_version": "1.0.0",
+  "coordinate_frame": "BASE",
+  "connector_type": "WIRING_HARNESS_RJ45_LAN",
+  "execution_order": [
+    "HARNESS_01",
+    "HARNESS_02",
+    "LAN_L2",
+    "LAN_L5"
+  ],
+  "points": {
+    "HARNESS_01": {
+      "point_id": "HARNESS_01",
+      "point_name": "와이어링 하네스 검사 1",
+      "enabled": true,
+      "ready_pose": {
+        "task": [
+          467.69,
+          63.87,
+          393.67,
+          172.19,
+          -180.0,
+          172.19
+        ],
+        "joint": [
+          7.05,
+          25.25,
+          28.8,
+          -180.02,
+          -125.95,
+          -172.96
+        ]
+      },
+      "entry_pose": {
+        "task": [
+          384.6,
+          20.0,
+          97.0,
+          135.0,
+          -180.0,
+          -135.61
+        ],
+        "joint": [
+          2.07,
+          5.18,
+          103.56,
+          -180.02,
+          -71.26,
+          -88.53
+        ]
+      },
+      "entry_setting": {
+        "max_distance_mm": 5.0,
+        "force_guard_n": 5.0,
+        "timeout_s": 10.0
+      },
+      "grip_setting": {
+        "soft_close_width_mm": 24.0,
+        "soft_open_width_mm": 29.0,
+        "hard_width_mm": 19.0,
+        "soft_force_n": 10.0,
+        "hard_force_n": 20.0
+      },
+      "pull_setting": {
+        "force_limit_n": 15.0,
+        "max_distance_mm": 25.0,
+        "timeout_s": 10.0,
+        "speed_mm_s": 10.0,
+        "normal_displacement_limit_mm": 5.0
+      }
+    },
+    "HARNESS_02": {
+      "point_id": "HARNESS_02",
+      "point_name": "와이어링 하네스 검사 2",
+      "enabled": true,
+      "ready_pose": {
+        "task": [
+          467.69,
+          63.87,
+          393.67,
+          172.19,
+          -180.0,
+          172.19
+        ],
+        "joint": [
+          7.05,
+          25.25,
+          28.8,
+          -180.02,
+          -125.95,
+          -172.96
+        ]
+      },
+      "entry_pose": {
+        "task": [
+          340.0,
+          20.0,
+          97.0,
+          6.81,
+          180.0,
+          96.2
+        ],
+        "joint": [
+          2.34,
+          -0.97,
+          109.97,
+          -180.02,
+          -71.0,
+          -88.26
+        ]
+      },
+      "entry_setting": {
+        "max_distance_mm": 5.0,
+        "force_guard_n": 5.0,
+        "timeout_s": 10.0
+      },
+      "grip_setting": {
+        "soft_close_width_mm": 23.0,
+        "soft_open_width_mm": 28.0,
+        "hard_width_mm": 18.0,
+        "soft_force_n": 10.0,
+        "hard_force_n": 20.0
+      },
+      "pull_setting": {
+        "force_limit_n": 15.0,
+        "max_distance_mm": 25.0,
+        "timeout_s": 10.0,
+        "speed_mm_s": 10.0,
+        "normal_displacement_limit_mm": 5.0
+      }
+    },
+    "LAN_L2": {
+      "point_id": "LAN_L2",
+      "point_name": "LAN_L2",
+      "enabled": true,
+      "ready_pose": {
+        "task": [
+          602.36,
+          -36.43,
+          347.74,
+          113.13,
+          -136.43,
+          -147.85
+        ],
+        "joint": [
+          17.84,
+          26.59,
+          50.25,
+          -223.65,
+          -95.91,
+          -70.74
+        ]
+      },
+      "entry_pose": {
+        "task": [
+          610.0,
+          -305.0,
+          360.0,
+          90.0,
+          -90.0,
+          0.0
+        ],
+        "joint": [
+          1.6,
+          38.56,
+          66.52,
+          -269.6,
+          -91.55,
+          105.09
+        ]
+      },
+      "entry_setting": {
+        "max_distance_mm": 10.0,
+        "force_guard_n": 5.0,
+        "timeout_s": 10.0
+      },
+      "grip_setting": {
+        "soft_close_width_mm": 22.0,
+        "soft_open_width_mm": 27.0,
+        "hard_width_mm": 16.0,
+        "soft_force_n": 10.0,
+        "hard_force_n": 20.0
+      },
+      "pull_setting": {
+        "force_limit_n": 15.0,
+        "max_distance_mm": 25.0,
+        "timeout_s": 10.0,
+        "speed_mm_s": 10.0,
+        "normal_displacement_limit_mm": 5.0
+      }
+    },
+    "LAN_L5": {
+      "point_id": "LAN_L5",
+      "point_name": "LAN_L5",
+      "enabled": true,
+      "ready_pose": {
+        "task": [
+          602.36,
+          -36.43,
+          347.74,
+          113.13,
+          -136.43,
+          -147.85
+        ],
+        "joint": [
+          17.84,
+          26.59,
+          50.25,
+          -223.65,
+          -95.91,
+          -70.74
+        ]
+      },
+      "entry_pose": {
+        "task": [
+          565.0,
+          -300.0,
+          360.0,
+          90.0,
+          -90.0,
+          0.0
+        ],
+        "joint": [
+          2.23,
+          32.27,
+          77.05,
+          -269.28,
+          -92.12,
+          109.35
+        ]
+      },
+      "entry_setting": {
+        "max_distance_mm": 10.0,
+        "force_guard_n": 5.0,
+        "timeout_s": 10.0
+      },
+      "grip_setting": {
+        "soft_close_width_mm": 22.0,
+        "soft_open_width_mm": 27.0,
+        "hard_width_mm": 16.0,
+        "soft_force_n": 10.0,
+        "hard_force_n": 20.0
+      },
+      "pull_setting": {
+        "force_limit_n": 15.0,
+        "max_distance_mm": 25.0,
+        "timeout_s": 10.0,
+        "speed_mm_s": 10.0,
+        "normal_displacement_limit_mm": 5.0
+      }
+    }
+  }
+}

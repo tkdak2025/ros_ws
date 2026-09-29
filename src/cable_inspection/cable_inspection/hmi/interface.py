@@ -219,6 +219,11 @@ class HmiInterface:
                 rejection_code = "HEARTBEAT_MISSING"
                 raise ValueError("HMI Heartbeat가 유효하지 않습니다.")
 
+            self.publish_log("INFO",
+                f"RECIPE_RECEIVED: source=hmi request_id={request.request_id} "
+                f"previous={self.main.selected_recipe or '(none)'} "
+                f"recipe={recipe['recipe_id']} version={recipe['recipe_version']} "
+                f"enabled_points={[p['point_id'] for p in recipe['points'] if p['enabled']]}")
             run_id = time.time_ns() // 1000
             previous_id, self._request_id = self._request_id, request.request_id
 

@@ -210,7 +210,7 @@ def export_run(directory, results: List[itf.PointResult],
 
     공용 DB 는 열지도 않는다 - 늘 새 파일을 만들므로 저장 노드와 부딪히지 않는다. .db 는 공용 DB 와
     같은 스키마(inspection_result + 요약 1행 inspection_run)라서 같은 쿼리로 읽을 수 있고,
-    .xlsx 는 사람이 보는 표다(result_sheet 참고). openpyxl 이 없으면 .csv 로 대신 쓴다.
+    .xlsx 는 사람이 보는 표다(result_sheet 참고). openpyxl이 없으면 설치 안내 오류를 표시한다.
 
     inspection_run 의 시작·종료 시각은 결과에 실려 온 stamp 의 처음과 끝이다(내보낸 시각이 아니다).
     """

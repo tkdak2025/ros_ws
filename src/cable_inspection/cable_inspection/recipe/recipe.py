@@ -414,6 +414,25 @@ class Recipe:
 
         BoxBoundary(**data["work_area"]).validate("work_area")
 
+        # 영역별 HOME 복귀에 필요한 경계와 경유점은 이동 전에 검증한다.
+        for area, target in (("upper_work_area", "safe_escape_region_upper"),
+                             ("lower_side_work_area", "safe_escape_region_midlower")):
+            region = data.get(area)
+            raw = data.get(target)
+            if not isinstance(region, dict) or not isinstance(raw, dict):
+                raise ValueError(f"System Recipe의 {area}, {target} 설정이 필요합니다.")
+            box = BoxBoundary(**region)
+            box.validate(area)
+            pose = RobotPose(**raw)
+            pose.validate(target)
+            parent = BoxBoundary(**data["work_area"])
+            for corner in ([box.x_min_mm, box.y_min_mm, box.z_min_mm],
+                           [box.x_max_mm, box.y_max_mm, box.z_max_mm]):
+                if not parent.contains_inside(corner, 0):
+                    raise ValueError(f"{area}는 work_area 안에 있어야 합니다.")
+            if not box.contains_inside(pose.task[:3], 0):
+                raise ValueError(f"{target}는 {area} 안에 있어야 합니다.")
+
         if any(value != 0 for value in data["home_pose"]["joint"]):
             raise ValueError("Home 복귀의 home_pose.joint는 모두 0도여야 합니다.")
 

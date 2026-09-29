@@ -10,7 +10,7 @@ from cable_inspection.recipe.recipe import Recipe
 from cable_inspection.recipe.node_recipe import RecipeNode
 
 PACKAGE = Path(__file__).parents[1]
-SOURCE = PACKAGE / 'cable_inspection/recipe/inspection/rcp_BMW_HARNESS_UPR_RH_02.json'
+SOURCE = PACKAGE / 'cable_inspection/recipe/inspection/rcp_02_BMW_HARNESS_UPR_RH.json'
 
 
 
