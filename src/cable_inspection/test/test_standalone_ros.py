@@ -130,7 +130,7 @@ def test_standalone_launches_and_services(tmp_path):
         assert not any(name.startswith("/cable_inspection/recipes/")
                        or name == "/cable_inspection/results/query" for name in services)
         recipe = RecipeNode.encode_message(Recipe.load_json(
-            share / "recipe/inspection/rcp_BMW_LWR_01.json"))
+            share / "recipe/inspection/rcp_BMW_HARNESS_LWR_RH_01.json"))
 
         # 유효 START/Home/STOP은 보내지 않는다. 잘못된 요청과 heartbeat 부재만 확인한다.
         rejected = call(StartInspection, "start", StartInspection.Request(recipe=recipe))
@@ -179,7 +179,7 @@ def test_recipe_node_preserves_component_storage():
 
     try:
         recipes = RecipeNode(package / "config/system_recipe.json", [
-            package / "cable_inspection/recipe/inspection/lan_inspection_recipe.json"])
+            package / "cable_inspection/recipe/inspection/rcp_BMW_HARNESS_UPR_RH_02.json"])
         recipe_id, = recipes.available_ids()
         recipe = recipes.get(recipe_id)
         decoded = recipes.decode_message(RecipeNode.encode_message(recipe))
@@ -344,7 +344,7 @@ def test_inspection_receives_judgment_without_robot_ros_entities(tmp_path):
 
     try:
         recipe = Recipe.load_json(Path(__file__).parents[1] /
-            'cable_inspection/recipe/inspection/lan_inspection_recipe.json')
+            'cable_inspection/recipe/inspection/rcp_BMW_HARNESS_UPR_RH_02.json')
         recipes = Recipe()
         recipes.accept(recipe)
         recipes.begin(recipe['recipe_id'], 991)
@@ -447,7 +447,7 @@ def test_hmi_gateway_routes_requests_and_preserves_wire_contract(tmp_path, contr
     try:
         package = Path(__file__).parents[1]
         recipes = RecipeNode(package/'config/system_recipe.json', [
-            package/'cable_inspection/recipe/inspection/lan_inspection_recipe.json'])
+            package/'cable_inspection/recipe/inspection/rcp_BMW_HARNESS_UPR_RH_02.json'])
         nodes.append(recipes)
         recipe = recipes.get(recipes.available_ids()[0])
         judge = InspectionJudgmentNode('gateway_test_judgment')

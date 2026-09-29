@@ -142,7 +142,7 @@ ros2 launch cable_inspection robot_bringup.launch.py robot_host:=192.168.1.100 g
 | control_mode | hmi (terminal 선택 가능) |
 | robot_mode | real (virtual 선택 가능; 드라이버 모드와 일치해야 함) |
 | system_recipe | share/cable_inspection/config/system_recipe.json |
-| recipe | share/cable_inspection/recipe/inspection/rcp_BMW_LWR_01.json (terminal만 사용) |
+| recipe | share/cable_inspection/recipe/inspection/rcp_BMW_HARNESS_LWR_RH_01.json (terminal만 사용) |
 | results_dir | results/inspection_sequence |
 
 시스템 레시피는 검사파트 소유로 유지합니다.

@@ -7,7 +7,7 @@ from cable_inspection.recipe.recipe import Recipe
 from cable_inspection.sequence.inspection.data_models.inspection_point_result import InspectionPointResult
 from cable_inspection.sequence.common.data_models.sequence_status import SequenceStatus
 
-SOURCE = Path(__file__).parents[1] / 'cable_inspection/recipe/inspection/lan_inspection_recipe.json'
+SOURCE = Path(__file__).parents[1] / 'cable_inspection/recipe/inspection/rcp_BMW_HARNESS_UPR_RH_02.json'
 
 
 

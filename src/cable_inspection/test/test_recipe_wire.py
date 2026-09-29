@@ -7,7 +7,7 @@ from cable_inspection.recipe.node_recipe import RecipeNode
 
 
 def recipe():
-    return Recipe.load_json(Path(__file__).parents[1]/"cable_inspection/recipe/inspection/rcp_BMW_LWR_01.json")
+    return Recipe.load_json(Path(__file__).parents[1]/"cable_inspection/recipe/inspection/rcp_BMW_HARNESS_LWR_RH_01.json")
 
 
 
