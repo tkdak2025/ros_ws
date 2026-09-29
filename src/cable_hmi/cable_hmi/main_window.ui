@@ -59,9 +59,9 @@ QPushButton { border: none; border-radius: 8px; font-size: 15px; font-weight: bo
 #failBtn:hover, #missingBtn:hover { background: #7C9194; }
 #homeBtn { background: #FFFFFF; color: #2B3440; border: 1px solid #9AA5B1; }
 #homeBtn:hover { background: #EEF2F6; }
-#exportBtn { background: #FFFFFF; color: #2B3440; border: 1px solid #9AA5B1; font-size: 12px;
+#exportBtn, #openFileBtn { background: #FFFFFF; color: #2B3440; border: 1px solid #9AA5B1; font-size: 12px;
     padding: 3px 10px; border-radius: 6px; }
-#exportBtn:hover { background: #EEF2F6; }
+#exportBtn:hover, #openFileBtn:hover { background: #EEF2F6; }
 #exportBtn:disabled { background: #F2F4F7; color: #B5BDC7; border: 1px solid #D9E0E7; }
 /* ID 선택자가 QPushButton:disabled 보다 우선하므로 버튼마다 :disabled 를 따로 둔다 */
 #startBtn:disabled, #pauseBtn:disabled, #resumeBtn:disabled, #failBtn:disabled, #missingBtn:disabled {
@@ -1004,10 +1004,20 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
                    <item>
                   <widget class="QPushButton" name="exportBtn">
                    <property name="toolTip">
-                    <string>이번 검사 결과만 새 파일(.db + .csv)로 저장합니다. 공용 DB 는 건드리지 않습니다. DB 에 쌓인 전체는 &apos;통합 조회&apos; 탭에서 저장합니다.</string>
+                    <string>이번 검사 결과만 새 파일(.db + .xlsx)로 저장합니다. 공용 DB 는 건드리지 않습니다. DB 에 쌓인 전체는 &apos;통합 조회&apos; 탭에서 저장합니다.</string>
                    </property>
                    <property name="text">
                     <string>결과 파일 저장</string>
+                   </property>
+                  </widget>
+                   </item>
+                   <item>
+                  <widget class="QPushButton" name="openFileBtn">
+                   <property name="toolTip">
+                    <string>이 탭에서 가장 최근에 저장한 검사 결과 파일(run_….xlsx)을 엽니다. 저장한 파일이 없으면 저장 폴더를 엽니다.</string>
+                   </property>
+                   <property name="text">
+                    <string>최근 파일 열기</string>
                    </property>
                   </widget>
                    </item>
@@ -1359,26 +1369,6 @@ QProgressBar::chunk { background: #2699B3; border-radius: 5px; }
               </property>
              </widget>
             </item>
-                  <item row="7" column="0">
-                   <widget class="QLabel" name="pointJudgementKey">
-                    <property name="text">
-                     <string>현재 판정</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>key</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="7" column="1">
-                   <widget class="QLabel" name="pointJudgement">
-                    <property name="text">
-                     <string>—</string>
-                    </property>
-                    <property name="role" stdset="0">
-                     <string>value</string>
-                    </property>
-                   </widget>
-                  </item>
                  </layout>
                 </item>
                </layout>

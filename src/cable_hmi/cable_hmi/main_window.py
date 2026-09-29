@@ -27,7 +27,7 @@ from . import interface as itf
 from . import result_db
 from .detail_dialog import ResultDetailDialog
 from .limit_gauge import LimitGauge
-from .lookup_tab import LookupTab
+from .lookup_tab import add_open_button, LookupTab, open_latest
 from .style import (
     BAD_COLOR, chip_style, DIALOG_QSS, LOG_COLORS, MUTED_COLOR, OK_COLOR, RESULT_COLORS,
     WARN_COLOR,
@@ -45,7 +45,6 @@ Cmd = itf.CommandName
 State = itf.State
 
 MONITOR_STATES = (State.MONITOR, State.MONITOR_MOVING)
-RESULT_CODES = (itf.ResultCode.PASS, *itf.ResultCode.FAIL_CODES)
 # '현재 검사 결과' 표의 열. 이름과 순서는 통합 조회 탭(lookup_tab.COLUMNS)의 용어에 맞춘다.
 # 다만 '케이블' 열은 없다 - 판정 노드가 보내는 메시지(cable_interfaces/msg/InspectionResult)에
 # cable_id 가 없기 때문이다. 통합 조회 탭은 레시피 DB 에서 읽으므로 그 열을 그대로 쓴다.
@@ -194,8 +193,7 @@ class MainWindow(QMainWindow):
         self.point_rule = w('pointRule')
         self.point_rows = {
             '속도 설정': w('pointSpeed'), '그리퍼 폭': w('pointGripper'),
-            '현재 힘 값': w('pointForce'), '현재 변위': w('pointDisplacement'),
-            '현재 판정': w('pointJudgement')}
+            '현재 힘 값': w('pointForce'), '현재 변위': w('pointDisplacement')}
         self.grip_gauge = self._gauge('gripGauge')
         self.force_gauge = self._gauge('forceGauge')
         self.disp_gauge = self._gauge('dispGauge')
@@ -222,6 +220,7 @@ class MainWindow(QMainWindow):
         self.product_id, self.product_result = w('productId'), w('productResult')
         self.table, self.log_view = w('resultTable', QTableWidget), w('logView', QPlainTextEdit)
         self.export_btn = w('exportBtn', QPushButton)
+        self.open_file_btn = w('openFileBtn', QPushButton)
         self.speed_slider, self.speed_label = w('speedSlider', QSlider), w('speedLabel')
         self.progress_bar, self.progress_text = w('progressBar', QProgressBar), w('progressText')
 
@@ -248,6 +247,8 @@ class MainWindow(QMainWindow):
         self.home_btn.clicked.connect(self._on_home)
         self.fail_btn.clicked.connect(lambda: self._on_move_to('FAIL'))
         self.export_btn.clicked.connect(self._on_export)
+        self.open_file_btn.clicked.connect(
+            lambda: open_latest(self._export_dir(), result_db.RUN_FILE_PREFIX, self))
         self.speed_slider.valueChanged.connect(self._on_speed_changed)
         self.recipe_combo.activated.connect(self._on_recipe_chosen)   # 사용자가 고를 때만 발생
         self.table.cellClicked.connect(self._on_cell_clicked)
@@ -337,7 +338,7 @@ class MainWindow(QMainWindow):
 
     def _on_export(self):
         """
-        지금 표에 있는 검사 결과만 새 파일 둘(.db + .csv)로 내보낸다. 누르면 먼저 확인 창이 뜬다.
+        지금 표에 있는 검사 결과만 새 파일 둘(.db + .xlsx)로 내보낸다. 누르면 먼저 확인 창이 뜬다.
 
         공용 DB 는 건드리지 않는다 - 늘 새 파일을 만들므로 저장 노드와 부딪히지 않고,
         자동 저장(result_recorder_node)은 그대로 돌아간다.
@@ -351,25 +352,26 @@ class MainWindow(QMainWindow):
                 '결과 파일 저장',
                 f'이번 검사 결과 {count}건을 파일로 저장합니다.\n\n'
                 f'저장 위치: {self._export_dir()}\n'
-                f'파일 이름: run_{run_id}_<날짜_시각>.db / .csv\n\n'
+                f'파일 이름: run_{run_id}_<날짜_시각>.db / .xlsx\n\n'
                 '공용 DB 는 바뀌지 않습니다.'):
             self._append_log('INFO', '[HMI] 결과 파일 저장 취소')
             return
         try:
-            db_path, csv_path = result_db.export_run(
+            db_path, sheet_path = result_db.export_run(
                 self._export_dir(), self._results, self._status)
         except result_db.ResultDbError as e:
             self._append_log('ERROR', f'[HMI] 결과 파일 저장 실패 - {e}')
             self._show_popup('ERROR', f'결과 파일 저장 실패\n{e}')
             return
         self._append_log('INFO', f'[HMI] 결과 {count}건 저장: {db_path}')
-        self._append_log('INFO', f'[HMI] 결과 {count}건 저장: {csv_path}')
+        self._append_log('INFO', f'[HMI] 결과 {count}건 저장: {sheet_path}')
         self.export_btn.setToolTip(f'마지막 저장: {db_path}')
         # 저장을 마쳤다는 알림은 비모달이다 - 창이 떠 있어도 STOP 을 누를 수 있다.
         box = self._message_box(
             QMessageBox.Information, '결과 파일 저장 완료',
-            f'결과 {count}건을 저장했습니다.\n\n{db_path}\n{csv_path}', QMessageBox.Ok)
+            f'결과 {count}건을 저장했습니다.\n\n{db_path}\n{sheet_path}', QMessageBox.Ok)
         box.button(QMessageBox.Ok).setText('확인')
+        add_open_button(box, sheet_path)
         box.setModal(False)
         box.show()
         self._export_popup = box        # 참조를 남겨 둬야 창이 바로 닫히지 않는다
@@ -437,9 +439,12 @@ class MainWindow(QMainWindow):
              OK_COLOR if linked else BAD_COLOR)
 
         if linked:
-            label = State.LABELS.get(s.state, s.state)
-            if (s.state in (State.PAUSE_REQUEST, State.PAUSED)
-                    and s.pause_reason == itf.PauseReason.COMM_LOST):
+            label = self._state_label()
+            # v4 Main 은 pause_reason 을 보내지 않는다. 대신 HMI 신호를 못 받고 있으면
+            # (control_connected=False) 통신 단절로 멈춘 것이다.
+            comm_lost = (s.pause_reason == itf.PauseReason.COMM_LOST
+                         or (itf.ControlMode.is_main(s.control_mode) and not s.control_connected))
+            if s.state in (State.PAUSE_REQUEST, State.PAUSED) and comm_lost:
                 label += ' · 통신 단절'        # 통신이 돌아와도 이어하기를 눌러야 재개된다
             color = STATE_BADGE_COLORS.get(s.state, '')
         else:
@@ -484,10 +489,9 @@ class MainWindow(QMainWindow):
             _set(self.point_rows['현재 힘 값'],
                  (f'{force:.1f} / {lim.required_pull_force_n:.1f} N'
                   if lim.required_pull_force_n > 0 else f'{force:.1f} N') + tag)
-        elif s.raw_force_n is not None:
-            # Pull 밖: 센서 원시 힘만 있다. 기준 힘과 비교할 값이 아니므로 기준을 붙이지 않는다.
-            _set(self.point_rows['현재 힘 값'], f'{s.raw_force_n:.1f} N (센서)', MUTED_COLOR)
         else:
+            # Pull 밖. robot_status.force_norm_n 은 기준점을 빼지 않은 원시 크기라 Pull 힘과
+            # 계산이 달라, 기준 힘과 나란히 두면 오해한다. 그래서 Pull 중에만 힘을 보여 준다.
             _set(self.point_rows['현재 힘 값'], '—')
         over = disp is not None and lim.max_displacement_mm > 0 and disp > lim.max_displacement_mm
         if disp is None:
@@ -497,11 +501,7 @@ class MainWindow(QMainWindow):
                  (f'{disp:.1f} / {lim.max_displacement_mm:.1f} mm' if lim.max_displacement_mm > 0
                   else f'{disp:.1f} mm') + tag,
                  BAD_COLOR if over else '')
-        self._render_limits(lim, force, disp, over, width, s.raw_force_n)
-        judge_color = ''
-        if s.judgement in RESULT_CODES:
-            judge_color = RESULT_COLORS[itf.ResultCode.category(s.judgement)][0]
-        _set(self.point_rows['현재 판정'], s.judgement or '—', judge_color)
+        self._render_limits(lim, force, disp, over, width)
 
         # 현재 TCP 좌표와 로봇 동작 상태. 보내는 쪽이 채우지 않으면 '—' 로 남는다.
         task, joint = s.task or [], s.joint or []
@@ -555,7 +555,7 @@ class MainWindow(QMainWindow):
         # 판정은 로봇 이동과 비동기다(#06). 남은 판정이 있으면 Job 이 아직 끝나지 않은 이유가 된다.
         pending = f'   판정 대기 {s.pending_judgments}건' if s.pending_judgments else ''
         self.progress_text.setText(
-            f'{s.progress_percent}%   {where}{State.LABELS.get(s.state, s.state)}{pending}')
+            f'{s.progress_percent}%   {where}{self._state_label()}{pending}')
 
         if time.monotonic() >= self._speed_hold_until and not self.speed_slider.isSliderDown():
             if speed_known:
@@ -565,6 +565,52 @@ class MainWindow(QMainWindow):
             self.speed_label.setText(f'{s.speed_percent}%' if speed_known else '—')
 
         self._refresh_controls()
+
+    def _state_label(self) -> str:
+        """
+        상태 배지 · 진행률 옆에 쓰는 상태 이름.
+
+        v4 Main 은 수동 Home 복귀 중에도 state=RUNNING 을 보낸다. operation=HOME 이면 '검사 중' 이
+        아니라 'Home 복귀 중' 으로 쓴다.
+        """
+        s = self._status
+        label = State.LABELS.get(s.state, s.state)
+        if s.operation == itf.Operation.HOME and s.state in (
+                State.RUNNING, State.PAUSE_REQUEST, State.PAUSED):
+            return 'Home 복귀 중' if s.state == State.RUNNING else f'Home 복귀 · {label}'
+        return label
+
+    @staticmethod
+    def _job_summary(s: itf.SystemStatus):
+        """
+        v4 Main 의 작업 요약(job_summary) → (칩 문구, 색 부류). 보여 줄 것이 없으면 None.
+
+        요약은 검사가 정상 종료했을 때만 온다. '작업 완료' 는 Point 를 다 돌았다는 뜻이지 제품
+        PASS 가 아니다 - 그래서 개수를 그대로 보인다. 색은 FAIL 이 있으면 FAIL, 판정 미완
+        (SYSTEM_ERROR)이나 못 끝낸 Point 가 있으면 회색, 전부 PASS 면 PASS.
+        """
+        summary = s.job_summary if isinstance(s.job_summary, dict) else {}
+        counts = summary.get('counts')
+        if (not isinstance(counts, dict) or s.work_active
+                or s.operation != itf.Operation.INSPECTION):
+            return None
+        try:
+            n = {key: int(counts.get(key) or 0) for key in ('PASS', 'FAIL', 'SYSTEM_ERROR')}
+        except (TypeError, ValueError):
+            return None
+        left = sum(len(summary.get(key) or []) for key in ('missing_points', 'pending_points'))
+        parts = [f"PASS {n['PASS']}", f"FAIL {n['FAIL']}"]
+        if n['SYSTEM_ERROR']:
+            parts.append(f"판정 미완 {n['SYSTEM_ERROR']}")
+        if left:
+            parts.append(f'못 끝낸 Point {left}')
+        if n['FAIL']:
+            category = 'FAIL'
+        elif n['SYSTEM_ERROR'] or left:
+            category = 'INCOMPLETE'
+        else:
+            category = 'PASS'
+        return f"작업 완료  {' · '.join(parts)}", category
 
     def _start_by_service(self) -> bool:
         """검사 PC 가 hmi 모드 Main 인가. 그렇다면 레시피는 HMI 가 고르고 검사 시작 서비스로 보낸다."""
@@ -590,7 +636,8 @@ class MainWindow(QMainWindow):
             # 모니터 모드: 콤보는 노드가 알려 준 선택을 그대로 따른다(아직 안 골랐으면 빈 칸).
             index = self.recipe_combo.findText(s.recipe_id) if s.recipe_id else -1
             self.recipe_combo.setCurrentIndex(index)
-        elif s.state not in (State.IDLE, State.DONE) and s.recipe_id in names:
+        elif (s.state not in (State.IDLE, State.DONE, State.STOPPED, State.ERROR)
+              and s.recipe_id in names):
             self.recipe_combo.setCurrentText(s.recipe_id)
         self.product_id.setText(s.product_id or '—')
 
@@ -602,16 +649,20 @@ class MainWindow(QMainWindow):
         if s.end_reason == itf.EndReason.NOT_COMPLETE:
             # #07 Work Finish 가 Job 종료를 승인하지 않았다. 검사 결과와는 다른 이야기다.
             text, category = '작업 종료 보류', 'INCOMPLETE'
+        # v4 Main 은 product_result / end_reason 을 보내지 않는다. 대신 작업 요약을 보인다.
+        summary = self._job_summary(s)
+        if summary is not None:
+            text, category = summary
         self.product_result.setText(text)
         self.product_result.setStyleSheet(chip_style(category) if text else '')
 
-    def _render_limits(self, c: itf.Criteria, force, disp, over: bool, width, raw_force):
+    def _render_limits(self, c: itf.Criteria, force, disp, over: bool, width):
         """
         합격 규칙 한 줄과 세 게이지(그리퍼 폭 / 힘 / 변위)를 그린다. 기준은 게이지 위 세로선이다.
 
         기준 0 = 실려 오지 않음(Point 사이, 대기 중). 그때는 선을 긋지 않는다. 값이 None 이어도
         기준선은 그려 두어, 당기기 전에도 목표가 어디인지 보이게 한다.
-        force 가 None(Pull 밖)이면 힘 게이지는 센서 원시 힘(raw_force)을 회색으로 실시간 보여 준다.
+        force 가 None(Pull 밖)이면 힘 게이지는 비워 둔다(원시 센서 힘은 Pull 힘과 계산이 다르다).
         """
         required, limit, reach = (c.required_pull_force_n, c.max_displacement_mm,
                                   c.pull_max_distance_mm)
@@ -625,13 +676,11 @@ class MainWindow(QMainWindow):
             f'당기는 중 그리퍼 폭이 {itf.GRIP_FAILURE_WIDTH_MM:g} mm 미만이면 파지 실패(FAIL).')
 
         # 힘: 기준에 '도달해야' 좋다. 눈금은 기준의 4/3 (15 N 이면 20 N) - 넘어선 만큼도 보이게.
-        # 기준이 아직 없으면(Point 사이) 센서 힘을 볼 수 있게 20 N 눈금을 쓴다.
+        # 기준이 아직 없으면(Point 사이) 20 N 눈금을 쓴다.
+        # 값은 Pull 중(또는 끝난 뒤 유지)에만 있다. None 이면 기준선만 남은 빈 게이지다.
         scale = required * 4 / 3 if required > 0 else DEFAULT_FORCE_SCALE_N
-        if force is not None:           # Pull 중(또는 끝난 뒤 유지): 기준과 비교하는 힘
-            value, color = force, OK_COLOR if force >= required else BAD_COLOR
-        else:                           # Pull 밖: 센서 원시 힘. 기준과 비교할 값이 아니라 회색
-            value, color = raw_force, MUTED_COLOR
-        self.force_gauge.set_state(value, scale, color, [(required, f'목표 {required:g}')],
+        color = OK_COLOR if force is not None and force >= required else BAD_COLOR
+        self.force_gauge.set_state(force, scale, color, [(required, f'목표 {required:g}')],
                                    f'{scale:g} N')
         # 변위: 허용 변위를 '넘지 않아야' 좋다. 눈금 끝은 최대 거리 - 최대 거리 FAIL 도 보인다.
         scale = reach if reach > limit else limit * 2
@@ -664,22 +713,32 @@ class MainWindow(QMainWindow):
     def _refresh_controls(self):
         s = self._status
         state = s.state if self._linked else None
-        # 문서의 SYSTEM_READY = IDLE / DONE 이다. STOPPED 와 ERROR 는 START 를 받지 못하고
-        # Home 이동으로만 복구된다 (STOP/ERROR 뒤 자동 Home Return 없음).
+        # v4 Main 은 대기(IDLE) · 정지(STOPPED) · 오류(ERROR)에서 START 를 받는다. 단 작업
+        # (검사 · Home 복귀)이 도는 중(work_active)이면 안 된다. mock · 모니터 노드는 예전처럼
+        # IDLE / DONE 에서만 받는다 (STOPPED / ERROR 는 Home 이동으로 복구).
         # 검사 시퀀스(Main)가 status 를 보내면 Main 이 받는 명령만 누를 수 있게 한다.
         # terminal 모드의 Main 은 HMI 명령을 전부 버리므로 조작 버튼을 모두 막는다.
         main_seq = itf.ControlMode.is_main(s.control_mode)
         terminal = s.control_mode == itf.ControlMode.TERMINAL
-        ready = state in (State.IDLE, State.DONE) and not s.estop and not terminal
+        if main_seq:
+            ready = (state in (State.IDLE, State.STOPPED, State.ERROR)
+                     and s.work_active is not True and not terminal)
+        else:
+            ready = state in (State.IDLE, State.DONE) and not s.estop and not terminal
         recoverable = (state in (State.STOPPED, State.ERROR, State.MONITOR)
-                       and not s.estop and not terminal)
+                       and not s.estop and not terminal
+                       and not (main_seq and s.work_active))   # 정지 처리가 아직 도는 중
         categories = [itf.ResultCode.category(r.result) for r in self._results]
 
         # 시작 요청의 응답을 기다리는 동안은 다시 누를 수 없다(같은 검사를 두 번 보내지 않게).
         self.start_btn.setEnabled(ready and bool(self.recipe_combo.currentText())
                                   and self._start_pending is None)
         self.pause_btn.setEnabled(state in (State.RUNNING, State.MOVING) and not terminal)
-        self.resume_btn.setEnabled(state == State.PAUSED and not terminal)
+        # v4 Main 은 HMI heartbeat 가 끊긴 동안(control_connected=False) RESUME 을 받지 않는다.
+        comm_ok = s.control_connected or not main_seq
+        self.resume_btn.setEnabled(state == State.PAUSED and not terminal and comm_ok)
+        self.resume_btn.setToolTip(
+            '' if comm_ok else '검사 PC 가 HMI 신호를 받지 못하고 있습니다. 통신이 돌아오면 누를 수 있습니다.')
         # 모니터 노드는 검사는 못 하지만 Home 이동은 받는다(로봇이 멈춰 있을 때만).
         # 오류(ERROR) 뒤에는 자동 Home Return 이 없으므로 사용자가 Home 이동으로 복구한다.
         self.home_btn.setEnabled(ready or recoverable)
@@ -696,7 +755,9 @@ class MainWindow(QMainWindow):
             hint = '검사 노드와 통신이 끊겨 이동 명령을 보낼 수 없습니다.'
         elif terminal:
             hint = '검사 PC 가 터미널 모드 - HMI 명령을 받지 않습니다.'
-        elif main_seq and state in (State.IDLE, State.DONE):
+        elif main_seq and ready and state in (State.STOPPED, State.ERROR):
+            hint = f'{State.LABELS.get(state, state)} · 검사 시작 또는 Home 이동 가능합니다.'
+        elif main_seq and ready:
             hint = '검사 시퀀스는 Home 이동만 지원합니다.'
         elif s.estop:
             hint = '비상정지 작동 중 - 해제 후 이동할 수 있습니다.'

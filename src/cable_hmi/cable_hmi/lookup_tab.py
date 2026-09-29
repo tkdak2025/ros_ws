@@ -17,7 +17,7 @@ point_id 로 붙인다. 레시피에 없는 결과(레시피를 지우거나 이
 2026-09-23 이전에는 레시피 DB 뷰(v_recipe_point)와 프로토타입 JSON 을 읽었다. 새 레시피가
 v0.1 JSON 으로 바뀌어 그 둘은 이 탭에서 더 읽지 않는다.
 
-'결과 파일 저장' 은 DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db + .csv)로 내보낸다.
+'결과 파일 저장' 은 DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db + .xlsx)로 내보낸다.
 '검사' 탭의 같은 이름 버튼이 이번 검사 1회분만 담는 것과 다르다. 화면 필터는 적용하지 않고,
 공용 DB 는 읽기만 한다.
 """
@@ -27,8 +27,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from PyQt5.QtCore import pyqtSignal, QObject, QRunnable, Qt, QThreadPool
-from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtCore import pyqtSignal, QObject, QRunnable, Qt, QThreadPool, QUrl
+from PyQt5.QtGui import QBrush, QColor, QDesktopServices
 from PyQt5.QtWidgets import (
     QAbstractItemView, QComboBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMessageBox,
     QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
@@ -49,6 +49,43 @@ COLUMN_TIPS = {'검사 시간': 'DB 에 저장된 가장 최근 검사의 시각
                '결과': 'DB 에 저장된 가장 최근 검사 결과', '상세': '누르면 상세 팝업'}
 FIXED_WIDTHS = {'Recipe': 150, '검사 시간': 110, '종류': 90, '결과': 180, '상세': 50}
 COL_RESULT = COLUMNS.index('결과')
+
+
+def add_open_button(box: QMessageBox, path) -> None:
+    """저장 완료 알림에 '파일 열기' 버튼을 붙인다. 누르면 기본 프로그램(엑셀 · LibreOffice Calc)으로 연다."""
+    button = box.addButton('파일 열기', QMessageBox.ActionRole)
+
+    def open_file():
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
+            QMessageBox.warning(box.parent(), '파일 열기', f'파일을 열 프로그램을 찾지 못했습니다.\n{path}')
+    button.clicked.connect(open_file)
+
+
+def open_latest(directory: Path, prefix: str, parent) -> None:
+    """
+    '최근 파일 열기' 버튼: 저장 폴더에서 prefix 로 시작하는 가장 최근 결과 파일을 기본 프로그램으로 연다.
+
+    prefix: result_db.RUN_FILE_PREFIX = 검사 탭이 저장한 검사 1회분,
+            result_db.ALL_FILE_PREFIX = 통합 조회 탭이 저장한 DB 전체. 예전 이름(run_ / all_)도 찾는다.
+    .xlsx 가 없으면 예전 .csv 를 연다. 그런 파일이 하나도 없으면 폴더를 연다.
+    """
+    directory = Path(directory).expanduser()
+    files = []
+    if directory.is_dir():
+        prefixes = [prefix]
+        if prefix in result_db.LEGACY_FILE_PREFIX:
+            prefixes.append(result_db.LEGACY_FILE_PREFIX[prefix])
+        for suffix in ('.xlsx', '.csv'):
+            files = [f for p in prefixes for f in directory.glob(f'{p}*{suffix}')]
+            if files:
+                break
+        files.sort(key=lambda f: f.stat().st_mtime)
+    target = files[-1] if files else directory
+    if not target.exists():
+        QMessageBox.information(parent, '파일 열기', f'아직 저장한 결과 파일이 없습니다.\n{directory}')
+        return
+    if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(target))):
+        QMessageBox.warning(parent, '파일 열기', f'파일을 열 프로그램을 찾지 못했습니다.\n{target}')
 
 
 @dataclass
@@ -182,7 +219,7 @@ class _LoadTask(QRunnable):
 
 
 class _ExportSignals(QObject):
-    done = pyqtSignal(object, object)       # (db 경로, csv 경로, 건수) 또는 None, 오류 메시지
+    done = pyqtSignal(object, object)       # (db 경로, 엑셀 경로, 건수) 또는 None, 오류 메시지
 
 
 class _ExportTask(QRunnable):
@@ -243,9 +280,14 @@ class LookupTab(QWidget):
             'QPushButton:disabled { background: #F2F4F7; color: #B5BDC7;'
             ' border: 1px solid #D9E0E7; }')
         self.export_btn.setToolTip(
-            'DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db + .csv)로 저장합니다.\n'
+            'DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db + .xlsx)로 저장합니다.\n'
             '화면 필터와 무관하며 공용 DB 는 바뀌지 않습니다.')
         bar.addWidget(self.export_btn)
+        self.open_btn = QPushButton('최근 파일 열기', objectName='lookupOpenBtn')
+        self.open_btn.setStyleSheet(self.export_btn.styleSheet())
+        self.open_btn.setToolTip('이 탭에서 가장 최근에 저장한 전체 결과 파일(all_….xlsx)을 엽니다.\n'
+                                 '저장한 파일이 없으면 저장 폴더를 엽니다.')
+        bar.addWidget(self.open_btn)
         layout.addLayout(bar)
 
         self.table = QTableWidget(0, len(COLUMNS))
@@ -274,6 +316,8 @@ class LookupTab(QWidget):
 
         self.reload_btn.clicked.connect(self.reload)
         self.export_btn.clicked.connect(self._on_export)
+        self.open_btn.clicked.connect(
+            lambda: open_latest(self._export_dir(), result_db.ALL_FILE_PREFIX, self))
         self.table.cellClicked.connect(self._open_detail)
         self.search.textChanged.connect(self._apply_filter)
         self.recipe_filter.currentTextChanged.connect(self._apply_filter)
@@ -325,7 +369,7 @@ class LookupTab(QWidget):
         return Path('~/ros_ws/results/runs').expanduser()
 
     def _on_export(self):
-        """DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db + .csv)로 내보낸다. 먼저 확인 창이 뜬다."""
+        """DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db + .xlsx)로 내보낸다. 먼저 확인 창이 뜬다."""
         if self._export_task is not None:
             return                          # 이미 저장 중
         if not self._db_path:
@@ -337,7 +381,7 @@ class LookupTab(QWidget):
             'DB 에 저장된 검사 결과를 전부 파일로 내보냅니다.\n\n'
             f'읽을 DB: {self._db_path}\n'
             f'저장 위치: {self._export_dir()}\n'
-            '파일 이름: all_<날짜_시각>.db / .csv\n\n'
+            f'파일 이름: {result_db.ALL_FILE_PREFIX}<년월일_시분초>.db / .xlsx\n\n'
             '화면의 Recipe 필터와 검색어는 적용되지 않습니다.\n'
             '공용 DB 는 바뀌지 않습니다.',
             QMessageBox.Ok | QMessageBox.Cancel, self)
@@ -359,15 +403,17 @@ class LookupTab(QWidget):
         if paths is None:
             self._popup(QMessageBox.Critical, '결과 파일 저장 실패', str(error))
             return
-        db_path, csv_path, count = paths
+        db_path, sheet_path, count = paths
         self.export_btn.setToolTip(f'마지막 저장: {db_path}')
         self._popup(QMessageBox.Information, '결과 파일 저장 완료',
-                    f'결과 {count}건을 저장했습니다.\n\n{db_path}\n{csv_path}')
+                    f'결과 {count}건을 저장했습니다.\n\n{db_path}\n{sheet_path}', open_path=sheet_path)
 
-    def _popup(self, icon, title, text):
+    def _popup(self, icon, title, text, open_path=None):
         """비모달 알림. 창이 떠 있어도 '검사' 탭의 STOP 을 누를 수 있어야 한다."""
         box = QMessageBox(icon, title, text, QMessageBox.Ok, self)
         box.button(QMessageBox.Ok).setText('확인')
+        if open_path is not None:
+            add_open_button(box, open_path)
         box.setModal(False)
         box.show()
         self._export_popup = box        # 참조를 남겨 둬야 창이 바로 닫히지 않는다

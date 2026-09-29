@@ -111,7 +111,7 @@ class StartCode:
         'CONTROL_MODE_MISMATCH': '검사 PC 가 HMI 모드가 아님',
         'HEARTBEAT_MISSING': 'HMI Heartbeat 미수신',
         'BUSY': '진행 중인 작업 있음',
-        'NOT_READY': '시작 가능 상태(SYSTEM_READY) 아님',
+        'NOT_READY': '시작 가능 상태(대기 · 정지 · 오류) 아님',
         'NO_ENABLED_POINTS': '활성 검사포인트 없음',
     }
 
@@ -125,7 +125,8 @@ class State:
 
     # 설계 문서(Sequence #00)의 SYSTEM_READY = 여기의 IDLE 과 DONE 이다. 둘 다 START 를 받을 수
     # 있는 정지 대기 상태이고, DONE 은 '직전 검사의 결과가 화면에 남아 있다' 는 것만 다르다.
-    # STOPPED 는 START 를 받을 수 없다 - 문서의 SystemState.STOPPED 와 같다.
+    # v4 검사 시퀀스(Main)는 STOPPED / ERROR 에서도 START 를 받는다(작업 중이 아닐 때).
+    # mock · 모니터 노드는 예전처럼 IDLE / DONE 에서만 받는다.
     IDLE = 'IDLE'          # 대기 - 검사 시작/이동 명령 가능
     RUNNING = 'RUNNING'    # 검사 시퀀스 수행 중
     PAUSE_REQUEST = 'PAUSE_REQUEST'   # 일시정지를 받았고 안전한 정지 지점까지 가는 중 (Common Sequence #1)
@@ -405,6 +406,10 @@ class Step:
         'ENTRY_REACHED': '진입 완료',
         'HARD_GRIP_DONE': '파지 완료',
         'POINT_READY_RETURNED': '준비 위치 복귀',
+        'GRIP_FAILURE_RECOVERED': '파지 실패 복구',
+        # Home 복귀 (수동 HOME)
+        'GRIP_RELAXED': '그리퍼 풀기 완료',
+        'SAFE_ESCAPE_DONE': '안전 후퇴 완료',
         'WORK_ACCESS_FINISH': '작업 진입 위치 복귀',
         'WORK_FINISH': '작업 종료 확인',
         'WORK_FINISH_WAIT': '판정 대기',
@@ -414,6 +419,19 @@ class Step:
     @classmethod
     def label(cls, code: str) -> str:
         return cls.LABELS.get(code, code)
+
+
+class Operation:
+    """
+    work_status.operation - Main 이 지금(또는 마지막으로) 하는 작업의 종류.
+
+    수동 Home 복귀 중에도 state 는 RUNNING 이다. 검사 중인지 Home 복귀 중인지는 이 값으로 가른다.
+    작업이 끝나도 마지막 값이 남는다 - 진행 중인지는 work_active 로 본다.
+    """
+
+    NONE = ''
+    INSPECTION = 'INSPECTION'
+    HOME = 'HOME'
 
 
 class ControlMode:
@@ -567,6 +585,13 @@ class SystemStatus:
     servo: str = Servo.NONE                # 서보 전원 ON / OFF
     displacement_mm: float = 0.0
     progress_percent: int = 0
+    # v4 work_status 만 보내는 값. 모니터 · mock 노드는 기본값으로 남는다.
+    operation: str = Operation.NONE      # Operation. 검사인가 수동 Home 복귀인가
+    work_active: Optional[bool] = None   # 작업(검사 · Home)이 진행 중인가. None = 보내지 않음
+    # 마지막 검사가 정상 종료했을 때의 요약. 그 밖에는 {}.
+    # {'counts': {'PASS': n, 'FAIL': n, 'SYSTEM_ERROR': n},
+    #  'missing_points': [...], 'pending_points': [...]}
+    job_summary: Dict[str, Any] = field(default_factory=dict)
     # 아래는 상태 분리 계약에서 합친 값일 때만 쓴다 (merge_split_status).
     # 합친 값에서는 모르는 수치를 0.0 이 아니라 None 으로 둔다 - 화면은 '—' 로 그린다.
     raw_force_n: Optional[float] = None   # robot_status.force_norm_n. 원시 힘 크기, Pull 정지 기준이 아님

@@ -19,7 +19,6 @@ ended_at 이 비어 있는 행은 끝나는 것을 보지 못한 검사다(저�
 Qt 에 의존하지 않는다.
 """
 
-import csv
 from dataclasses import fields
 from datetime import datetime
 import json
@@ -28,9 +27,16 @@ import sqlite3
 from typing import Dict, List, Tuple
 
 from . import interface as itf
+from . import result_sheet
 
 TABLE = 'inspection_result'
 TIMEOUT_SEC = 1.0        # DB 가 잠겨 있어도 오래 멈추지 않게
+
+# '결과 파일 저장' 이 만드는 파일 이름: <앞말>_<년월일_시분초>.db / .xlsx
+RUN_FILE_PREFIX = '검사결과_'    # 검사 탭: 화면에 있는 검사 1회분
+ALL_FILE_PREFIX = '통합조회_'    # 통합 조회 탭: 공용 DB 전체
+# 2026-09-29 이전 이름. '최근 파일 열기' 가 예전 파일도 찾게 남겨 둔다.
+LEGACY_FILE_PREFIX = {RUN_FILE_PREFIX: 'run_', ALL_FILE_PREFIX: 'all_'}
 
 _SQL_TYPES = {str: 'TEXT', int: 'INTEGER', float: 'REAL'}
 _JSON_TYPE = 'TEXT'      # 그 밖의 필드(좌표 목록 task / joint)는 JSON 글자로 저장한다
@@ -168,7 +174,8 @@ class ResultDb:
             raise ResultDbError(f'DB 를 열 수 없습니다: {self.path} ({e})') from None
         connection.row_factory = sqlite3.Row
         try:
-            rows = connection.execute(f'SELECT * FROM {TABLE} ORDER BY stamp, saved_at').fetchall()
+            rows = connection.execute(
+                f'SELECT * FROM {TABLE} ORDER BY stamp DESC, saved_at DESC').fetchall()
         except sqlite3.OperationalError as e:
             if 'no such table' in str(e):
                 return {}
@@ -178,8 +185,8 @@ class ResultDb:
         finally:
             connection.close()
 
-        latest = {}
-        for row in rows:                    # 시간 순이므로 뒤에 온 것이 남는다
+        latest: Dict[Tuple[str, str], itf.PointResult] = {}
+        for row in rows:                    # 최신부터 온다 - 포인트마다 처음 것만 남긴다
             keys = row.keys()
             result = itf.PointResult(db_saved=True)
             for f in _FIELDS:
@@ -192,18 +199,18 @@ class ResultDb:
                         setattr(result, f.name, json.loads(row[f.name]))
                     except ValueError:
                         pass                # 손으로 고친 행 등: 그 값만 비워 둔다
-            latest[(result.recipe_id, result.point_id)] = result
+            latest.setdefault((result.recipe_id, result.point_id), result)
         return latest
 
 
 def export_run(directory, results: List[itf.PointResult],
                status: itf.SystemStatus) -> Tuple[Path, Path]:
     """
-    지금 화면에 있는 검사 1회의 결과만 새 파일 둘(.db, .csv)에 담는다. (db 경로, csv 경로).
+    지금 화면에 있는 검사 1회의 결과만 새 파일 둘(.db, .xlsx)에 담는다. (db 경로, 엑셀 경로).
 
     공용 DB 는 열지도 않는다 - 늘 새 파일을 만들므로 저장 노드와 부딪히지 않는다. .db 는 공용 DB 와
     같은 스키마(inspection_result + 요약 1행 inspection_run)라서 같은 쿼리로 읽을 수 있고,
-    .csv 는 엑셀에서 바로 열린다(한글이 깨지지 않게 BOM 을 붙인다).
+    .xlsx 는 사람이 보는 표다(result_sheet 참고). openpyxl 이 없으면 .csv 로 대신 쓴다.
 
     inspection_run 의 시작·종료 시각은 결과에 실려 온 stamp 의 처음과 끝이다(내보낸 시각이 아니다).
     """
@@ -211,8 +218,8 @@ def export_run(directory, results: List[itf.PointResult],
         raise ResultDbError('저장할 검사 결과가 없습니다.')
     directory = Path(directory).expanduser()
     run_id = status.run_id or results[0].run_id
-    name = f'run_{run_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-    db_path, csv_path = directory / f'{name}.db', directory / f'{name}.csv'
+    name = f'{RUN_FILE_PREFIX}{datetime.now().strftime("%Y%m%d_%H%M%S")}'   # run 번호는 '요약' 시트에
+    db_path = directory / f'{name}.db'
 
     db = ResultDb(db_path)
     for result in results:
@@ -222,33 +229,32 @@ def export_run(directory, results: List[itf.PointResult],
     counts = {'PASS': 0, 'FAIL': 0, 'INCOMPLETE': 0}
     for result in results:
         counts[itf.ResultCode.category(result.result)] += 1
+    summary = {
+        'run_id': run_id, 'recipe_id': status.recipe_id, 'recipe_version': status.recipe_version,
+        'product_id': status.product_id, 'started_at': stamps[0] if stamps else '',
+        'ended_at': stamps[-1] if stamps else '', 'end_reason': status.end_reason,
+        'product_result': status.product_result,
+        'total_points': status.total_points or len(results),
+        'pass_count': counts['PASS'], 'fail_count': counts['FAIL'], 'missing_count': 0}
+    run_columns = list(summary)
     db._write([
         (_CREATE_RUN, ()),
-        (f'INSERT OR REPLACE INTO {RUN_TABLE} (run_id, recipe_id, recipe_version, product_id, '
-         'started_at, ended_at, end_reason, product_result, total_points, '
-         'pass_count, fail_count, missing_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-         (run_id, status.recipe_id, status.recipe_version, status.product_id,
-          stamps[0] if stamps else '', stamps[-1] if stamps else '',
-          status.end_reason, status.product_result,
-          status.total_points or len(results),
-          counts['PASS'], counts['FAIL'], 0))])
+        (f'INSERT OR REPLACE INTO {RUN_TABLE} ({", ".join(run_columns)}) '
+         f'VALUES ({", ".join("?" for _ in run_columns)})', tuple(summary.values()))])
 
+    rows = [{f.name: getattr(result, f.name) if f.type in _SQL_TYPES
+             else json.dumps(getattr(result, f.name)) for f in _FIELDS} for result in results]
     try:
-        with csv_path.open('w', encoding='utf-8-sig', newline='') as handle:
-            writer = csv.writer(handle)
-            writer.writerow([f.name for f in _FIELDS])
-            for result in results:
-                writer.writerow([
-                    getattr(result, f.name) if f.type in _SQL_TYPES
-                    else json.dumps(getattr(result, f.name)) for f in _FIELDS])
+        sheet_path = result_sheet.write(directory / name, rows, [summary],
+                                        [f.name for f in _FIELDS])
     except OSError as e:
-        raise ResultDbError(f'CSV 를 쓸 수 없습니다: {csv_path} ({e})') from None
-    return db_path, csv_path
+        raise ResultDbError(f'결과 파일을 쓸 수 없습니다: {directory / name} ({e})') from None
+    return db_path, sheet_path
 
 
 def export_all(directory, source) -> Tuple[Path, Path, int]:
     """
-    공용 DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db, .csv)에 담는다. (db 경로, csv 경로, 건수).
+    공용 DB 에 쌓인 검사 결과 전체를 새 파일 둘(.db, .xlsx)에 담는다. (db 경로, 엑셀 경로, 건수).
 
     export_run() 이 화면에 있는 검사 1회만 담는 것과 달리, 여기서는 inspection_result 전체
     (모든 run, 모든 Point)와 inspection_run 요약을 그대로 옮긴다. 화면의 Recipe 필터나
@@ -285,8 +291,8 @@ def export_all(directory, source) -> Tuple[Path, Path, int]:
         raise ResultDbError('저장된 검사 결과가 없습니다.')
 
     directory = Path(directory).expanduser()
-    name = f'all_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-    db_path, csv_path = directory / f'{name}.db', directory / f'{name}.csv'
+    name = f'{ALL_FILE_PREFIX}{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+    db_path = directory / f'{name}.db'
 
     # 원본에 없는 열은 건너뛴다(예전에 만든 DB 에는 뒤에 늘어난 필드가 없을 수 있다).
     columns = [c for c in _COLUMNS if c in rows[0].keys()]
@@ -306,11 +312,8 @@ def export_all(directory, source) -> Tuple[Path, Path, int]:
     ResultDb(db_path)._write(statements)
 
     try:
-        with csv_path.open('w', encoding='utf-8-sig', newline='') as handle:
-            writer = csv.writer(handle)
-            writer.writerow(columns)
-            for row in rows:
-                writer.writerow([row[c] for c in columns])
+        sheet_path = result_sheet.write(directory / name, [dict(row) for row in rows],
+                                        [dict(row) for row in runs], columns)
     except OSError as e:
-        raise ResultDbError(f'CSV 를 쓸 수 없습니다: {csv_path} ({e})') from None
-    return db_path, csv_path, len(rows)
+        raise ResultDbError(f'결과 파일을 쓸 수 없습니다: {directory / name} ({e})') from None
+    return db_path, sheet_path, len(rows)
