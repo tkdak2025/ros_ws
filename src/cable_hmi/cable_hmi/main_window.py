@@ -52,7 +52,6 @@ RESULT_HEADERS = ('검사 시간', 'Point', '종류', '결과', '상세')
 COL_TIME, COL_POINT, COL_TYPE, COL_RESULT, COL_DETAIL = range(len(RESULT_HEADERS))
 SPEED_HOLD_SEC = 1.0      # 슬라이더 조작 후 이 시간 동안은 status 값으로 덮어쓰지 않는다
 SPEED_DEBOUNCE_MS = 300
-PULL_HOLD_SEC = 3.0       # Pull 이 끝난 뒤 마지막 힘·변위를 보여 주는 시간. 그 뒤 실시간으로
 DEFAULT_TOOL_WEIGHT_KG = 1.47   # TP 에 등록한 Tool 무게 (tool_weight_kg 파라미터가 없을 때)
 RECIPE_SCAN_MS = 2000    # 레시피 폴더가 바뀌었는지 이 간격으로 본다(파일을 고치면 목록에 반영)
 
@@ -89,9 +88,8 @@ class MainWindow(QMainWindow):
         self._local_recipes = {}      # recipe_id -> inspection_recipe.RecipeFile
         self._recipe_signature = None
         self._start_pending = None    # 응답을 기다리는 검사 시작 요청의 request_id
-        self._pull_held = None        # 마지막 Pull 값 (_hold_pull)
+        self._pull_held = None        # 마지막 Pull 값 (_hold_pull, _hold_result)
         self._pull_live = False       # 지금 Pull 실시간 값이 들어오는 중인가
-        self._pull_end_time = 0.0     # 마지막 Pull 이 끝난 시각 (monotonic)
         read = getattr(bridge, 'parameter', lambda _name: '')
         try:
             self._tool_weight_kg = float(read('tool_weight_kg') or DEFAULT_TOOL_WEIGHT_KG)
@@ -150,8 +148,13 @@ class MainWindow(QMainWindow):
         .ui 의 게이지 자리(QProgressBar)를 기준선이 있는 게이지로 바꿔 끼운다.
 
         자리가 없으면(Designer 에서 지움) 숨겨진 게이지를 돌려준다 - 숫자만 보인다.
+
+        메인 화면(centralWidget) 안에서만 찾는다. 상세 팝업(ResultDetailDialog)도 이 창의 자식이고
+        같은 이름(forceGauge, dispGauge)의 자리가 있어서, 창 전체에서 찾으면 팝업 것을 집는다 -
+        그러면 교체가 실패해 메인 화면에는 빈 자리 막대만 남는다(힘·변위 게이지가 안 차던 원인).
         """
-        placeholder = self.findChild(QProgressBar, name)
+        root = self.centralWidget() or self
+        placeholder = root.findChild(QProgressBar, name)
         gauge = LimitGauge()
         gauge.setObjectName(name)
         layout = placeholder.parentWidget().layout() if placeholder is not None else None
@@ -296,6 +299,8 @@ class MainWindow(QMainWindow):
         self._fill_row(row, result)
         if self._detail.isVisible() and self.table.currentRow() == row:
             self._detail.show_result(result)
+        if self._hold_result(result):
+            self._render()
         self._render_counts()
         self._refresh_controls()
 
@@ -347,12 +352,11 @@ class MainWindow(QMainWindow):
             self._append_log('WARN', '[HMI] 저장할 검사 결과가 없습니다.')
             return
         count = len(self._results)
-        run_id = self._status.run_id or self._results[0].run_id
         if not self._confirm_ok_cancel(
                 '결과 파일 저장',
                 f'이번 검사 결과 {count}건을 파일로 저장합니다.\n\n'
                 f'저장 위치: {self._export_dir()}\n'
-                f'파일 이름: run_{run_id}_<날짜_시각>.db / .xlsx\n\n'
+                f'파일 이름: {result_db.RUN_FILE_PREFIX}<년월일_시분초>.db / .xlsx\n\n'
                 '공용 DB 는 바뀌지 않습니다.'):
             self._append_log('INFO', '[HMI] 결과 파일 저장 취소')
             return
@@ -380,17 +384,14 @@ class MainWindow(QMainWindow):
         """
         마지막 Pull 값을 붙잡아 둔다: {'point', 'force'(최대), 'disp'(마지막), 'criteria'} 또는 None.
 
-        실시간 값이 들어오는 동안(Pull 중) 갱신하고, 값이 끊긴 뒤 PULL_HOLD_SEC 동안은 그대로
-        돌려준다. 그 뒤에는 None (화면은 다시 실시간 값). 다음 Pull 이 오면 새로 시작한다.
+        실시간 값이 들어오는 동안(Pull 중) 갱신하고, 값이 끊긴 뒤에는 다음 Pull 이 올 때까지
+        그대로 돌려준다. 힘·변위는 Pull 중(PASS 면 1초 남짓)에만 실려 오므로, 몇 초만 보여 주고
+        지우면 게이지가 거의 늘 비어 보인다(9/23·9/29 실물). 판정 결과가 오면 그 값으로
+        바꾼다(_hold_result) - 실시간 값을 하나도 못 받은 Pull 도 게이지에 남는다.
         """
         live = s.force_n is not None or s.displacement_mm is not None
         if not live:
-            if self._pull_live:              # 방금 Pull 이 끝났다 - 이때부터 PULL_HOLD_SEC 동안 보여 준다
-                self._pull_live = False
-                self._pull_end_time = time.monotonic()
-                QTimer.singleShot(int(PULL_HOLD_SEC * 1000) + 50, self._render)
-            if time.monotonic() - self._pull_end_time >= PULL_HOLD_SEC:
-                return None                  # 보여 줄 시간이 지났다 - 다시 실시간 표시
+            self._pull_live = False
             return self._pull_held
         hold = self._pull_held
         if not self._pull_live or hold is None or hold['point'] != s.current_point:
@@ -403,6 +404,30 @@ class MainWindow(QMainWindow):
         hold['criteria'] = s.criteria        # Pull 이 끝나면 Main 이 기준도 비울 수 있다
         self._pull_held = hold
         return hold
+
+    def _hold_result(self, result: itf.PointResult) -> bool:
+        """
+        판정 결과의 최대 힘·변위를 게이지에 붙잡아 둔다. 붙잡았으면 True.
+
+        판정 값은 감속 구간까지 포함한 최대 힘이라 실시간 값보다 정확하다. 판정 미완(SYSTEM_ERROR 등)은
+        Pull 값이 없으므로 건너뛴다. 다른 Point 의 Pull 이 지금 진행 중이면 그 실시간 값을 덮지 않는다.
+        """
+        if itf.ResultCode.category(result.result) == 'INCOMPLETE' or result.run_id != self._run_id:
+            return False
+        hold = self._pull_held
+        if self._pull_live and hold is not None and hold['point'] != result.point_id:
+            return False
+        # 결과에는 최대 거리·지시 폭이 없다 - 붙잡아 둔 기준이나 지금 기준에서 가져온다.
+        base = hold['criteria'] if hold is not None and hold['point'] == result.point_id \
+            else self._status.criteria
+        self._pull_held = {
+            'point': result.point_id, 'force': result.max_force_n, 'disp': result.displacement_mm,
+            'criteria': itf.Criteria(
+                required_pull_force_n=result.required_pull_force_n,
+                max_displacement_mm=result.displacement_limit_mm,
+                pull_max_distance_mm=base.pull_max_distance_mm,
+                grip_width_mm=base.grip_width_mm)}
+        return True
 
     def _ensure_run(self, run_id: int):
         """새 검사(run)가 시작되면 이전 결과를 비운다."""
@@ -474,14 +499,15 @@ class MainWindow(QMainWindow):
         _set(self.point_rows['그리퍼 폭'], '—' if width is None else f'{width:.1f} mm')
         force, disp = s.force_n, s.displacement_mm
         # Pull 은 기준 힘에 닿으면 멈춰서 1초 남짓이면 끝난다. 끝나면 Main 이 값을 비우므로,
-        # 마지막 Pull 값을 PULL_HOLD_SEC 동안 붙잡아 보여 준다(_hold_pull).
+        # 마지막 Pull 값(판정이 오면 판정 값)을 다음 Pull 까지 붙잡아 보여 준다(_hold_pull).
         held = self._hold_pull(s)
         tag, lim = '', c
         if held is not None and force is None and disp is None:
             force, disp, lim = held['force'], held['disp'], held['criteria']
-            tag = ' (종료)'
-        tip = (f"{held['point']} Pull 종료 값 - 최대 힘 / 마지막 변위.\n"
-               f'{PULL_HOLD_SEC:g}초 뒤 실시간 값으로 돌아갑니다.' if tag else '')
+            # 다음 Point 로 넘어가도 남아 있으므로, 어느 Point 의 값인지 붙인다.
+            tag = ' (종료)' if held['point'] == s.current_point else f" ({held['point']})"
+        tip = (f"{held['point']} Pull 값 - 최대 힘 / 변위 (판정이 오면 판정 값).\n"
+               '다음 Pull 이 시작되면 실시간 값으로 바뀝니다.' if tag else '')
         self.point_rows['현재 힘 값'].setToolTip(tip)
         self.point_rows['현재 변위'].setToolTip(tip)
         if force is not None:
