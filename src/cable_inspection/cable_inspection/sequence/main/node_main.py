@@ -207,7 +207,7 @@ def main(argv=None):
     # ros2 launch가 붙이는 --ros-args는 argparse에 넘기지 않는다.
     cli_args = remove_ros_args() if argv is None else remove_ros_args(args=["main_sequence", *argv])
     args = parser.parse_args(cli_args[1:])
-    paths = args.recipe or ([] if args.control_mode == "hmi" else [share / "recipe/inspection/rcp_BMW_LWR_01.json"])
+    paths = args.recipe or ([] if args.control_mode == "hmi" else [share / "recipe/inspection/rcp_BMW_HARNESS_LWR_RH_01.json"])
 
     # Ctrl+C 때 통신부터 닫히지 않게 하고, Worker 정지 요청을 먼저 마친다.
     shutdown_requested = threading.Event()

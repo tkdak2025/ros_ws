@@ -32,7 +32,7 @@ from cable_inspection.sequence.inspection.node_inspection import (
 )
 
 PACKAGE = Path(__file__).resolve().parents[1]
-RECIPE = PACKAGE / "cable_inspection/recipe/inspection/lan_inspection_recipe.json"
+RECIPE = PACKAGE / "cable_inspection/recipe/inspection/rcp_BMW_HARNESS_UPR_RH_02.json"
 
 
 

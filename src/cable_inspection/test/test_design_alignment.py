@@ -275,6 +275,6 @@ def test_missing_escape_configuration_is_rejected(tmp_path,field):
     ("entry_setting","timeout_s",10.01),
 ])
 def test_recipe_accepts_pr9_motion_guard_values(group,field,value):
-    recipe=Recipe.load_json(ROOT/'cable_inspection/recipe/inspection/lan_inspection_recipe.json')
+    recipe=Recipe.load_json(ROOT/'cable_inspection/recipe/inspection/rcp_BMW_HARNESS_UPR_RH_02.json')
     recipe["points"][0][group][field] = value
     Recipe.validate(recipe)

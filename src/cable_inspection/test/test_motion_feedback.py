@@ -168,7 +168,7 @@ class Gripper:
 
 
 
-recipe=Recipe.load_json(Path(__file__).parents[1]/'cable_inspection/recipe/inspection/lan_inspection_recipe.json')
+recipe=Recipe.load_json(Path(__file__).parents[1]/'cable_inspection/recipe/inspection/rcp_BMW_HARNESS_UPR_RH_02.json')
 point=copy.deepcopy(recipe['points'][0])
 point['ready_pose']={'task':[0.,0.,100.,0.,0.,0.],'joint':[0.]*6}
 point['entry_pose']={'task':[0.,0.,0.,0.,0.,0.],'joint':[1.]*6}
