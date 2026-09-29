@@ -17,7 +17,7 @@ class RobotRuntimeConfig:
     motion_timeout_s: float = 60.0
     position_tolerance_mm: float = 0.5
     orientation_tolerance_deg: float = 1.0
-    width_tolerance_mm: float = 2.5
+    width_tolerance_mm: float = 5.0
     gripper_timeout_s: float = 20.0
     tcp_name: str = "GripperDA_v1"
     tool_name: str = "ToolWeight"

@@ -46,7 +46,7 @@ def generate_launch_description():
         DeclareLaunchArgument('system_recipe', default_value=PathJoinSubstitution([
             share, 'config', 'system_recipe.json'])),
         DeclareLaunchArgument('recipe', default_value=PathJoinSubstitution([
-            share, 'recipe', 'inspection', 'rcp_BMW_HARNESS_LWR_RH_01.json'])),
+            share, 'recipe', 'inspection', 'rcp_01_BMW_HARNESS_LWR_RH.json'])),
         DeclareLaunchArgument('results_dir', default_value='results/inspection_sequence'),
         OpaqueFunction(function=_nodes),
     ])

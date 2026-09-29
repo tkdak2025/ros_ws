@@ -110,11 +110,17 @@ class RG2Gripper:
 
 
     def _initialize_rg2_force(self):
-        # 실물 드라이버의 초기 힘을 최대힘(40 N)으로 동기화한다.
+        # 기존 파지 폭을 힘 동기화 중 재전송하지 않도록 개방 폭부터 지정한다.
+        # 첫 폭 명령은 드라이버에 남은 힘을 사용한다. 이후 0 N 기준으로 낮춰
+        # 재시작 전 힘 상태와 무관하게 10 N으로 맞춘다(40 N 상승 초기화 제거).
+        self._send_gripper_command("300")
+        self.commanded_width_mm = 30.0
         for _ in range(round(self.RG2_MAX_FORCE_N / self.RG2_FORCE_STEP_N)):
+            self._send_gripper_command("d")
+        self.commanded_force_n = 0.0
+        for _ in range(4):
             self._send_gripper_command("i")
-
-        self.commanded_force_n = self.RG2_MAX_FORCE_N
+            self.commanded_force_n += self.RG2_FORCE_STEP_N
 
 
 

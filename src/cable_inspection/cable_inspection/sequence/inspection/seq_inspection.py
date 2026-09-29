@@ -1,5 +1,6 @@
 """#03~#05 포인트 검사 동작과 #06 비동기 판정 요청."""
 
+import json
 import math
 import time
 
@@ -32,6 +33,7 @@ class InspectionSequence:
         self.judgment = judgment
         self.checkpoint = checkpoint
         self.on_pending = on_pending
+        self.notify = lambda level, text: print(f"[{level}] {text}", flush=True)
         self.run_id = 0
         self.recipe_id = self.recipe_version = self.connector_type = ""
 
@@ -134,6 +136,7 @@ class InspectionSequence:
             raise RuntimeError("파지 실패 복구 Open 폭 확인 실패")
 
         # 추가 진입 위치에서 기존 Entry로 직선 후퇴 후 Ready로 복귀한다.
+        self.log_pose_move(point, "entry_pose", "MoveL", "return")
         entry = self.motion.move_linear(point["entry_pose"]["task"],
             speed_mm_s=point["pull_setting"]["speed_mm_s"], sample=self.sample)
         ready = self.return_ready(point)
@@ -196,14 +199,28 @@ class InspectionSequence:
 
 
 
+    # 기능: 명령 직전에 실행 레시피와 교시 좌표를 출력한다. 도달 완료를 뜻하지 않는다.
+    def log_pose_move(self, point, pose_name, motion, direction):
+        pose = point[pose_name]
+        self.notify("INFO",
+            f"POSE_MOVE_REQUEST: run_id={self.run_id} recipe={self.recipe_id} "
+            f"point={point['point_id']} direction={direction} pose={pose_name} "
+            f"motion={motion} target={'joint' if motion == 'MoveJ' else 'task'} "
+            f"joint_deg={json.dumps(pose['joint'])} "
+            f"task_base_mm_deg={json.dumps(pose['task'])}")
+
+
+
     # 기능: #03 그리퍼를 열고 Ready→Entry 자세로 MoveJ 접근한 뒤 도달을 확인한다.
     #     point: Open 조건과 Ready/Entry task·joint 자세를 가진 검사포인트.
     #     반환: Open과 두 이동의 결과. 접근 미도달은 예외로 전달하여 후속 파지를 막는다.
     def point_transition(self, point):
         self.motion.phase = "SEQ_03_POINT_TRANSITION"
         opened = self.open_gripper(point)
+        self.log_pose_move(point, "ready_pose", "MoveJ", "approach")
         ready = self.motion.move_joint(RobotPose(**point["ready_pose"]), sample=self.sample)
         self.checkpoint("READY_REACHED")
+        self.log_pose_move(point, "entry_pose", "MoveJ", "approach")
         entry = self.motion.move_joint(RobotPose(**point["entry_pose"]), sample=self.sample)
         self.checkpoint("ENTRY_REACHED")  # 기존 이름을 유지하며 Entry 자세까지의 접근을 뜻한다.
         return {"soft_open": opened, "ready": ready, "entry": entry}
@@ -248,6 +265,7 @@ class InspectionSequence:
         pull = self.contact_move(point, "PULL")
         self.submit_pull_result(point, adaptive, pull)  # 판정과 해제·복귀를 병행한다.
         opened = self.open_gripper(point)
+        self.log_pose_move(point, "entry_pose", "MoveL", "return")
         entry = self.motion.move_linear(point["entry_pose"]["task"],
             speed_mm_s=point["pull_setting"]["speed_mm_s"], sample=self.sample)
         ready = self.return_ready(point)
@@ -259,6 +277,7 @@ class InspectionSequence:
 
     # 기능: Ready 자세로 MoveJ 복귀하고 포인트 완료점을 기록한다.
     def return_ready(self, point):
+        self.log_pose_move(point, "ready_pose", "MoveJ", "return")
         ready = self.motion.move_joint(RobotPose(**point["ready_pose"]), sample=self.sample)
         self.checkpoint("POINT_READY_RETURNED")
         return ready

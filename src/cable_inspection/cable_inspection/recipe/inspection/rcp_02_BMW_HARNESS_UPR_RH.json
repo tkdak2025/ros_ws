@@ -1,5 +1,5 @@
 {
-  "recipe_id": "rcp_BMW_HARNESS_UPR_RH_02",
+  "recipe_id": "rcp_02_BMW_HARNESS_UPR_RH",
   "recipe_version": "1.0.0",
   "coordinate_frame": "BASE",
   "connector_type": "RJ45_LAN",
@@ -56,7 +56,7 @@
       },
       "grip_setting": {
         "soft_close_width_mm": 22.0,
-        "soft_open_width_mm": 25.0,
+        "soft_open_width_mm": 27.0,
         "hard_width_mm": 16.0,
         "soft_force_n": 10.0,
         "hard_force_n": 20.0
@@ -116,7 +116,7 @@
       },
       "grip_setting": {
         "soft_close_width_mm": 22.0,
-        "soft_open_width_mm": 25.0,
+        "soft_open_width_mm": 27.0,
         "hard_width_mm": 16.0,
         "soft_force_n": 10.0,
         "hard_force_n": 20.0
@@ -135,38 +135,38 @@
       "enabled": true,
       "ready_pose": {
         "task": [
-          599.3,
-          46.16,
-          583.46,
-          165.3,
-          -28.4,
-          -81.92
+          -138.99,
+          155.74,
+          702.3,
+          9.05,
+          -1.05,
+          64.53
         ],
         "joint": [
-          10.05,
-          23.04,
-          103.25,
-          11.65,
-          -99.93,
-          78.04
+          -231.39,
+          -18.39,
+          132.47,
+          -1.0,
+          -113.56,
+          -55.43
         ]
       },
       "entry_pose": {
         "task": [
-          669.2,
-          39.05,
-          729.12,
-          60.0,
-          0.0,
-          30.0
+          -307.12,
+          202.19,
+          780.28,
+          139.83,
+          -0.75,
+          -49.75
         ],
         "joint": [
-          2.81,
-          47.61,
-          44.02,
-          -0.02,
-          -91.64,
-          87.2
+          -214.39,
+          2.33,
+          102.27,
+          -0.09,
+          -105.34,
+          -55.55
         ]
       },
       "entry_setting": {
@@ -176,7 +176,7 @@
       },
       "grip_setting": {
         "soft_close_width_mm": 22.0,
-        "soft_open_width_mm": 25.0,
+        "soft_open_width_mm": 27.0,
         "hard_width_mm": 16.0,
         "soft_force_n": 10.0,
         "hard_force_n": 20.0

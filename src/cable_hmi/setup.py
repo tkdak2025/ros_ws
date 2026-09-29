@@ -15,7 +15,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*.launch.py')),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'openpyxl'],
     zip_safe=True,
     maintainer='hun',
     maintainer_email='tkdak2025@gmail.com',

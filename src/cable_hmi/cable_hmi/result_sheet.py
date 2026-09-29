@@ -7,13 +7,11 @@
   요약      - 검사 1회(run) = 1행. 레시피, 시작 · 종료 시각, 끝난 이유, 집계.
   원본      - DB 의 열 전체(영어 필드 이름 그대로). 다시 분석할 때 쓴다.
 
-openpyxl(python3-openpyxl) 이 없는 PC 에서는 예전처럼 CSV(엑셀용 BOM)로 대신 쓴다 - 저장 버튼이
-라이브러리 하나 때문에 실패하지 않게. 어느 쪽으로 썼는지는 돌려주는 경로의 확장자로 알 수 있다.
+openpyxl(python3-openpyxl)이 필요하다. 없으면 설치 안내 오류를 표시하며 CSV로 대체하지 않는다.
 
 Qt 에 의존하지 않는다.
 """
 
-import csv
 from pathlib import Path
 from typing import Dict, List, Sequence
 
@@ -21,7 +19,7 @@ try:
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
-except ImportError:          # python3-openpyxl 이 없으면 CSV 로 대신 쓴다
+except ImportError:          # HMI는 열되 저장 시 의존성 오류를 안내한다
     Workbook = None
 
 # '검사 결과' 시트: (DB 열 이름, 머리줄, 종류). 종류 num = 소수 둘째 자리, time = 초까지 자른 시각.
@@ -76,20 +74,14 @@ _MAX_WIDTH = 60          # 이보다 긴 글(판정 사유, 좌표 등)은 칸 �
 
 def write(base: Path, rows: Sequence[Dict], runs: Sequence[Dict], raw_columns: List[str]) -> Path:
     """
-    base(확장자 없는 경로) + .xlsx 로 쓰고 그 경로를 돌려준다. openpyxl 이 없으면 .csv.
+    base(확장자 없는 경로) + .xlsx 로 쓰고 그 경로를 돌려준다.
 
     rows: 결과 1건 = dict(DB 열 이름 → 값). runs: 검사 1회 요약 dict 들. raw_columns: '원본' 시트 열 순서.
     쓰지 못하면 OSError 를 그대로 올린다(부르는 쪽이 사용자 메시지로 바꾼다).
     """
     base = Path(base)
     if Workbook is None:
-        path = base.with_suffix('.csv')
-        with path.open('w', encoding='utf-8-sig', newline='') as handle:
-            writer = csv.writer(handle)
-            writer.writerow(raw_columns)
-            for row in rows:
-                writer.writerow([row.get(c) for c in raw_columns])
-        return path
+        raise OSError('엑셀 저장에는 openpyxl이 필요합니다. python3-openpyxl 설치 후 HMI를 재시작하세요.')
 
     book = Workbook()
     sheet = book.active

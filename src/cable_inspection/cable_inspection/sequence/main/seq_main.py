@@ -224,6 +224,10 @@ class MainSequence:
         initialized = self.work_initialize(recipe_id)
         self._require(initialized)
         recipe = self.recipes.snapshot()
+        self.notify("INFO",
+            f"RECIPE_EXECUTION: run_id={self.run_id} recipe={recipe['recipe_id']} "
+            f"version={recipe['recipe_version']} "
+            f"enabled_points={[p['point_id'] for p in recipe['points'] if p['enabled']]}")
         self.inspection.prepare(recipe["recipe_id"], recipe["recipe_version"],
                                 recipe["connector_type"], self.poll_control)
         self.context = JobContext(
@@ -285,6 +289,9 @@ class MainSequence:
             if point is None:
                 break
 
+            self.notify("INFO",
+                f"POINT_START: run_id={self.run_id} recipe={self.context.recipe_id} "
+                f"point={point['point_id']} name={point['point_name']}")
             try:
                 result = self.inspection.run_point(point)
 

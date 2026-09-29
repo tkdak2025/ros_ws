@@ -120,5 +120,6 @@ class HmiNode(Node, HmiInterface):
 
 
         main.controller.notify = publish_log
+        main.controller.inspection.notify = publish_log
         main.controller.snapshot_notify = publish_snapshot
         main.controller.hmi_available = control_available

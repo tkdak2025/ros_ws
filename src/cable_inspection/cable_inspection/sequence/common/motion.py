@@ -87,13 +87,14 @@ class SequenceMotion:
 
 
     # 기능: MoveJ 후 도달을 확인한다. 미도달 허용 여부는 호출 시퀀스가 지정한다.
-    def move_joint(self, pose, allow_incomplete=False, sample=None):
+    def move_joint(self, pose, allow_incomplete=False, sample=None, joint_tolerance_deg=None):
         self.control_poll()
         sample = sample or self.sample
         before = sample()
         self.robot.move_joint(pose.joint, self.config.joint_speed_deg_s, self.config.joint_acc_deg_s2)
         return self._monitor(pose.task, before, sample=sample, allow_incomplete=allow_incomplete,
-                             joint_target=pose.joint if self.robot.mode == "virtual" else None)
+                             joint_target=pose.joint if self.robot.mode == "virtual" or joint_tolerance_deg is not None else None,
+                             joint_tolerance_deg=joint_tolerance_deg)
 
 
 
@@ -116,7 +117,8 @@ class SequenceMotion:
 
 
     # 기능: 일반 이동의 위치·자세·관절 도달과 공통 대기시간을 확인한다.
-    def _monitor(self, target, before, allow_incomplete=False, joint_target=None, sample=None):
+    def _monitor(self, target, before, allow_incomplete=False, joint_target=None, sample=None,
+                 joint_tolerance_deg=None):
         sample = sample or self.sample
         started = time.monotonic()
 
@@ -130,7 +132,9 @@ class SequenceMotion:
                     # 가상 FK와 교시 TASK의 오차를 피하도록 MoveJ는 관절 도달로 확인한다.
                     joints = self.robot.read_joints()
                     reached = len(joints) == 6 and all(
-                        abs((actual - goal + 180.0) % 360.0 - 180.0) <= 0.1
+                        (abs(actual - goal) <= joint_tolerance_deg
+                         if joint_tolerance_deg is not None else
+                         abs((actual - goal + 180.0) % 360.0 - 180.0) <= 0.1)
                         for actual, goal in zip(joints, joint_target))
 
                 else:

@@ -6,7 +6,7 @@ from cable_inspection.recipe.recipe import Recipe
 
 
 RECIPE = (Path(__file__).resolve().parents[1]
-          / "cable_inspection/recipe/inspection/rcp_BMW_HARNESS_UPR_RH_02.json")
+          / "cable_inspection/recipe/inspection/rcp_02_BMW_HARNESS_UPR_RH.json")
 
 
 

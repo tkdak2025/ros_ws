@@ -37,14 +37,14 @@ def test_gripper_initialize_and_open_preserve_force_width_order():
     commands = []
     gripper._send_gripper_command = commands.append
     gripper.initialize()
-    assert commands == ['i'] * 16
-    assert gripper.commanded_force_n == 40.
+    assert commands == ['300'] + ['d'] * 16 + ['i'] * 4
+    assert gripper.commanded_force_n == 10.
     gripper.initialize()
-    assert commands == ['i'] * 16  # 재검사 시 초기화 명령을 반복하지 않는다.
+    assert commands == ['300'] + ['d'] * 16 + ['i'] * 4  # 재검사 시 초기화 명령을 반복하지 않는다.
     commands.clear()
     gripper.gripper_busy = True
     gripper.set_grip(25., 10., opening=True)
-    assert commands == ['250'] + ['d'] * 12
+    assert commands == ['250']
     assert (gripper.commanded_width_mm, gripper.commanded_force_n) == (25., 10.)
 
 
@@ -123,3 +123,22 @@ def test_prepare_failure_never_configures_or_moves_devices(failed):
     robot.initialize.assert_not_called()
     gripper.initialize.assert_not_called()
     sequence.sample.assert_not_called()
+
+
+@pytest.mark.parametrize("initial_force", [0., 10., 20., 40.])
+def test_initialize_replaces_old_width_before_force_changes(initial_force):
+    gripper = object.__new__(GripperToolNode)
+    gripper.mode = "real"
+    gripper.initialized = False
+    state = {"width": 16., "force": initial_force}
+    sent = []
+    def send(command):
+        if command == "i": state["force"] = min(40., state["force"] + 2.5)
+        elif command == "d": state["force"] = max(0., state["force"] - 2.5)
+        else: state["width"] = float(command) / 10.
+        sent.append(dict(state))
+    gripper._send_gripper_command = send
+    gripper.initialize()
+    assert all(item["width"] == 30. for item in sent)
+    assert state == {"width": 30., "force": 10.}
+    assert gripper.commanded_force_n == 10.
