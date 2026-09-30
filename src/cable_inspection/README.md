@@ -21,7 +21,7 @@ launch는 `main_sequence` 한 프로세스를 시작합니다. 상태 수집은 
 | Main 시퀀스 | `sequence/main/seq_main.py` | #00·#01·#07, 단일 모션 Worker, Pause/STOP, 다음 포인트 요청과 단일 검사 실행 |
 | Inspection 시퀀스 | `sequence/inspection/seq_inspection.py` | #03~#05 접근·진입·파지·Pull 및 측정 요청 |
 | 판정 ROS 노드 | `sequence/inspection/node_inspection.py` | #06 비동기 판정·결과 보관 및 HMI 전달. 로봇 모션은 수행하지 않음 |
-| Home Return 시퀀스 | `sequence/home_return/seq_home_return.py` | #02 Safe Escape·Work Access·Home. Main 실행권 안에서 호출 |
+| Home Return 시퀀스 | `sequence/home_return/seq_home_return.py` | #02 영역별 Safe Escape 경유점·Home. Main 실행권 안에서 호출 |
 | Recipe | `recipe/recipe.py`, `recipe/node_recipe.py` | 통신·파일 입력의 공통 검증, 수신본 보관·배열 순회·결과와 진행률 관리 |
 | Robot | `robot/m0609.py`, `robot/node_robot.py` | M0609 raw component를 상속한 Robot API 노드 |
 | GripperTool | `gripper_tool/rg2.py`, `gripper_tool/node_gripper_tool.py` | RG2 raw component를 상속한 독립 GripperTool API 노드 |
@@ -142,7 +142,7 @@ ros2 launch cable_inspection robot_bringup.launch.py robot_host:=192.168.1.100 g
 | control_mode | hmi (terminal 선택 가능) |
 | robot_mode | real (virtual 선택 가능; 드라이버 모드와 일치해야 함) |
 | system_recipe | share/cable_inspection/config/system_recipe.json |
-| recipe | share/cable_inspection/recipe/inspection/rcp_BMW_HARNESS_LWR_RH_01.json (terminal만 사용) |
+| recipe | share/cable_inspection/recipe/inspection/rcp_01_BMW_HARNESS_LWR_RH.json (terminal만 사용) |
 | results_dir | results/inspection_sequence |
 
 시스템 레시피는 검사파트 소유로 유지합니다.
@@ -269,7 +269,7 @@ points가 있습니다. **points는 ROS InspectionRecipe.msg와 같은 실행 �
 
 ## 2026-09-23 설계 불일치 보완
 
-Home 내부 복귀는 25 mm Open 및 실측 폭 확인 → 현재 Tool −Z로 30 mm 직선 후퇴·목표 도달 확인 → Work Access → 0도 Home이다. 외부에서는 기존 0도 Home 직접 복귀를 유지한다. `safe_home_route`에는 현재 Home 한 개만 설정하며, `home_joint_tolerance_deg`는 0.1도다. Open 실패·후퇴 미도달·모션 오류는 후속 이동을 차단한다. 별도 contact_area나 영역 경계 탈출 검사는 사용하지 않는다. `max_escape_distance_mm`은 호환성을 위해 이름을 유지하며 현재는 설정 후퇴거리(30 mm)다. 이전 escape_clearance_mm은 사용하지 않는다.
+HOME은 현재 BASE TCP 영역에 따라 Open 30 mm/10 N → 상부 또는 하부·측면 Safe Escape 경유점 MoveJ → Home MoveJ로 복귀합니다. 이미 Home이면 생략하고, 영역 밖은 자동 복귀를 차단합니다. HOME 완료는 정지·절대 관절각 0.1° 기준입니다. START의 작업영역 내부 준비는 기존 Tool 반대 30 mm MoveL 후퇴를 유지합니다. 영역별 경로의 실물 무간섭성은 별도 검증 대상입니다.
 
 Ready pose에서 Entry pose로의 접근은 MoveJ이며 실제 도달 확인 후 다음 단계로 진행한다. 접근 미도달은 정지·포인트 오류·Job 오류로 처리하고 후속 파지를 차단한다. 접촉 진입/Pull의 미도달 기록·판정 정책과 구분한다. Entry pose에서 Soft Grip과 함께 Tool +Z로 이동하는 구간이 진입이다. Entry 최대거리 25 mm 검증은 유지하고, Pull 거리 및 Entry/Pull 시간은 레시피의 유한한 양수 값을 사용한다. PR #10에서 추가한 Pull 25 mm·시간 10 s 상한은 제거했다. 전체 포인트 순회 완료, pending_judgments 없음, 각 포인트 motion_status=SUCCESS, 유효한 PASS/FAIL/SYSTEM_ERROR 결과 및 log_saved=true가 완료 조건이다. adaptive_grip_status/pull_status/judgment_status는 별도 완료 게이트로 검사하지 않는다. SYSTEM_ERROR도 이 조건을 만족하면 Job 완료가 가능하며 Work Access에서 대기한다. 자동 Home은 없다. 현재 정책은 v4를 따르고 PR 복원 문서는 변경 이력으로 참고한다.
 
@@ -353,3 +353,12 @@ HMI 화면이 SYSTEM_READY만 START 버튼 활성 조건으로 사용한다면 H
 상태 수집 이관 내역과 검증 범위: [17_로봇상태_장비노드_이관](../../docs/작업내역/17_로봇상태_장비노드_이관_2026-09-25.md).
 
 U01/U02 반영 검증: [257건 자동시험·72건 정량 비교](../../docs/v4/03_inspection/03_verification/04_운영코드_반영_검증요약_v4.md).
+
+## 2026-09-30 운영 설정
+
+- 운영 관절 속도: 시스템 레시피 30 deg/s(런타임 기본값 10을 실행 시 덮어씀).
+- 로봇 서비스 응답 제한 30초, 모션 완료 60초, 그리퍼 폭 도달 20초. 폭 허용오차 5 mm.
+- 그리퍼 최초 초기화: 30 mm 폭 우선 지정 → 힘 감소 동기화 → 10 N. 40 N 상승 초기화 제거. 첫 폭 명령은 기존 드라이버 힘 사용.
+- 실물 일반 검사 MoveJ는 저장 task와 TCP로 완료 판정하며, HOME MoveJ만 관절 기준이다. 모니터암 Ready 오차는 J5 -111.56 → -113.56 정정과 FK 대조로 확인했다.
+- 로봇 힘제어/순응제어 API는 사용하지 않는다. Entry/Pull은 MoveL 중 힘을 감시해 기준 도달 시 정지한다. Pull 15 N은 힘 유지 목표가 아닌 정지 기준이다.
+- 최신 레시피와 좌표: [Recipe 컨셉](../../docs/v4/03_inspection/01_concepts/04_Recipe_컨셉_v4.md). HOME과 START의 이탈 경로는 서로 다르다.

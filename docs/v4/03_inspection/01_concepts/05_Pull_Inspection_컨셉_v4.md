@@ -29,3 +29,7 @@ Pull 시작 위치·힘을 기준으로 실제 변위와 힘 변화를 측정한
 현 구현에 기준 힘을 유지하는 별도 hold 시험은 없다. 폭 차이는 기록하지만 독립 합격 임계값으로 사용하지 않는다. 힘·폭·변위 기준의 실물 적합성은 정상/불량 데이터 분포로 검증한다.
 
 근거: [#05 상세 설계](../02_sequences/05_Pull_Inspection_Sequence_v4.md) · [#06 판정 순서](../02_sequences/06_Inspection_Judgment_Sequence_v4.md).
+
+## 현재 제어 방식 확인 (2026-09-30)
+
+현재 구현은 순응제어 또는 목표 힘 유지 제어가 아니다. seq_inspection.py의 contact_move()가 MoveL을 보내고 monitor_contact()가 Entry 힘 변화량 또는 Pull 축방향 힘을 감시한다. 기준 이상이면 stop_and_wait()로 감속 정지한다. m0609.py의 get_tool_force 서비스가 실측값을 제공한다. Pull force_limit_n=15 N은 정지 트리거이며 감속 중 최대 실측 힘은 이를 초과할 수 있다. 그리퍼의 10/20 N 파지력 명령과 로봇 Pull 힘은 별개다.

@@ -224,9 +224,9 @@ ros2 launch cable_hmi hmi_monitor.launch.py  recipe_db:=/path/to/inspection.db
   | | |
   |---|---|
   | 저장 위치 | 레시피 DB 옆의 `runs/` 폴더 (`recipe_db` 인자가 없으면 `~/ros_ws/results/runs/`) |
-  | 파일 이름 | `run_<run_id>_<YYYYMMDD_HHMMSS>.db` 와 같은 이름의 `.csv` |
+  | 파일 이름 | `run_<run_id>_<YYYYMMDD_HHMMSS>.db` 와 같은 이름의 `.xlsx` |
   | `.db` | 공용 DB 와 같은 스키마 - 결과 `inspection_result` + 이번 run 요약 1행 `inspection_run`. 요약의 `started_at`/`ended_at` 은 결과에 실려 온 `stamp` 의 처음과 끝이다(내보낸 시각이 아니다) |
-  | `.csv` | 열 이름은 `PointResult` 필드 그대로, 좌표는 JSON 글자. 엑셀에서 한글이 깨지지 않게 BOM 을 붙인다 |
+  | `.xlsx` | openpyxl로 생성하는 Excel 파일. 검사 결과·요약·원본 시트를 포함한다. openpyxl이 없으면 오류를 안내하며 CSV로 대체하지 않는다 |
 
   누르면 먼저 **확인 / 취소** 창이 뜬다(기본 선택은 확인 - 로봇을 움직이지 않는 동작이라서). 저장을 마치면 경로를 알리는 창이 뜨는데,
   이 알림과 실패 팝업은 **비모달**이라 떠 있어도 STOP 을 누를 수 있다. 경로는 시스템 로그에도 남고 버튼 말풍선에도 표시된다.
@@ -355,7 +355,7 @@ progress.finish()                 # 보고된 결과로 제품 판정을 낸다:
 
 1. 검사 노드(`cable_pkg`)가 위 토픽을 제공한다. 가장 빠른 방법은 `cable_hmi.interface` 를
    import 해서 `encode_status()` 등을 그대로 쓰는 것 (`mock_inspection_node.py` 참고).
-   힘 값은 한 번 읽어 CSV 기록과 status publish 에 같이 써야 화면 값과 판정 값이 일치한다.
+   힘 값은 한 번 읽어 결과 기록과 status publish 에 같이 써야 화면 값과 판정 값이 일치한다.
 2. 팀 공용 메시지(`cable_msgs`, ament_cmake)가 확정되면 `interface.py` 의 `*_MSG_TYPE` 과
    `encode_*` / `decode_*` 본문만 바꾼다. UI 와 mock 은 수정할 필요가 없다.
 3. 로봇 namespace 가 필요하면 `namespace:=dsr01` 처럼 launch 인자로 준다(토픽이 상대 이름).

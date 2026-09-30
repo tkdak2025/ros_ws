@@ -35,6 +35,6 @@ HMI 운전은 `/cable_inspection/start` 서비스로 전체 검사 레시피를 
 
 Ready pose에서 Entry pose까지는 MoveJ **접근**입니다. Entry pose에서 Soft Grip과 함께 Tool +Z 방향으로 움직이는 구간이 **진입**이며 Pull은 반대 방향입니다. 지정 거리는 접촉 이동의 상한이므로 저항으로 미도달해도 실제 이동량과 힘을 기록해 판정합니다. 그리퍼 `busy` 값은 기록만 하며 동작 게이트로 사용하지 않습니다.
 
-작업영역 내부 Home Return은 25 mm Open 폭 확인 → 현재 Tool −Z로 30 mm 후퇴 → Work Access → 전체 관절 0도 Home 순서입니다. Work Finish는 Work Access에서 대기하며 자동 Home으로 가지 않습니다. 수동 HOME은 현재 Access 도달을 확인하면 중복 Escape 없이 직접 Home으로 갑니다. 30 mm 후퇴거리와 실물 경로 간섭, 케이블 해제 여부는 현장 검증이 필요합니다.
+HOME은 현재 BASE TCP 영역에 따라 Open 30 mm/10 N → 상부 또는 하부·측면 Safe Escape 경유점 MoveJ → Home MoveJ로 복귀합니다. 이미 Home이면 생략하고, 영역 밖은 자동 복귀를 차단합니다. HOME 완료는 정지·절대 관절각 0.1° 기준입니다. START의 작업영역 내부 준비는 기존 Tool 반대 30 mm MoveL 후퇴를 유지합니다. 영역별 경로의 실물 무간섭성은 별도 검증 대상입니다.
 
 수동 HOME 경로(U01)와 접근 미도달 차단(U02)은 반영 완료했으며, 남은 확장 범위(U03)는 [확인 항목](docs/v4/01_commons/02_변경추적_및_확인항목_v4.md)에 남겼습니다. 최신 자동검증 증거와 실물 검증 범위는 [v4 검증 안내](docs/v4/03_inspection/03_verification/02_실행과_정량검증_가이드_v4.md)를 참고합니다.
