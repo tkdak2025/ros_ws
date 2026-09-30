@@ -1,37 +1,36 @@
 # Sequence #02 — Home Return Sequence
 
-버전: v4 · 기준일: 2026-09-25 · 범위: 검사파트와 HMI 통신 계약
+버전: v4 · 기준일: 2026-09-30 · 현재 코드 기준
 
-[v4 문서 안내](../../00_문서안내_v4.md) · [변경 근거·확인 항목](../../01_commons/02_변경추적_및_확인항목_v4.md)
+[v4 문서 안내](../../00_문서안내_v4.md)
 
-## 목적·실행권
+## 실행권과 위치 분류
 
-별도 HOME 요청으로 설정된 Home 자세에 복귀한다. Main의 단일 모션 실행권 안에서만 수행한다. 새 START·검사와 동시에 실행하지 않는다.
+HOME_RETURN/MOVE_HOME은 Main의 단일 Worker에서 수행한다. START·검사와 동시에 실행하지 않는다. 마지막 포인트 기록 대신 BASE 기준 실측 TCP의 XYZ로 전체 작업영역 및 세부 영역을 판별한다. 이미 Home이면 정지와 절대 관절각으로 확인하고 이동 없이 완료한다.
 
-## 현재 경로
-
-| 현재 위치 | 처리 |
+| 현재 위치 | HOME 동작 |
 |---|---|
-| Work Access 도달 확인 | 설정 Home 경로로 직접 이동 |
-| Access 이외의 work_area 내부 | Open 25 mm/10 N 확인→현재 Tool 접근축 반대로 30 mm→Access MoveJ→설정 Home 경로 |
-| work_area 외부 | 설정 Home 경로 |
+| 이미 Home | ALREADY_HOME, 이동 없이 완료 |
+| upper_work_area | Open 30 mm/10 N 확인 → safe_escape_region_upper MoveJ → Home MoveJ |
+| lower_side_work_area | Open 30 mm/10 N 확인 → safe_escape_region_midlower MoveJ → Home MoveJ |
+| 전체/세부 작업영역 밖 | HOME_OUTSIDE_REGIONS, 자동 이동 차단·수동 복구 안내 |
 
-HomeReturnSequence가 현재 Access 도달 여부를 먼저 확인한다. real은 위치 0.5 mm/자세 1° 공통 허용오차, virtual은 현재 관절 0.1° 기준이다. Access도 작업영역 내부이므로 영역 판정보다 먼저 확인하여 중복 Open·후퇴·Access 재이동을 생략한다.
+전체 X는 -330~924.84 mm, 상부 X는 -330~100 mm, 하부·측면 X는 100~924.84 mm다. Y는 -654.63~265.79 mm, Z는 60~800 mm로 공통이다. X=100 경계는 상부 우선이다. safe_escape_region_*는 영역 경계가 아니라 이동 목표의 task/joint 한 쌍이다.
 
-호출자가 전달하던 at_verified_access 인자는 Main과 Home Return에서 제거했다. HOME_RETURN/MOVE_HOME 모두 같은 현재 위치 판단을 사용한다. Access를 벗어났다면 현재 영역에 맞는 경로를 선택하며 과거 Access 도달 상태를 신뢰하지 않는다. U01 반영 완료.
+## 개방·경유점·완료
 
-## Safe Escape 상세
+그리퍼 개방 폭은 system_recipe의 relax_width_mm=30, relax_force_n=10을 사용한다. 실측 폭 허용오차는 5 mm이며, 개방 확인이 실제 케이블 해제를 보증하지는 않는다. 경유점에 이미 도달했다면 중복 이동을 생략한다. 경유점과 Home의 MoveJ는 motion_status=0 및 각 관절의 절대 오차 0.1° 이하로 판정한다. 360° 차이를 같은 관절각으로 취급하지 않는다. 개방·이동·도달 확인 실패 시 다음 이동을 차단한다.
 
-현재 TCP의 XYZ와 ZYZ 자세를 읽는다. 설정 tool_approach_axis=[0,0,1]을 현재 회전으로 BASE 방향으로 바꾸고 반대로 30 mm 목표를 만든다. 자세각은 유지하며 MoveL 후 목표 도달을 확인한다.
+현재 HOME run()은 선택한 경유점에서 home_pose로 직접 MoveJ하며, 30 mm MoveL과 safe_home_route 배열 순회를 사용하지 않는다. safe_home_route 설정과 기존 helper는 남아 있지만 현재 HOME 분기에는 연결되지 않는다. 검사 완료 후에는 Work Access에서 대기하며 자동 HOME은 실행하지 않는다.
 
-Open은 실측 폭이 설정 폭 허용오차 이내여야 한다. 후퇴 거리 입력은 0 초과 30 mm 이하만 허용한다. 후퇴 미도달이면 Access로 계속 가지 않는다. 여기서 30 mm는 현재 구현의 지정 거리/상한이며, work_area 밖까지 반복 이동하거나 contact_area 이탈을 계산하지 않는다.
+## START와의 차이
 
-## Home 경로와 완료
+START 준비는 기존 경로를 유지한다. Access가 아닌 작업영역 내부에서는 Open 30 mm → 현재 Tool 접근축 반대로 30 mm MoveL → Work Access다. HOME 변경이 START의 NOT REACHABLE을 해결한 것은 아니다.
 
-safe_home_route의 마지막 점은 home_pose와 같아야 한다. 현재 경로는 전 관절 0° Home 한 점이다. 추가 교시 경유점이 없으면 직접 MoveJ한다. 도달 관절값과 home_joint_tolerance_deg=0.1°를 확인한다. 실패 시 임의 우회 경로나 추가 후퇴를 생성하지 않는다.
+## 진단·검증
 
-검사 종료의 자동 Home은 삭제되었다. 이 문서의 Home 동작을 #07 뒤에 자동 연결하지 않는다. 검증: G04~G06, R02~R03, U01.
+HOME_RETURN 로그는 영역과 경유 목표를, HOME_ESCAPE_REACHED는 실측 TCP와 저장 task의 XYZ 오차를, HOME_MOVE_REQUEST는 Home 관절 목표를 기록한다. HOME에서는 TCP 오차를 진단값으로 남기고 관절 기준으로 완료 판단한다. 일반 검사 MoveJ는 기존 실물 TCP 완료 판정을 유지한다.
 
-## 구현 참조
+영역 포함 여부와 자동시험 통과는 충돌 없는 경로를 보장하지 않는다. 영역 안의 여러 시작 자세에서 경유점까지 및 Home까지의 실물 검증이 필요하다.
 
-[담당 소스](../../../../src/cable_inspection/cable_inspection/sequence/home_return/seq_home_return.py) · [공통 모션](../../../../src/cable_inspection/cable_inspection/sequence/common/motion.py) · [검증 체크리스트](../03_verification/01_기능검증_체크리스트_v4.md)
+구현: `sequence/home_return/seq_home_return.py`, `sequence/common/motion.py`. 회귀시험: `test_home_regions.py`, `test_start_work_access.py`.

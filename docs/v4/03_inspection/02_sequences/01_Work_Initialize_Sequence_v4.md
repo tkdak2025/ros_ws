@@ -1,6 +1,6 @@
 # Sequence #01 — Work Initialize Sequence
 
-버전: v4 · 기준일: 2026-09-25 · 범위: 검사파트와 HMI 통신 계약
+버전: v4 · 기준일: 2026-09-30 · 범위: 검사파트와 HMI 통신 계약
 
 [v4 문서 안내](../../00_문서안내_v4.md) · [변경 근거·확인 항목](../../01_commons/02_변경추적_및_확인항목_v4.md)
 
@@ -23,7 +23,7 @@
 | 현재 위치 | 동작 |
 |---|---|
 | 이미 Access | 자세 도달 확인만 수행; Open/후퇴/재이동 없음 |
-| Access 외의 work_area 내부 | Open 25 mm 확인→현재 Tool −Z 30 mm 확인→Access MoveJ |
+| Access 외의 work_area 내부 | Open 30 mm 확인→현재 Tool −Z 30 mm 확인→Access MoveJ |
 | work_area 외부, Home 포함 | Access MoveJ |
 
 Access 여부를 work_area 포함 여부보다 먼저 확인한다. Access가 work_area 안에 있어도 불필요한 Escape를 하지 않기 위해서다. Access 도달 확인 실패는 첫 포인트 실행을 막는다.
@@ -37,3 +37,9 @@ Access 여부를 work_area 포함 여부보다 먼저 확인한다. Access가 wo
 ## 구현 참조
 
 [담당 소스](../../../../src/cable_inspection/cable_inspection/sequence/main/seq_main.py) · [공통 모션](../../../../src/cable_inspection/cable_inspection/sequence/common/motion.py) · [검증 체크리스트](../03_verification/01_기능검증_체크리스트_v4.md)
+
+## RG2 최초 초기화
+
+실물 GripperTool 최초 initialize는 폭 명령 300(30 mm)을 먼저 전송한 뒤 d 16회로 힘을 0 N 기준에 맞추고 i 4회로 10 N에 동기화한다. 기존 i 16회의 40 N 상승 초기화는 제거했다. 힘 변경 명령도 현재 목표 폭을 재전송하므로 폭을 먼저 지정해 이전 Close 목표 재전송을 방지한다. 첫 폭 명령은 드라이버에 남아 있는 힘을 사용한다. 같은 노드에서 초기화는 한 번이며 검사 프로그램 재시작 시 다시 수행한다. 초기화 자체는 개방 도달을 기다리지 않는다. 이후 Open 단계에서 폭을 확인한다.
+
+30 mm는 절대 목표 폭이다. 이미 30 mm보다 크게 열린 상태에서는 좁아질 수 있으며, 항상 현재보다 더 여는 정책은 구현하지 않았다.

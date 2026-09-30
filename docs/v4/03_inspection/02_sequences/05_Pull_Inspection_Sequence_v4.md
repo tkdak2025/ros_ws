@@ -29,3 +29,7 @@ width_delta_mm = pull_width_mm − soft_width_mm이며 기록용이다. 기준 �
 ## 구현 참조
 
 [담당 소스](../../../../src/cable_inspection/cable_inspection/sequence/inspection/seq_inspection.py) · [공통 모션](../../../../src/cable_inspection/cable_inspection/sequence/common/motion.py) · [검증 체크리스트](../03_verification/01_기능검증_체크리스트_v4.md)
+
+## 현재 제어 방식 확인 (2026-09-30)
+
+현재 구현은 순응제어 또는 목표 힘 유지 제어가 아니다. seq_inspection.py의 contact_move()가 MoveL을 보내고 monitor_contact()가 Entry 힘 변화량 또는 Pull 축방향 힘을 감시한다. 기준 이상이면 stop_and_wait()로 감속 정지한다. m0609.py의 get_tool_force 서비스가 실측값을 제공한다. Pull force_limit_n=15 N은 정지 트리거이며 감속 중 최대 실측 힘은 이를 초과할 수 있다. 그리퍼의 10/20 N 파지력 명령과 로봇 Pull 힘은 별개다.
