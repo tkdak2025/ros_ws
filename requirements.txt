@@ -1,0 +1,6 @@
+# CCCIS Python 의존성 (검증 환경: Ubuntu 24.04.4 / ROS 2 Jazzy / Python 3.12.3)
+# ROS 2 패키지(rclpy 등)와 두산·OnRobot 드라이버는 pip가 아니라 apt·소스 빌드로 설치합니다 (README 4장).
+# Ubuntu 24.04에서는 apt 설치 권장: sudo apt install python3-pyqt5 python3-openpyxl python3-pytest
+PyQt5==5.15.10
+openpyxl==3.1.2
+pytest==7.4.4
